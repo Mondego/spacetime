@@ -1,4 +1,4 @@
-# Predicate Collection Classes (PCC)
+# Spacetime Framework (PCC)
 ===========
 Python version required: Python 2.7
 

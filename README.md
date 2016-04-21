@@ -1,4 +1,4 @@
-# Spacetime Framework (PCC)
+# Spacetime Framework
 ===========
 Python version required: Python 2.7
 

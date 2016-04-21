@@ -4,9 +4,6 @@ Created on Apr 19, 2016
 @author: Rohan Achar
 '''
 
-class dummy(object):
-  pass
-
 class Producer(object):
   def __init__(self, *types):
     self.types = set(types)

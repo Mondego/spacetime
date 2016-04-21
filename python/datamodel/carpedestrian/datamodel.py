@@ -1,16 +1,16 @@
-'''
+﻿'''
 Created on Dec 15, 2015
 
 @author: arthurvaladares
 '''
 
 import logging
-from pcc_extend.join import join
+from pcc.join import join
 from pcc.subset import subset
 from pcc.parameterize import parameterize
 from pcc.projection import projection
-from pcc_extend.set import pcc_set
-from pcc_extend.attributes import dimension, primarykey
+from pcc.set import pcc_set
+from pcc.attributes import dimension, primarykey
 
 from spacetime_local.frame import frame
 
@@ -301,14 +301,13 @@ class CarAndPedestrianNearby(object):
   def pedestrian(self, value):
     self._ped = value
 
-  @staticmethod
-  def __create__(self, p, c):
+  def __init__(self, p, c):
     self.car = c
     self.pedestrian = p  
 
   @staticmethod
   def __query__(peds, cars):
-    return [(p, c) for p in peds for c in cars if CarAndPedestrianNearby.__invariant__(p, c)]
+    return [CarAndPedestrianNearby.Create(p, c) for p in peds for c in cars if CarAndPedestrianNearby.__invariant__(p, c)]
   
   @staticmethod
   def __invariant__(p, c):

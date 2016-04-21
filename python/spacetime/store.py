@@ -15,6 +15,7 @@ from datamodel.all import DATAMODEL_TYPES
 import json
 import os
 import sys
+import uuid
 
 
 # not active object.
@@ -125,6 +126,11 @@ class dataframe(object):
       real_objmap[tp] = [create_complex_obj(tp, obj, self.__base_store.get_as_dict()) for obj in objlist]
     return real_objmap
     
+  def __set_id_if_none(self, pcctype, objjson):
+    if self.__typename_to_primarykey[pcctype.__name__] not in objjson:
+      objjson[self.__typename_to_primarykey[pcctype.__name__]] = str(uuid.uuid4())
+    return objjson
+
   def __make_pcc(self, pcctype, relevant_objs, params):
     universe = []
     param_list = []
@@ -141,9 +147,9 @@ class dataframe(object):
         universe = universe[0]
       pcc_bind = pcctype(universe = st_dataframe(universe), params = param_list)
       pcc_bind.create_snapshot()
-    except TypeError:
+    except TypeError, e:
       return []
-    return [create_jsondict(obj) for obj in pcc_bind.All()]
+    return [self.__set_id_if_none(pcctype.Class(), create_jsondict(obj)) for obj in pcc_bind.All()]
 
   def __construct_pccs(self, objs, pcctypelist, completed, pccs):
     incomplete = set(pcctypelist)

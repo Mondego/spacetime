@@ -12,10 +12,11 @@ import logging
 import time
 
 from store import store
+from IFrame import IFrame
 
-class frame(object):
+class frame(IFrame):
   __Logger = logging.getLogger(__name__)
-  def __init__(self, address = "http://localhost:12000/", relax_time = 500):
+  def __init__(self, address = "http://localhost:12000/", time_step = 500):
     self.__app = None
     self.__typemap = {}
     self.__name2type = {}
@@ -24,7 +25,7 @@ class frame(object):
       address += '/'
     self.__address = address
     self.__base_address = None
-    self._relax_time = (float(relax_time)/1000)
+    self._time_step = (float(time_step)/1000)
 
   def __register_app(self, app):
     self.__base_address = self.__address + self.__app.__class__.__name__
@@ -87,8 +88,8 @@ class frame(object):
       #take3 = end_time - take2t
       timespent = end_time - st_time
       #print self.__app.__class__.__name__, take1, take2, take3, timespent
-      if timespent < self._relax_time:
-        time.sleep(float(self._relax_time - timespent))
+      if timespent < self._time_step:
+        time.sleep(float(self._time_step - timespent))
 
     self.__shutdown()
 
@@ -98,8 +99,11 @@ class frame(object):
       return self.object_store.get_one(tp, id)
     return self.object_store.get(tp)
 
-  def add(self, object):
-    self.object_store.insert(object)
+  def add(self, obj):
+    self.object_store.insert(obj)
+
+  def delete(self, obj):
+    self.object_store.delete(obj.__class__, obj)
 
   def __process_pull_resp(self,resp):
     new, mod, deleted = resp["new"], resp["updated"], resp["deleted"]

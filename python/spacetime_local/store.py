@@ -5,7 +5,7 @@ Created on Apr 19, 2016
 '''
 
 from common.recursive_dictionary import RecursiveDictionary
-from pcc_extend.attributes import spacetime_property
+from pcc.attributes import spacetime_property
 from threading import currentThread
 from common.converter import create_jsondict, create_tracking_obj
 class _container():
@@ -29,6 +29,7 @@ class store(object):
   def frame_insert(self, tp, id, objjson):
     obj = create_tracking_obj(tp, objjson, self.__objects, False)
     obj._primarykey = id
+    obj.__primarykey__ = id
     self.__objects.setdefault(tp, RecursiveDictionary())[id] = obj
     obj.__start_tracking__ = True
 

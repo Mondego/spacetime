@@ -6,6 +6,8 @@ Created on Apr 19, 2016
 
 from common.recursive_dictionary import RecursiveDictionary
 
+import uuid
+
 class _container(object):
   pass
 
@@ -31,6 +33,11 @@ def create_jsondict(obj):
   obj_dict = RecursiveDictionary()
   if hasattr(obj.__class__, "__dimensions__"):
     for dimension in obj.__class__.__dimensions__:
+      if dimension._primarykey:
+        try:
+          getattr(obj, dimension._name)
+        except AttributeError:
+          setattr(obj, dimension._name, str(uuid.uuid4()))
       obj_dict[dimension._name] = create_jsondict(getattr(obj, dimension._name))
     return obj_dict
   else:
@@ -56,12 +63,12 @@ def create_complex_obj(tp, objjson, universemap):
   for dimension in tp.__dimensions__:
     if dimension._name in objjson:
       if hasattr(dimension._type, "__dependent_type__"):
-        primarykey = objjson[tp._primarykey._name]
+        primarykey = objjson[tp.__primarykey__._name]
 
         if tp in universemap and primarykey in universemap[tp]:
           setattr(obj, dimension._name, universemap[tp][primarykey])
         else:
-          setattr(obj, dimension._name, create_tracking_obj(tp, dimension._type, objjson[dimension._name], universemap))
+          setattr(obj, dimension._name, create_tracking_obj(dimension._type, objjson[dimension._name], universemap, True))
       else:
         setattr(obj, dimension._name, create_obj(dimension._type, objjson[dimension._name]))
   return obj

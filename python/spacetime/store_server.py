@@ -179,10 +179,10 @@ def SetupLoggers() :
   global logger
   logger = logging.getLogger()
   logger.setLevel(logging.INFO)
-  if not os.path.exists("../logs"):
-    os.mkdir("../logs")
-  
-  logfile = filename = os.path.join(os.path.dirname(__file__), "../logs/frameserver.log")
+  folder = os.path.join(os.path.dirname(__file__), "../logs/")
+  if not os.path.exists(folder):
+    os.mkdir(folder)
+  logfile = filename = os.path.join(folder, "frameserver.log")
   flog = logging.handlers.RotatingFileHandler(logfile, maxBytes=10 * 1024 * 1024, backupCount=50, mode='w')
   flog.setLevel(logging.WARN)
   flog.setFormatter(logging.Formatter('%(levelname)s [%(name)s] %(message)s'))

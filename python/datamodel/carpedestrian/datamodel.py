@@ -125,10 +125,10 @@ class Car(object):
 class InactiveCar(Car):
   @staticmethod
   def __query__(cars):
-    return [c for c in cars if InactiveCar.__invariant__(c)]
+    return [c for c in cars if InactiveCar.__predicate__(c)]
 
   @staticmethod
-  def __invariant__(c):
+  def __predicate__(c):
     return c.Position == Vector3(0,0,0)
 
   def start(self):
@@ -139,10 +139,10 @@ class InactiveCar(Car):
 class ActiveCar(Car):
   @staticmethod
   def __query__(cars):  # @DontTrace
-    return [c for c in cars if ActiveCar.__invariant__(c)]
+    return [c for c in cars if ActiveCar.__predicate__(c)]
 
   @staticmethod
-  def __invariant__(c):
+  def __predicate__(c):
     return c.Velocity != Vector3(0,0,0)
 
   def move(self):
@@ -223,10 +223,10 @@ class Pedestrian(object):
 class StoppedPedestrian(Pedestrian):
   @staticmethod
   def __query__(peds):
-    return [p for p in peds if StoppedPedestrian.__invariant__(p)]
+    return [p for p in peds if StoppedPedestrian.__predicate__(p)]
   
   @staticmethod
-  def __invariant__(p):
+  def __predicate__(p):
     return p.X == Pedestrian.INITIAL_POSITION 
   """() =>
     from p in Frame.Store.Get<Pedestrian>()
@@ -239,10 +239,10 @@ class StoppedPedestrian(Pedestrian):
 class Walker(Pedestrian):
   @staticmethod
   def __query__(peds):
-    return [p for p in peds if Walker.__invariant__(p)]
+    return [p for p in peds if Walker.__predicate__(p)]
 
   @staticmethod
-  def __invariant__(p):
+  def __predicate__(p):
     return p.X != Pedestrian.INITIAL_POSITION
 
   """() =>
@@ -261,10 +261,10 @@ class PedestrianInDanger(Pedestrian):
   
   @staticmethod
   def __query__(peds, cars):
-    return [p for p in peds if PedestrianInDanger.__invariant__(p, cars)]  
+    return [p for p in peds if PedestrianInDanger.__predicate__(p, cars)]  
   
   @staticmethod
-  def __invariant__(p, cars):
+  def __predicate__(p, cars):
     for c in cars:
       if abs(c.Position.X - p.X) < 130 and c.Position.Y == p.Y:
         return True
@@ -307,10 +307,10 @@ class CarAndPedestrianNearby(object):
 
   @staticmethod
   def __query__(peds, cars):
-    return [CarAndPedestrianNearby.Create(p, c) for p in peds for c in cars if CarAndPedestrianNearby.__invariant__(p, c)]
+    return [CarAndPedestrianNearby.Create(p, c) for p in peds for c in cars if CarAndPedestrianNearby.__predicate__(p, c)]
   
   @staticmethod
-  def __invariant__(p, c):
+  def __predicate__(p, c):
     if abs(c.Position.X - p.X) < 130 and c.Position.Y == p.Y:
       return True
     return False

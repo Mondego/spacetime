@@ -291,7 +291,7 @@ class dataframe(object):
         if tp.__PCC_BASE_TYPE__:
           base_types.add(tp)
           self.__app_to_basechanges[app][tp] = (mod, new, deleted)
-          self.__type_to_app.setdefault(base, set()).add(app)
+          self.__type_to_app.setdefault(tp, set()).add(app)
         else:
           bases = name2baseclasses[tp.Class().__name__]
           for base in bases:

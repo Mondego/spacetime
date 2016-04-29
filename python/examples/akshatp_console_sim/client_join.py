@@ -9,12 +9,14 @@ import logging
 import logging.handlers
 import os
 import sys
+
+sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
+
 from spacetime_local.frame import frame
 from trafficsim import TrafficSimulation
 from pedestriansim_join import PedestrianSimulation
 from cool_console import ConsoleSimulation
 
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
 
 logger = None
 

@@ -27,7 +27,7 @@ class store(object):
     return self.__objects[tp][id]
 
   def frame_insert(self, tp, id, objjson):
-    obj = create_tracking_obj(tp, objjson, self.__objects, False)
+    obj = create_tracking_obj(tp, objjson, self.__objects, False, False)
     obj._primarykey = id
     obj.__primarykey__ = id
     self.__objects.setdefault(tp, RecursiveDictionary())[id] = obj
@@ -41,6 +41,16 @@ class store(object):
     objjson = create_jsondict(obj)
     self._changes["new"].setdefault(obj.Class(), RecursiveDictionary()).setdefault(obj.__primarykey__, RecursiveDictionary()).rec_update(objjson)
     self.__objects.setdefault(obj.__class__, RecursiveDictionary()).setdefault(obj.__primarykey__, []).append(obj)
+    if hasattr(obj.__class__, "__pcc_projection__") and obj.__class__.__pcc_projection__:
+      class _dummy(object):
+        pass
+      new_obj = _dummy()
+      new_obj.__class__ = obj.__class__.__ENTANGLED_TYPES__[0]
+      for dimension in new_obj.__dimensions__:
+        if hasattr(obj, dimension._name):
+          setattr(new_obj, dimension._name, getattr(obj, dimension._name))
+      self.__objects.setdefault(new_obj.__class__, RecursiveDictionary()).setdefault(new_obj.__primarykey__, []).append(new_obj)
+    
 
   def insert_all(self, objs):
     for obj in objs:
@@ -76,10 +86,10 @@ class store(object):
 
 
   def update(self, tp, id, updatejson):
-    objjson = self.get_one(tp, id)
+    objjson = create_jsondict(self.get_one(tp, id))
     objjson.rec_update(updatejson)
     starttracking = False
-    self.__objects[tp][id].__dict__.update(create_tracking_obj(tp, objjson, universemap, starttracking).__dict__)
+    self.__objects[tp][id].__dict__.update(create_tracking_obj(tp, objjson, self.__objects, starttracking, False).__dict__)
     starttracking = True
 
   def update_all(self, tp, updatejsons):

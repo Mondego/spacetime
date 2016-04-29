@@ -1,4 +1,4 @@
-'''
+﻿'''
 Created on Apr 19, 2016
 
 @author: Rohan Achar
@@ -34,7 +34,8 @@ class CarSprite(pygame.sprite.Sprite):
     self.car_old_position = car.Position
     pygame.sprite.Sprite.__init__(self) 
     self.image, self.rect = load_image('examples/simulation/images/car-small.gif',-1)
-   
+    self.rect.move_ip((self.car_position.X, self.car_position.Y))
+
   def update(self):
     oldx, oldy, oldz = self.car_old_position.X, self.car_old_position.Y, self.car_old_position.Z
     x, y, z = self.car_position.X, self.car_position.Y, self.car_position.Z

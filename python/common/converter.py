@@ -47,21 +47,23 @@ def create_jsondict(obj):
     elif tp_marker == "dictionary":
       return RecursiveDictionary([(create_jsondict(k), create_jsondict(v)) for k, v in obj])
     elif tp_marker == "collection":
-      return obj.__class__([create_jsondict(obj) for item in obj])
+      return obj.__class__([create_jsondict(item) for item in obj])
     elif tp_marker == "object":
       return RecursiveDictionary(obj.__dict__)
 
-def create_tracking_obj(tp, objjson, universemap, start_track_ref):
-  obj = create_complex_obj(tp, objjson, universemap)
+def create_tracking_obj(tp, objjson, universemap, start_track_ref, extra = True):
+  obj = create_complex_obj(tp, objjson, universemap, extra)
   obj.__start_tracking__ = start_track_ref
   return obj
 
-def create_complex_obj(tp, objjson, universemap):
+def create_complex_obj(tp, objjson, universemap, extra = True):
   obj = _container()
   obj.__class__ = tp.Class()
   obj.__start_tracking__ = False
+  all_attribs = set(objjson.keys())
   for dimension in tp.__dimensions__:
     if dimension._name in objjson:
+      all_attribs.remove(dimension._name)
       if hasattr(dimension._type, "__dependent_type__"):
         primarykey = objjson[tp.__primarykey__._name]
 
@@ -71,6 +73,9 @@ def create_complex_obj(tp, objjson, universemap):
           setattr(obj, dimension._name, create_tracking_obj(dimension._type, objjson[dimension._name], universemap, True))
       else:
         setattr(obj, dimension._name, create_obj(dimension._type, objjson[dimension._name]))
+  if extra:
+    for extra_attrib in all_attribs:
+      setattr(obj, extra_attrib, objjson[extra_attrib])
   return obj
 
 def create_obj(tp, objjson):

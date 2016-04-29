@@ -8,4 +8,4 @@ Required packages to be installed:
 2. flask
 3. flask_restful
 4. requests
-5. pcc (Wheel file included. Install using pip: ``pip install python/pcc-0.0.3-py2-none-any.whl``)
+5. pcc (Wheel file included. Install using pip: ``pip install python/pcc-0.0.4-py2-none-any.whl``)

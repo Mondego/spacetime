@@ -237,13 +237,18 @@ class dataframe(object):
     types = tp.__ENTANGLED_TYPES__
     # Join types would be updated from each individual part
     if len(types) == 1:
-      # dependent types are not allowed for new and delete
-      return self.put_update(app, types[0], {}, mod, set())
+      # dependent types other than projection
+      # are not allowed for new and delete
+      # the join object cannot have changes,
+      # Each sub object in join tracks itself.
+      base_tp = types[0]
+      isprojection = hasattr(tp, "__pcc_projection__") and tp.__pcc_projection__ == True
+      return self.put_update(app, types[0], new if isprojection else {}, mod, set())
 
   def __put_update(self, app, tp, new, mod, deleted):
     other_apps = set()
     if tp in self.__base_store.get_base_types():
-      other_apps = set(self.__type_to_app[tp]) - set([app])
+      other_apps = set(self.__type_to_app[tp])
     for id in new:
       self.__base_store.put(tp, id, new[id])
     for app in other_apps:
@@ -252,7 +257,7 @@ class dataframe(object):
 
     
     if tp in self.__base_store.get_base_types():
-      other_apps = set(self.__type_to_app[tp]) - set([app])
+      other_apps = set(self.__type_to_app[tp])
     for id in mod:
       self.__base_store.update(tp, id, mod[id])
     for app in other_apps:
@@ -261,7 +266,7 @@ class dataframe(object):
       
     
     if tp in self.__base_store.get_base_types():
-      other_apps = set(self.__type_to_app[tp]) - set([app])
+      other_apps = set(self.__type_to_app[tp])
     for id in deleted:
       self.__base_store.delete(tp, id)
     for app in other_apps:

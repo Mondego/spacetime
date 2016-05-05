@@ -57,13 +57,17 @@ class store(object):
 
   def put(self, tp, id, object):
     # assume object is just dictionary, and not actual object.
-    self.__data[tp][id] = object
+    try:
+        self.__data[tp][id] = object
+    except:
+        print "error finding id %s on type %s" % (id, tp.Class())
+        raise
 
   def update(self, tp, id, object_changes):
     self.__data[tp][id].update(object_changes)
 
-  def delete(Self, tp, id):
-    del Self.__data[tp][id]
+  def delete(self, tp, id):
+    del self.__data[tp][id]
 
 
 class st_dataframe(object):

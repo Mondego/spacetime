@@ -323,8 +323,8 @@ if __name__=="__main__":
   car = Car(10)
   print car.Color
   car.Color = Color.Red
-  print dimensions
-  print sets
-  print subsets
+  #print dimensions
+  #print sets
+  #print subsets
   print car.Color
   print car.ID

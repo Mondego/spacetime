@@ -6,6 +6,7 @@ Created on Apr 19, 2016
 
 from carpedestrian.datamodel import *
 from akshatp.datamodel import *
+from nodesim.datamodel import *
 
 DATAMODEL_TYPES = [
 					Car, 
@@ -23,5 +24,11 @@ DATAMODEL_TYPES = [
 					Walker_akshatp, 
 					StoppedPedestrian_akshatp, 
 					CarAndPedestrianNearby_akshatp, 
-					PedestrianHasAvodiedCollision_akshatp
+					PedestrianHasAvodiedCollision_akshatp,
+					Waypoint,
+					BusinessNode,
+					ResidentialNode,
+					Node,
+					RouteRequest,
+					Route
 				]

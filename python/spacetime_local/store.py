@@ -40,7 +40,9 @@ class store(object):
   def insert(self, obj):
     objjson = create_jsondict(obj)
     self._changes["new"].setdefault(obj.Class(), RecursiveDictionary()).setdefault(obj.__primarykey__, RecursiveDictionary()).rec_update(objjson)
-    self.__objects.setdefault(obj.__class__, RecursiveDictionary()).setdefault(obj.__primarykey__, []).append(obj)
+    self.__objects.setdefault(obj.__class__, RecursiveDictionary())[obj.__primarykey__] = obj
+    if hasattr(obj, "Destination"):
+        print "In Store: %s" % obj.Destination
     if hasattr(obj.__class__, "__pcc_projection__") and obj.__class__.__pcc_projection__:
       class _dummy(object):
         pass
@@ -76,12 +78,17 @@ class store(object):
     if currentThread().getName() in spacetime_property.change_tracker:
       spacetime_property.change_tracker[currentThread().getName()].clear()
     for tp, obj in self.__deleted:
+      print [tx.Class() for tx in self.__objects.keys()]
       del self.__objects[tp][obj.__primarykey__]
     self.__deleted.clear()
     self.__flush_derived_objs()
 
   def get_changes(self):
     mod = spacetime_property.change_tracker[currentThread().getName()] if currentThread().getName() in spacetime_property.change_tracker else {}
+    for tp in self._changes["deleted"]:
+      for id in self._changes["deleted"][tp]:
+        if tp in mod and id in mod[tp]:
+          del mod[tp][id]
     return {"mod": mod, "new": self._changes["new"], "deleted": self._changes["deleted"]}
 
 

@@ -46,7 +46,7 @@ class IFrame(object):
     pass
 
   @abstractmethod
-  def delete(self, object):
+  def delete(self, tp, object):
     # delete objects from local store (and pushed if app has type in deleter)
     pass
 

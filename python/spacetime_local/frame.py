@@ -26,6 +26,9 @@ class frame(IFrame):
     self.__address = address
     self.__base_address = None
     self._time_step = (float(time_step)/1000)
+    self.__new = {}
+    self.__mod = {}
+    self.__del = {}
 
   def __register_app(self, app):
     self.__base_address = self.__address + self.__app.__class__.__name__
@@ -102,21 +105,54 @@ class frame(IFrame):
   def add(self, obj):
     self.object_store.insert(obj)
 
-  def delete(self, obj):
-    self.object_store.delete(obj.__class__, obj)
+  def delete(self, tp, obj):
+    self.object_store.delete(tp, obj)
+
+  def new(self, tp):
+    if tp in self.__new:
+      return self.__new[tp]
+    else:
+      return []
+  
+  def mod(self, tp):
+    if tp in self.__mod:
+      return self.__mod[tp]
+    else:
+      return []
+  
+  def deleted(self, tp):
+    if tp in self.__del:
+      return self.__del[tp]
+    else:
+      return []
 
   def __process_pull_resp(self,resp):
     new, mod, deleted = resp["new"], resp["updated"], resp["deleted"]
+    
     for tp in new:
       typeObj = self.__name2type[tp]
       self.object_store.frame_insert_all(typeObj, new[tp])
+      self.__new[typeObj] = []
+      for key in new[tp]:
+        o = self.object_store.get_one(typeObj,key)
+        self.__new[typeObj].append(o)
     for tp in mod:
-      self.object_store.update_all(self.__name2type[tp], mod[tp])
+      typeObj = self.__name2type[tp]
+      self.__mod[typeObj] = []
+      self.object_store.update_all(typeObj, mod[tp])
+      for key in mod[tp]:
+        self.__mod[typeObj].append(self.object_store.get_one(typeObj,key))
     for tp in deleted:
+      typeObj = self.__name2type[tp]
+      self.__del[typeObj] = []
       for obj_id in deleted[tp]:
-        self.object_store.delete_with_id(self.__name2type[tp], obj_id)
+        self.__del[typeObj].append(self.object_store.get_one(obj_id,key))
+        self.object_store.delete_with_id(typeObj, obj_id)
     
   def __pull(self):
+    self.__new = {}
+    self.__del = {}
+    self.__mod = {}
     resp = requests.get(self.__base_address + "/tracked", data = {
         "get_types": 
         json.dumps({"types": [tp.Class().__name__ for tp in list(self.__typemap["tracking"])]})

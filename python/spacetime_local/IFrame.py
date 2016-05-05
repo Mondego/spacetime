@@ -32,7 +32,7 @@ class IFrame(object):
     pass
 
   @abstractmethod
-  def get(self, tp, *args):
+  def get(self, tp, id = None):
     # args is optional parameter to send id.
     # frame.get(type) -> returns list of objects of type
     # useful for getching all objects of certain type
@@ -48,6 +48,21 @@ class IFrame(object):
   @abstractmethod
   def delete(self, tp, object):
     # delete objects from local store (and pushed if app has type in deleter)
+    pass
+
+  @abstractmethod
+  def get_new(self, tp):
+    # retrieve all objects that are new since last tick
+    pass
+  
+  @abstractmethod
+  def get_mod(self, tp):
+    # retrieve all objects that are modified since last tick
+    pass
+  
+  @abstractmethod
+  def get_deleted(self, tp):
+    # retrieve all object ids that are deleted since last tick
     pass
 
   def __pull(self):

@@ -41,8 +41,6 @@ class store(object):
     objjson = create_jsondict(obj)
     self._changes["new"].setdefault(obj.Class(), RecursiveDictionary()).setdefault(obj.__primarykey__, RecursiveDictionary()).rec_update(objjson)
     self.__objects.setdefault(obj.__class__, RecursiveDictionary())[obj.__primarykey__] = obj
-    if hasattr(obj, "Destination"):
-        print "In Store: %s" % obj.Destination
     if hasattr(obj.__class__, "__pcc_projection__") and obj.__class__.__pcc_projection__:
       class _dummy(object):
         pass
@@ -78,7 +76,6 @@ class store(object):
     if currentThread().getName() in spacetime_property.change_tracker:
       spacetime_property.change_tracker[currentThread().getName()].clear()
     for tp, obj in self.__deleted:
-      print [tx.Class() for tx in self.__objects.keys()]
       del self.__objects[tp][obj.__primarykey__]
     self.__deleted.clear()
     self.__flush_derived_objs()
@@ -102,3 +99,28 @@ class store(object):
   def update_all(self, tp, updatejsons):
     for id, updatejson in updatejsons.items():
       self.update(tp, id, updatejson)
+
+  def clear_incoming_record(self):
+    self.__incoming_new = {}
+    self.__incoming_mod = {}
+    self.__incoming_del = {}
+
+  def create_incoming_record(self, new, mod, deleted):
+    for tp in new:
+      self.__incoming_new.setdefault(tp, []).extend(self.__objects[tp].values())
+    for tp in mod:
+      self.__incoming_mod.setdefault(tp, []).extend(
+          [obj for obj in self.__objects[tp].values() if obj not in self.__incoming_new[tp]]
+        )
+    for tp in deleted:
+      self.__incoming_del.setdefault(tp, []).extend(deleted[tp])
+
+  def get_new(self, tp):
+    return self.__incoming_new[tp] if tp in self.__incoming_new else []
+
+  def get_mod(self, tp):
+    return self.__incoming_mod[tp] if tp in self.__incoming_mod else []
+
+  def get_deleted(self, tp):
+    return self.__incoming_del[tp] if tp in self.__incoming_del else []
+

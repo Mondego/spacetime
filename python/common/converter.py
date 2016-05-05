@@ -33,11 +33,6 @@ def create_jsondict(obj):
   obj_dict = RecursiveDictionary()
   if hasattr(obj.__class__, "__dimensions__"):
     for dimension in obj.__class__.__dimensions__:
-      print dimension._name, obj.__class__
-      if hasattr(obj, "Destination"):
-          from threading import currentThread
-          
-          print "[%s] # Destination %s" % (currentThread().getName(), obj.Destination)
       if dimension._primarykey:
         try:
           getattr(obj, dimension._name)

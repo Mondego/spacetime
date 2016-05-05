@@ -96,9 +96,8 @@ class frame(IFrame):
 
     self.__shutdown()
 
-  def get(self, tp, *args):
-    if args:
-      id = args[0]
+  def get(self, tp, id = None):
+    if id:
       return self.object_store.get_one(tp, id)
     return self.object_store.get(tp)
 
@@ -108,51 +107,37 @@ class frame(IFrame):
   def delete(self, tp, obj):
     self.object_store.delete(tp, obj)
 
-  def new(self, tp):
-    if tp in self.__new:
-      return self.__new[tp]
-    else:
-      return []
+  def get_new(self, tp):
+    return self.object_store.get_new(tp)
   
-  def mod(self, tp):
-    if tp in self.__mod:
-      return self.__mod[tp]
-    else:
-      return []
+  def get_mod(self, tp):
+    return self.object_store.get_mod(tp)
   
-  def deleted(self, tp):
-    if tp in self.__del:
-      return self.__del[tp]
-    else:
-      return []
+  def get_deleted(self, tp):
+    return self.object_store.get_deleted(tp)
 
   def __process_pull_resp(self,resp):
     new, mod, deleted = resp["new"], resp["updated"], resp["deleted"]
-    
+    new_objs, mod_objs, deleted_objs = {}, {}, {}
     for tp in new:
       typeObj = self.__name2type[tp]
       self.object_store.frame_insert_all(typeObj, new[tp])
-      self.__new[typeObj] = []
-      for key in new[tp]:
-        o = self.object_store.get_one(typeObj,key)
-        self.__new[typeObj].append(o)
+      new_objs[typeObj] = self.get(typeObj)
     for tp in mod:
       typeObj = self.__name2type[tp]
-      self.__mod[typeObj] = []
       self.object_store.update_all(typeObj, mod[tp])
-      for key in mod[tp]:
-        self.__mod[typeObj].append(self.object_store.get_one(typeObj,key))
+      mod_objs[typeObj] = self.get(typeObj)
     for tp in deleted:
       typeObj = self.__name2type[tp]
-      self.__del[typeObj] = []
+      objlist = []
       for obj_id in deleted[tp]:
-        self.__del[typeObj].append(self.object_store.get_one(obj_id,key))
+        objlist.append(self.object_store.get_one(obj_id,key))
         self.object_store.delete_with_id(typeObj, obj_id)
+      deleted_objs[typeObj] = objlist
+    self.object_store.create_incoming_record(new_objs, mod_objs, deleted_objs)
     
   def __pull(self):
-    self.__new = {}
-    self.__del = {}
-    self.__mod = {}
+    self.object_store.clear_incoming_record()
     resp = requests.get(self.__base_address + "/tracked", data = {
         "get_types": 
         json.dumps({"types": [tp.Class().__name__ for tp in list(self.__typemap["tracking"])]})

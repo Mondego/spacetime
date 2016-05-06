@@ -209,4 +209,3 @@ class Route(RouteRequest.Class()):
     @Waypoints.setter
     def Waypoints(self, value):
         self._Waypoints = value
-

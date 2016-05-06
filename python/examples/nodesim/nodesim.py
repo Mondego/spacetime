@@ -80,4 +80,3 @@ class NodeSimulation(IApplication.IApplication):
 
     def shutdown(self):
         pass
-

@@ -37,4 +37,3 @@ class NodeTestSimulation(IApplication.IApplication):
 
     def shutdown(self):
         pass
-

@@ -7,19 +7,19 @@ Created on Apr 19, 2016
 from abc import ABCMeta, abstractmethod
 
 class IApplication(object):
-  __metaclass__ = ABCMeta 
-  
-  def is_done(self):
-    return False
+    __metaclass__ = ABCMeta
 
-  @abstractmethod
-  def initialize(self):
-    pass
+    def is_done(self):
+        return False
 
-  @abstractmethod
-  def update(self):
-    pass
+    @abstractmethod
+    def initialize(self):
+        pass
 
-  @abstractmethod
-  def shutdown(self):
-    pass
+    @abstractmethod
+    def update(self):
+        pass
+
+    @abstractmethod
+    def shutdown(self):
+        pass

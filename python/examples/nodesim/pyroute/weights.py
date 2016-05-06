@@ -19,10 +19,8 @@ Weightings = { \
   }
 
 def getWeight(transport, wayType):
-  try:
-    return(Weightings[wayType][transport])
-  except KeyError:
-    # Default: if no weighting is defined, then assume it can't be routed
-    return(0)
-
-
+    try:
+        return(Weightings[wayType][transport])
+    except KeyError:
+        # Default: if no weighting is defined, then assume it can't be routed
+        return(0)

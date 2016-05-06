@@ -21,40 +21,40 @@ import traceback
 logger = logging.getLogger(__name__)
 LOG_HEADER = "[DATAMODEL]"
 class Color:
-  Red = 0
-  Green = 1
-  Blue = 2
-  Yellow = 3
-  Black = 4
-  White = 5
-  Grey = 6
+    Red = 0
+    Green = 1
+    Blue = 2
+    Yellow = 3
+    Black = 4
+    White = 5
+    Grey = 6
 
 #Vector3 = namedtuple("Vector3", ['X', 'Y', 'Z'])
 class Vector3(object):
-  X = 0
-  Y = 0
-  Z = 0
+    X = 0
+    Y = 0
+    Z = 0
 
-  def __init__(self, X, Y, Z):
-    self.X = X
-    self.Y = Y
-    self.Z = Z
+    def __init__(self, X, Y, Z):
+        self.X = X
+        self.Y = Y
+        self.Z = Z
 
-  def __json__(self):
-    return self.__dict__
+    def __json__(self):
+        return self.__dict__
 
-  def __str__(self):
-    return self.__dict__.__str__()
+    def __str__(self):
+        return self.__dict__.__str__()
 
-  def __eq__(self, other):
-    return (isinstance(other, Vector3) and (other.X == self.X and other.Y == self.Y and other.Z == self.Z))
+    def __eq__(self, other):
+        return (isinstance(other, Vector3) and (other.X == self.X and other.Y == self.Y and other.Z == self.Z))
 
-  def __ne__(self, other):
-    return not self.__eq__(other)
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
-  @staticmethod
-  def __decode__(dic):
-    return Vector3(dic['X'], dic['Y'], dic['Z'])
+    @staticmethod
+    def __decode__(dic):
+        return Vector3(dic['X'], dic['Y'], dic['Z'])
 
 @pcc_set
 class Car_akshatp(object):
@@ -345,4 +345,3 @@ class CarAndPedestrianNearby_akshatp(object):
             self.pedestrian.Y -= 1
         else:
             self.pedestrian.Y += choice([-1, 1])
-  

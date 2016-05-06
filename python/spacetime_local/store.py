@@ -79,6 +79,7 @@ class store(object):
             del self.__objects[tp][obj.__primarykey__]
         self.__deleted.clear()
         self.__flush_derived_objs()
+        self._changes["deleted"] = {}
 
     def get_changes(self):
         mod = spacetime_property.change_tracker[currentThread().getName()] if currentThread().getName() in spacetime_property.change_tracker else {}

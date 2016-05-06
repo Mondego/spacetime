@@ -131,7 +131,7 @@ class frame(IFrame):
             typeObj = self.__name2type[tp]
             objlist = []
             for obj_id in deleted[tp]:
-                objlist.append(self.object_store.get_one(obj_id,key))
+                objlist.append(self.object_store.get_one(typeObj,obj_id))
                 self.object_store.delete_with_id(typeObj, obj_id)
             deleted_objs[typeObj] = objlist
         self.object_store.create_incoming_record(new_objs, mod_objs, deleted_objs)

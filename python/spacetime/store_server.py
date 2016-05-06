@@ -128,12 +128,13 @@ class GetPushType(Resource):
 
     @handle_exceptions
     def put(self, sim, t):
-        typeObj = FrameServer.name2class[t]
-        list_objs = json.loads(request.form["insert_list"])
-        for o in list_objs:
-            # FIX THIS OBJ
-            FrameServer.Store.insert(obj, sim)
-        return {}
+        raise Exception("PUT operation for GetPushType not yet implemented")
+        #typeObj = FrameServer.name2class[t]
+        #list_objs = json.loads(request.form["insert_list"])
+        #for o in list_objs:
+        #    # FIX THIS OBJ
+        #    FrameServer.Store.insert(obj, sim)
+        #return {}
 
     @handle_exceptions
     def post(self, sim, t):
@@ -150,23 +151,23 @@ class GetPushType(Resource):
 class GetInsertDeleteObject(Resource):
     @handle_exceptions
     def get(self, sim, t, uid):
-        typeObj = FrameServer.name2class[t]
-        obj = FrameServer.Store.get(typeObj, UUID(uid))
-        return obj
+        raise Exception("GET operation for GetInsertDeleteObject not yet implemented")
+        #typeObj = FrameServer.name2class[t]
+        #obj = FrameServer.Store.get(typeObj, UUID(uid))
+        #return obj
 
     @handle_exceptions
     def put(self, sim, t, uid):
+        raise Exception("PUT operation for GetInsertDeleteObject not yet implemented")
         # typeObj = FrameServer.name2class[t]
-        typeObj = FrameServer.name2class[t]
-        o = json.loads(request.form["obj"])
+        #typeObj = FrameServer.name2class[t]
+        #o = json.loads(request.form["obj"])
         # FIX THIS OBJ
-        FrameServer.Store.insert(obj, sim)
+        #FrameServer.Store.insert(obj, sim)
 
     @handle_exceptions
     def delete(self, sim, t, uid):
-        raise NotImplementedError()
-        typeObj = FrameServer.name2class[t]
-        FrameServer.Store.delete(typeObj, UUID(uid), sim)
+        raise Exception("DELETE operation for GetInsertDeleteObject not yet implemented")
 
 class Register(Resource):
     @handle_exceptions
@@ -212,7 +213,8 @@ class FrameServer(object):
         self.api = api
         FrameServer.app = app
         FrameServer.api = self.api
-        self.api.add_resource(GetInsertDeleteObject, '/<string:sim>/<string:t>/<string:uid>')
+        # Not currently used
+        # self.api.add_resource(GetInsertDeleteObject, '/<string:sim>/<string:t>/<string:uid>')
         self.api.add_resource(GetPushType, '/<string:sim>/<string:t>')
         self.api.add_resource(GetUpdated, '/<string:sim>/updated/<string:t>')
         self.api.add_resource(GetTracked, '/<string:sim>/tracked/<string:t>')

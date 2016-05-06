@@ -16,6 +16,7 @@ import json
 import os
 import sys
 import uuid
+import logging
 
 
 # not active object.
@@ -27,7 +28,7 @@ class store(object):
     def __init__(self):
         # actual type objects
         self.__sets = set()
-
+        self.logger = logging.getLogger(__name__)
         # type -> {id : object} object is just json style recursive dictionary.
         # Onus on the client side to make objects
         self.__data = RecursiveDictionary()
@@ -60,14 +61,21 @@ class store(object):
         try:
             self.__data[tp][id] = object
         except:
-            print "error finding id %s on type %s" % (id, tp.Class())
+            self.logger.error("error inserting id %s on type %s" % (
+                id, tp.Class()))
             raise
 
     def update(self, tp, id, object_changes):
         self.__data[tp][id].update(object_changes)
 
     def delete(self, tp, id):
-        del self.__data[tp][id]
+        if tp in self.__data:
+            if id in self.__data[tp]:
+                del self.__data[tp][id]
+            else:
+                self.logger.warn("Object ID %s missing from data storage.", id)
+        else:
+            self.logger.error("Type %s not registered", tp)
 
 
 class st_dataframe(object):

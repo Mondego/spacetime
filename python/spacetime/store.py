@@ -300,7 +300,11 @@ class dataframe(object):
             self.__app_to_basechanges[app] = {}
             mod, new, deleted = ({}, {}, {})
             base_types = set()
-            for str_tp in set(tracker).union(set(getter)).union(set(gettersetter)).union(set(setter)):
+            for str_tp in set(tracker).union(
+                                             set(getter)).union(
+                                             set(gettersetter)).union(
+                                             set(setter)).union(
+                                             set(producer)):
                 tp = name2class[str_tp]
                 mod = {}
                 new = {}
@@ -317,4 +321,13 @@ class dataframe(object):
                         self.__type_to_app.setdefault(base, set()).add(app)
                     self.__app_to_dynamicpcc.setdefault(app, set()).add(tp)
                 self.__type_to_app.setdefault(tp, set()).add(app)
+            # Add producer and deleter types to base_store, but not to basechanges
+            for str_tp in set(producer).union(set(deleter)):
+                tp = name2class[str_tp]
+                if tp.__PCC_BASE_TYPE__:
+                    base_types.add(tp)
+                else:
+                    bases = name2baseclasses[tp.Class().__name__]
+                    for base in bases:
+                        base_types.add(base)
             self.__base_store.add_types(base_types)

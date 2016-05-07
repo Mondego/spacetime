@@ -15,9 +15,6 @@ from testsim import NodeTestSimulation
 
 sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
 
-logger = None
-
-
 class Simulation(object):
     '''
     classdocs
@@ -34,25 +31,20 @@ class Simulation(object):
         frametest.attach_app(NodeTestSimulation(frametest))
 
         framenode.run_async()
-        frametest.run()
+        frametest.run_async()
+
+        frame.loop()
 
 def setupLoggers():
-    global logger
     logger = logging.getLogger()
-    logging.info("testing before")
     logger.setLevel(logging.DEBUG)
 
-    # logfile = os.path.join(os.path.dirname(__file__), "../../logs/CADIS.log")
-    # flog = logging.handlers.RotatingFileHandler(logfile, maxBytes=10*1024*1024, backupCount=50, mode='w')
-    # flog.setFormatter(logging.Formatter('%(levelname)s [%(name)s] %(message)s'))
-    # logger.addHandler(flog)
-    logging.getLogger("requests").setLevel(logging.WARNING)
     clog = logging.StreamHandler()
-    clog.addFilter(logging.Filter(name='CADIS'))
     clog.setFormatter(logging.Formatter('[%(name)s] %(message)s'))
     clog.setLevel(logging.DEBUG)
     logger.addHandler(clog)
 
+    logging.getLogger("requests").setLevel(logging.WARNING)
 
 if __name__ == "__main__":
     setupLoggers()

@@ -10,6 +10,8 @@ import requests
 import json
 import time
 import signal
+import cmd
+import sys
 
 from store import store
 from IFrame import IFrame
@@ -17,20 +19,25 @@ from IFrame import IFrame
 import logging
 from logging import NullHandler
 
-framelist = []
+class SpacetimeConsole(cmd.Cmd):
+    """Command console interpreter for frame."""
 
-def signal_handler(signal, frame):
-    import sys
-    print "Shutting down all applications..."
-    for f in framelist:
-        f._shutdown()
-    sys.exit(0)
+    def do_exit(self, line):
+        """ exit
+        Exits all applications by calling their shutdown methods.
+        """
+        shutdown()
 
-signal.signal(signal.SIGINT, signal_handler)
+    def emptyline(self):
+        pass
+
+    def do_EOF(self, line):
+        shutdown()
 
 class frame(IFrame):
+    framelist = []
     def __init__(self, address = "http://localhost:12000/", time_step = 500):
-        framelist.append(self)
+        frame.framelist.append(self)
         self.__app = None
         self.__typemap = {}
         self.__name2type = {}
@@ -43,13 +50,6 @@ class frame(IFrame):
         self.__new = {}
         self.__mod = {}
         self.__del = {}
-
-    @staticmethod
-    def loop():
-        """
-        Called to wait while simulation is executing.
-        """
-        signal.pause()
 
     def __register_app(self, app):
         self.logger = self.__setup_logger("spacetime@" + app.__class__.__name__)
@@ -88,6 +88,9 @@ class frame(IFrame):
                      data = jsonobj,
                      headers = {'content-type': 'application/json'})
 
+    @staticmethod
+    def loop():
+        SpacetimeConsole().cmdloop()
 
     def attach_app(self, app):
         """
@@ -222,7 +225,7 @@ class frame(IFrame):
         None
 
         Note:
-        Application should be annotataed as  a Getter, GetterSetter, or Tracker,
+        Application should be annotated as  a Getter, GetterSetter, or Tracker,
         otherwise result is always an empty list.
         """
         if tp in self.__observed_types_new:
@@ -352,3 +355,16 @@ class frame(IFrame):
         logger.debug("Starting logger for %s",name)
         return logger
         #logging.getLogger('requests').setLevel(logging.WARNING)
+
+def shutdown():
+    import sys
+    print "Shutting down all applications..."
+    for f in frame.framelist:
+        f._shutdown()
+    sys.exit(0)
+
+def signal_handler(signal, signal_frame):
+    shutdown()
+
+signal.signal(signal.SIGINT, signal_handler)
+

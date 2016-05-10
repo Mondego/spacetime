@@ -9,8 +9,8 @@ from spacetime_local.declarations import Producer, GetterSetter, Tracker,\
     Deleter
 from spacetime_local import IApplication
 import os
-from pyroute.loadOsm import LoadOsm
-from pyroute.route import Router
+from .pyroute.loadOsm import LoadOsm
+from .pyroute.route import Router
 from random import choice
 import logging
 

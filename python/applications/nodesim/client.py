@@ -9,11 +9,12 @@ import logging
 import logging.handlers
 import os
 import sys
-from spacetime_local.frame import frame
-from nodesim import NodeSimulation
-from testsim import NodeTestSimulation
 
 sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
+
+from applications.nodesim.nodesim import NodeSimulation
+from applications.nodesim.testsim import NodeTestSimulation
+from spacetime_local.frame import frame
 
 class Simulation(object):
     '''
@@ -37,7 +38,7 @@ class Simulation(object):
 
 def setupLoggers():
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 
     clog = logging.StreamHandler()
     clog.setFormatter(logging.Formatter('[%(name)s] %(message)s'))
@@ -45,6 +46,7 @@ def setupLoggers():
     logger.addHandler(clog)
 
     logging.getLogger("requests").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 if __name__ == "__main__":
     setupLoggers()

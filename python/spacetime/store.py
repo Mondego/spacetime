@@ -260,7 +260,8 @@ class dataframe(object):
     def __put_update(self, app, tp, new, mod, deleted):
         other_apps = set()
         if tp in self.__base_store.get_base_types():
-            other_apps = set(self.__type_to_app[tp])
+            if tp in self.__type_to_app:
+                other_apps = set(self.__type_to_app[tp])
         for id in new:
             self.__base_store.put(tp, id, new[id])
         for app in other_apps:
@@ -269,7 +270,8 @@ class dataframe(object):
 
 
         if tp in self.__base_store.get_base_types():
-            other_apps = set(self.__type_to_app[tp])
+            if tp in self.__type_to_app:
+                other_apps = set(self.__type_to_app[tp])
         for id in mod:
             self.__base_store.update(tp, id, mod[id])
         for app in other_apps:
@@ -278,7 +280,8 @@ class dataframe(object):
 
 
         if tp in self.__base_store.get_base_types():
-            other_apps = set(self.__type_to_app[tp])
+            if tp in self.__type_to_app:
+                other_apps = set(self.__type_to_app[tp])
         for id in deleted:
             self.__base_store.delete(tp, id)
         for app in other_apps:
@@ -303,8 +306,7 @@ class dataframe(object):
             for str_tp in set(tracker).union(
                                              set(getter)).union(
                                              set(gettersetter)).union(
-                                             set(setter)).union(
-                                             set(producer)):
+                                             set(setter)):
                 tp = name2class[str_tp]
                 mod = {}
                 new = {}

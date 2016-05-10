@@ -9,14 +9,13 @@ import logging
 import logging.handlers
 import os
 import sys
-from spacetime_local.frame import frame
-from nodesim import NodeSimulation
-from testsim import NodeTestSimulation
 
 sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
 
-logger = None
-
+from spacetime_local.frame import frame
+from applications.akshatp_console_sim.trafficsim import TrafficSimulation
+from applications.akshatp_console_sim.pedestriansim_join import PedestrianSimulation
+from applications.akshatp_console_sim.cool_console import ConsoleSimulation
 
 class Simulation(object):
     '''
@@ -27,17 +26,23 @@ class Simulation(object):
         '''
         Constructor
         '''
-        framenode = frame(time_step=200)
-        framenode.attach_app(NodeSimulation(framenode))
+        frame_car = frame(time_step=1000)
+        frame_car.attach_app(TrafficSimulation(frame_car))
 
-        frametest = frame(time_step=200)
-        frametest.attach_app(NodeTestSimulation(frametest))
+        frame_ped = frame(time_step=1000)
+        frame_ped.attach_app(PedestrianSimulation(frame_ped))
 
-        framenode.run_async()
-        frametest.run()
+        con_frame = frame(time_step=500)
+        con_frame.attach_app(ConsoleSimulation(con_frame))
+
+        frame_car.run_async()
+        frame_ped.run_async()
+        con_frame.run_async()
+
+        frame.loop()
+
 
 def setupLoggers():
-    global logger
     logger = logging.getLogger()
     logging.info("testing before")
     logger.setLevel(logging.DEBUG)
@@ -47,6 +52,7 @@ def setupLoggers():
     # flog.setFormatter(logging.Formatter('%(levelname)s [%(name)s] %(message)s'))
     # logger.addHandler(flog)
     logging.getLogger("requests").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
     clog = logging.StreamHandler()
     clog.addFilter(logging.Filter(name='CADIS'))
     clog.setFormatter(logging.Formatter('[%(name)s] %(message)s'))

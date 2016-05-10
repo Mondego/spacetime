@@ -9,12 +9,13 @@ from spacetime_local.declarations import Producer, GetterSetter, Tracker,\
     Deleter
 from spacetime_local import IApplication
 import os
-from pyroute.loadOsm import LoadOsm
-from pyroute.route import Router
+from .pyroute.loadOsm import LoadOsm
+from .pyroute.route import Router
 from random import choice
+import logging
 
 @Producer(Waypoint, Node, BusinessNode, ResidentialNode, Route)
-@GetterSetter(BusinessNode, ResidentialNode, Route, Waypoint, Node)
+@GetterSetter(Waypoint)
 @Deleter(RouteRequest)
 @Tracker(RouteRequest)
 class NodeSimulation(IApplication.IApplication):
@@ -23,6 +24,7 @@ class NodeSimulation(IApplication.IApplication):
         Constructor
         '''
         self.frame = frame
+        self.logger = logging.getLogger(__name__)
 
     def initialize(self):
         path_data = os.path.dirname(os.path.realpath(__file__))
@@ -53,7 +55,6 @@ class NodeSimulation(IApplication.IApplication):
 
     def update(self):
         rt_reqs = self.frame.get_new(RouteRequest)
-        from threading import currentThread
         for req in rt_reqs:
             if not req.Source:
                 req.Source = choice(self.frame.get(Waypoint))
@@ -61,7 +62,7 @@ class NodeSimulation(IApplication.IApplication):
                 req.Destination = choice(self.frame.get(Waypoint))
             result, route = self.router.doRouteAsLL(int(req.Source.Wpid),
                 int(req.Destination.Wpid), "car", "nodes")
-            if result:
+            if result == "success":
                 res = Route()
                 res.Source = req.Source
                 res.Destination = req.Destination
@@ -70,13 +71,14 @@ class NodeSimulation(IApplication.IApplication):
                 for node in route:
                     wpt = self.frame.get(Waypoint, str(node))
                     res.Waypoints.append(wpt)
-                print "Route from %s to %s" % (res.Source.Wpid,
+                self.logger.info("Route from %s to %s",res.Source.Wpid,
                                                res.Destination.Wpid)
-                print ",".join([w.Wpid for w in res.Waypoints])
+                self.logger.info(",".join([w.Wpid for w in res.Waypoints]))
             else:
-                print "Cannot travel from %s to %s" % (req.Source.Wpid,
+                self.logger.warn("Cannot travel from %s to %s",
+                                                       req.Source.Wpid,
                                                        req.Destination.Wpid)
             self.frame.delete(RouteRequest, req)
 
     def shutdown(self):
-        pass
+        self.logger.info("Shutting down NodeSimulation")

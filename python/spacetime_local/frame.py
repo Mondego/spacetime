@@ -8,15 +8,36 @@ from threading import Thread as Parallel
 #from multiprocessing import Process as Parallel
 import requests
 import json
-import logging
 import time
+import signal
+import cmd
+import sys
 
 from store import store
 from IFrame import IFrame
 
+import logging
+from logging import NullHandler
+
+class SpacetimeConsole(cmd.Cmd):
+    """Command console interpreter for frame."""
+
+    def do_exit(self, line):
+        """ exit
+        Exits all applications by calling their shutdown methods.
+        """
+        shutdown()
+
+    def emptyline(self):
+        pass
+
+    def do_EOF(self, line):
+        shutdown()
+
 class frame(IFrame):
-    __Logger = logging.getLogger(__name__)
+    framelist = []
     def __init__(self, address = "http://localhost:12000/", time_step = 500):
+        frame.framelist.append(self)
         self.__app = None
         self.__typemap = {}
         self.__name2type = {}
@@ -31,6 +52,7 @@ class frame(IFrame):
         self.__del = {}
 
     def __register_app(self, app):
+        self.logger = self.__setup_logger("spacetime@" + app.__class__.__name__)
         self.__base_address = self.__address + self.__app.__class__.__name__
         (producing, tracking, getting, gettingsetting, setting, deleting) = (
           self.__app.__class__.__pcc_producing__ if hasattr(self.__app.__class__, "__pcc_producing__") else set(),
@@ -49,6 +71,15 @@ class frame(IFrame):
         jobj = dict([(k, [tp.Class().__name__ for tp in v]) for k, v in self.__typemap.items()])
 
         all_types = tracking.union(producing).union(getting).union(gettingsetting).union(deleting).union(setting)
+        self.__observed_types = all_types
+        self.__observed_types_new = self.__typemap["tracking"].union(
+                                    self.__typemap["getting"]).union(
+                                    self.__typemap["gettingsetting"])
+
+        self.__observed_types_mod = self.__typemap["getting"].union(
+                                    self.__typemap["gettingsetting"])
+
+
         self.__name2type = dict([(tp.Class().__name__, tp) for tp in all_types])
         self.object_store.add_types(all_types)
 
@@ -57,17 +88,47 @@ class frame(IFrame):
                      data = jsonobj,
                      headers = {'content-type': 'application/json'})
 
+    @staticmethod
+    def loop():
+        SpacetimeConsole().cmdloop()
 
     def attach_app(self, app):
+        """
+        Receives reference to application (implementing IApplication).
+
+        Arguments:
+        app : spacetime-conformant Application
+
+        Exceptions:
+        None
+        """
         self.__app = app
         self.__register_app(app)
 
     def run_async(self):
+        """
+        Starts application in non-blocking mode.
+
+        Arguments:
+        None
+
+        Exceptions:
+        None
+        """
         p = Parallel(target = self.__run)
         p.daemon = True
         p.start()
 
     def run(self):
+        """
+        Starts application in blocking mode.
+
+        Arguments:
+        None
+
+        Exceptions:
+        None
+        """
         p = Parallel(target = self.__run)
         p.daemon = True
         p.start()
@@ -94,27 +155,132 @@ class frame(IFrame):
             if timespent < self._time_step:
                 time.sleep(float(self._time_step - timespent))
 
-        self.__shutdown()
+        self._shutdown()
 
     def get(self, tp, id = None):
-        if id:
-            return self.object_store.get_one(tp, id)
-        return self.object_store.get(tp)
+        """
+        Retrieves objects from local data storage. If id is provided, returns
+        the object identified by id. Otherwise, returns the list of all objects
+        matching type tp.
+
+        Arguments:
+        tp : PCC set type being fetched
+        id : primary key of an individual object.
+
+        Exceptions:
+        - ID does not exist in store
+        - Application does not annotate that type
+        """
+        if tp in self.__observed_types:
+            if id:
+                return self.object_store.get_one(tp, id)
+            return self.object_store.get(tp)
+        else:
+            raise Exception("Application does not annotate type %s" % (
+                tp.Class()))
 
     def add(self, obj):
-        self.object_store.insert(obj)
+        """
+        Adds an object to be stored and tracked by spacetime.
+
+        Arguments:
+        obj : PCC object to stored
+
+        Exceptions:
+        - Application is not annotated as a producer
+        """
+        if obj.__class__ in self.__typemap["producing"]:
+            self.object_store.insert(obj)
+        else:
+            raise Exception("Application does not annotate type %s" % (
+                obj.__class__.Class()))
 
     def delete(self, tp, obj):
-        self.object_store.delete(tp, obj)
+        """
+        Deletes an object currently stored and tracked by spacetime.
+
+        Arguments:
+        tp: PCC type of object to be deleted
+        obj : PCC object to be deleted
+
+        Exceptions:
+        - Application is not annotated as a Deleter
+        """
+
+        if tp in self.__typemap["deleting"]:
+            self.object_store.delete(tp, obj)
+        else:
+            raise Exception("Application is not registered to delete %s" % (
+                tp.Class()))
 
     def get_new(self, tp):
-        return self.object_store.get_new(tp)
+        """
+        Retrieves new objects of type 'tp' retrieved in last pull (i.e. since
+        last tick).
+
+        Arguments:
+        tp: PCC type for retrieving list of new objects
+
+        Exceptions:
+        None
+
+        Note:
+        Application should be annotated as  a Getter, GetterSetter, or Tracker,
+        otherwise result is always an empty list.
+        """
+        if tp in self.__observed_types_new:
+            return self.object_store.get_new(tp)
+        else:
+            self.logger.warn(("Checking for new objects of type %s, but not "
+                "a Getter, GetterSetter, or Tracker of type. Empty list "
+                "always returned"),tp.Class())
+            return []
 
     def get_mod(self, tp):
-        return self.object_store.get_mod(tp)
+        """
+        Retrieves objects of type 'tp' that were modified since last pull
+        (i.e. since last tick).
+
+        Arguments:
+        tp: PCC type for retrieving list of modified objects
+
+        Exceptions:
+        None
+
+        Note:
+        Application should be annotated as a Getter,or GetterSetter, otherwise
+        result is always an empty list.
+        """
+        if tp in self.__observed_types_mod:
+            return self.object_store.get_mod(tp)
+        else:
+            self.logger.warn(("Checking for modifications in objects of type "
+                "%s, but not a Getter or GetterSetter of type. "
+                "Empty list always returned"),tp.Class())
+            return []
 
     def get_deleted(self, tp):
-        return self.object_store.get_deleted(tp)
+        """
+        Retrieves objects of type 'tp' that were deleted since last pull
+        (i.e. since last tick).
+
+        Arguments:
+        tp: PCC type for retrieving list of deleted objects
+
+        Exceptions:
+        None
+
+        Note:
+        Application should be annotated as a Getter, GetterSetter, or Tracker,
+        otherwise result is always an empty list.
+        """
+        if tp in self.__observed_types_new:
+            return self.object_store.get_deleted(tp)
+        else:
+            self.logger.warn(("Checking for deleted objects of type %s, but "
+                "not a Getter, GetterSetter, or Tracker of type. Empty list "
+                "always returned"),tp.Class())
+            return []
 
     def __process_pull_resp(self,resp):
         new, mod, deleted = resp["new"], resp["updated"], resp["deleted"]
@@ -175,9 +341,30 @@ class frame(IFrame):
             requests.post(self.__base_address + "/" + tp, json = package)
         self.object_store.clear_changes()
 
-    def __shutdown(self):
+    def _shutdown(self):
         self.__app.shutdown()
-        self.__unregister_app()
+        #self.__unregister_app()
 
     def __unregister_app(self):
         raise NotImplementedError()
+    def __setup_logger(self, name, file_path=None):
+        logger = logging.getLogger(name)
+        # Set default logging handler to avoid "No handler found" warnings.
+        logger.addHandler(NullHandler())
+        logger.setLevel(logging.DEBUG)
+        logger.debug("Starting logger for %s",name)
+        return logger
+        #logging.getLogger('requests').setLevel(logging.WARNING)
+
+def shutdown():
+    import sys
+    print "Shutting down all applications..."
+    for f in frame.framelist:
+        f._shutdown()
+    sys.exit(0)
+
+def signal_handler(signal, signal_frame):
+    shutdown()
+
+signal.signal(signal.SIGINT, signal_handler)
+

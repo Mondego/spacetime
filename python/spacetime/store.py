@@ -260,7 +260,8 @@ class dataframe(object):
     def __put_update(self, app, tp, new, mod, deleted):
         other_apps = set()
         if tp in self.__base_store.get_base_types():
-            other_apps = set(self.__type_to_app[tp])
+            if tp in self.__type_to_app:
+                other_apps = set(self.__type_to_app[tp])
         for id in new:
             self.__base_store.put(tp, id, new[id])
         for app in other_apps:
@@ -269,7 +270,8 @@ class dataframe(object):
 
 
         if tp in self.__base_store.get_base_types():
-            other_apps = set(self.__type_to_app[tp])
+            if tp in self.__type_to_app:
+                other_apps = set(self.__type_to_app[tp])
         for id in mod:
             self.__base_store.update(tp, id, mod[id])
         for app in other_apps:
@@ -278,7 +280,8 @@ class dataframe(object):
 
 
         if tp in self.__base_store.get_base_types():
-            other_apps = set(self.__type_to_app[tp])
+            if tp in self.__type_to_app:
+                other_apps = set(self.__type_to_app[tp])
         for id in deleted:
             self.__base_store.delete(tp, id)
         for app in other_apps:
@@ -300,7 +303,10 @@ class dataframe(object):
             self.__app_to_basechanges[app] = {}
             mod, new, deleted = ({}, {}, {})
             base_types = set()
-            for str_tp in set(tracker).union(set(getter)).union(set(gettersetter)).union(set(setter)):
+            for str_tp in set(tracker).union(
+                                             set(getter)).union(
+                                             set(gettersetter)).union(
+                                             set(setter)):
                 tp = name2class[str_tp]
                 mod = {}
                 new = {}
@@ -317,4 +323,13 @@ class dataframe(object):
                         self.__type_to_app.setdefault(base, set()).add(app)
                     self.__app_to_dynamicpcc.setdefault(app, set()).add(tp)
                 self.__type_to_app.setdefault(tp, set()).add(app)
+            # Add producer and deleter types to base_store, but not to basechanges
+            for str_tp in set(producer).union(set(deleter)):
+                tp = name2class[str_tp]
+                if tp.__PCC_BASE_TYPE__:
+                    base_types.add(tp)
+                else:
+                    bases = name2baseclasses[tp.Class().__name__]
+                    for base in bases:
+                        base_types.add(base)
             self.__base_store.add_types(base_types)

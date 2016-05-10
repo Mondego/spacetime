@@ -6,6 +6,7 @@ Created on Apr 28, 2016
 from datamodel.nodesim.datamodel import RouteRequest, Route
 from spacetime_local.declarations import Producer, GetterSetter, Tracker
 from spacetime_local import IApplication
+import logging
 
 @Producer(RouteRequest)
 @GetterSetter(RouteRequest, Route)
@@ -17,6 +18,7 @@ class NodeTestSimulation(IApplication.IApplication):
         '''
         self.frame = frame
         self.step = 0
+        self.logger = logging.getLogger(__name__)
 
     def initialize(self):
         pass
@@ -36,4 +38,4 @@ class NodeTestSimulation(IApplication.IApplication):
                 self.frame.delete(rt)
 
     def shutdown(self):
-        pass
+        self.logger.info("Shutting down NodeTestSimulation")

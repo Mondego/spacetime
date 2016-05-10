@@ -24,7 +24,11 @@ class store(object):
         return self.__objects[tp].values()
 
     def get_one(self, tp, id):
-        return self.__objects[tp][id]
+        if id in self.__objects[tp]:
+            return self.__objects[tp][id]
+        else:
+            raise Exception("Could not find object %s of type %s" % (
+                                                        id, tp.Class()))
 
     def frame_insert(self, tp, id, objjson):
         obj = create_tracking_obj(tp, objjson, self.__objects, False, False)

@@ -13,9 +13,9 @@ import sys
 sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from spacetime_local.frame import frame
-from trafficsim import TrafficSimulation
-from pedestriansim_param import PedestrianSimulation
-from cool_gfx import GFXSimulation
+from applications.simulation.trafficsim import TrafficSimulation
+from applications.simulation.pedestriansim_join import PedestrianSimulation
+from applications.simulation.cool_gfx import GFXSimulation
 
 
 
@@ -40,7 +40,9 @@ class Simulation(object):
 
         frame_car.run_async()
         frame_ped.run_async()
-        gfx_frame.run()
+        gfx_frame.run_async()
+
+        frame.loop()
 
 def SetupLoggers():
     global logger
@@ -53,6 +55,7 @@ def SetupLoggers():
     #flog.setFormatter(logging.Formatter('%(levelname)s [%(name)s] %(message)s'))
     #logger.addHandler(flog)
     logging.getLogger("requests").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
     clog = logging.StreamHandler()
     clog.addFilter(logging.Filter(name='CADIS'))
     clog.setFormatter(logging.Formatter('[%(name)s] %(message)s'))

@@ -475,7 +475,6 @@
     <tag k="name" v="North Roundabout link 1"/>
     <tag k="highway" v="secondary_link"/>
     <tag k="oneway" v="yes"/>
-    <nd ref="1130"/>
     <nd ref="1220"/>
     <nd ref="1240"/>
   </way>

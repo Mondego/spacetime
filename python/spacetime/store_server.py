@@ -18,6 +18,7 @@ import time
 from store import *
 
 from datamodel.all import DATAMODEL_TYPES
+from threading import Timer
 
 parser = reqparse.RequestParser()
 parser.add_argument('update_dict')
@@ -56,6 +57,12 @@ def handle_exceptions(f):
         return ret
     return wrapped
 
+def reset_timer(sim):
+    FrameServer.app_gc_timers[sim].cancel()
+    del FrameServer.app_gc_timers[sim]
+    FrameServer.app_gc_timers[sim] = Timer(30.0, disconnected, (sim,))
+    FrameServer.app_gc_timers[sim].start()
+
 class GetAllUpdated(Resource):
     @handle_exceptions
     def get(self, sim):
@@ -72,6 +79,8 @@ class GetAllUpdated(Resource):
         ret["new"] = all_new
         ret["updated"] = all_updated
         ret["deleted"] = all_deleted
+
+        reset_timer(sim)
         return ret
 
 class GetAllTracked(Resource):
@@ -90,6 +99,8 @@ class GetAllTracked(Resource):
         ret["new"] = all_new
         ret["updated"] = all_updated
         ret["deleted"] = all_deleted
+
+        reset_timer(sim)
         return ret
 
 class GetUpdated(Resource):
@@ -101,6 +112,8 @@ class GetUpdated(Resource):
         ret["new"] = new
         ret["updated"] = updated
         ret["deleted"] = deleted
+
+        reset_timer(sim)
         return ret
 
 class GetTracked(Resource):
@@ -112,6 +125,8 @@ class GetTracked(Resource):
         ret["new"] = new
         ret["updated"] = updated
         ret["deleted"] = deleted
+
+        reset_timer(sim)
         return ret
 
 
@@ -124,6 +139,8 @@ class GetPushType(Resource):
         ret["new"] = new
         ret["updated"] = mod
         ret["deleted"] = deleted
+
+        reset_timer(sim)
         return ret
 
     @handle_exceptions
@@ -146,6 +163,8 @@ class GetPushType(Resource):
         update_dict = json.loads(data)
         new, mod, deleted = update_dict["new"], update_dict["mod"], update_dict["deleted"]
         FrameServer.Store.put_update(sim, typeObj, new, mod, deleted)
+
+        reset_timer(sim)
         return {}
 
 class GetInsertDeleteObject(Resource):
@@ -169,9 +188,15 @@ class GetInsertDeleteObject(Resource):
     def delete(self, sim, t, uid):
         raise Exception("DELETE operation for GetInsertDeleteObject not yet implemented")
 
+def disconnected(sim):
+    FrameServer.Store.gc(sim)
+    del FrameServer.app_gc_timers[sim]
+
 class Register(Resource):
     @handle_exceptions
     def put(self, sim):
+        FrameServer.app_gc_timers[sim] = Timer(30.0, disconnected, (sim,))
+        FrameServer.app_gc_timers[sim].start()
         data = urllib2.unquote(request.data.replace("+", " "))
         typemap = json.loads(data)["sim_typemap"]
         FrameServer.Store.register_app(sim, typemap, FrameServer.name2class, FrameServer.name2baseclasses)
@@ -206,6 +231,7 @@ class FrameServer(object):
     name2class = dict([(tp.Class().__name__, tp) for tp in DATAMODEL_TYPES])
     name2baseclasses = dict([(tp.Class().__name__, tp.__pcc_bases__) for tp in DATAMODEL_TYPES])
     Shutdown = False
+    app_gc_timers = {}
     def __init__(self):
         global server
         SetupLoggers()

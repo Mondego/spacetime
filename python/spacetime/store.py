@@ -108,8 +108,12 @@ class st_dataframe(object):
 # mod, new, delete are the three sets that have to be maintained for app.
 class dataframe(object):
     def __init__(self, ):
+        self.logger = logging.getLogger(__name__)
         self.__base_store = store()
         self.__apps = set()
+        # Dictionary for garbage collection of objects not deleted after
+        # simulation is gone
+        self.__gc = {}
 
         # app -> mod, new, deleted
         # mod, new : tp -> id -> object changes/full object
@@ -264,6 +268,8 @@ class dataframe(object):
                 other_apps = set(self.__type_to_app[tp])
         for id in new:
             self.__base_store.put(tp, id, new[id])
+            if id not in self.__gc[app][tp]:
+                self.__gc[app][tp].add(id)
         for app in other_apps:
             with self.__copylock[app]:
                 self.__app_to_basechanges[app][tp][1].update(new)
@@ -284,12 +290,16 @@ class dataframe(object):
                 other_apps = set(self.__type_to_app[tp])
         for id in deleted:
             self.__base_store.delete(tp, id)
+            if id in self.__gc[app][tp]:
+                self.__gc[app][tp].remove(id)
         for app in other_apps:
             with self.__copylock[app]:
                 self.__app_to_basechanges[app][tp][2].difference_update(set(deleted))
 
     def register_app(self, app, typemap, name2class, name2baseclasses):
         self.__apps.add(app)
+        # Setup structure for garbage collection
+        self.__gc[app] = {}
         producer, deleter, tracker, getter, gettersetter, setter = (
             set(typemap.setdefault("producing", set())),
             set(typemap.setdefault("deleting", set())),
@@ -323,9 +333,11 @@ class dataframe(object):
                         self.__type_to_app.setdefault(base, set()).add(app)
                     self.__app_to_dynamicpcc.setdefault(app, set()).add(tp)
                 self.__type_to_app.setdefault(tp, set()).add(app)
+
             # Add producer and deleter types to base_store, but not to basechanges
             for str_tp in set(producer).union(set(deleter)):
                 tp = name2class[str_tp]
+                self.__gc[app][tp] = set()
                 if tp.__PCC_BASE_TYPE__:
                     base_types.add(tp)
                 else:
@@ -333,3 +345,11 @@ class dataframe(object):
                     for base in bases:
                         base_types.add(base)
             self.__base_store.add_types(base_types)
+
+    def gc(self, app):
+        self.logger.warn("Application %s disconnected. Removing owned objects.",
+                         app)
+        for tp in self.__gc[app]:
+            for oid in self.__gc[app][tp]:
+                self.__base_store.delete(tp, oid)
+        del self.__gc[app]

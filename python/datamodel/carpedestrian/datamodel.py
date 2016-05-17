@@ -7,12 +7,10 @@ Created on Dec 15, 2015
 import logging
 from pcc.join import join
 from pcc.subset import subset
-from pcc.parameterize import parameterize
+from pcc.parameter import parameter
 from pcc.projection import projection
 from pcc.set import pcc_set
 from pcc.attributes import dimension, primarykey
-
-from spacetime_local.frame import frame
 
 import traceback
 
@@ -251,7 +249,7 @@ class Walker(Pedestrian):
       select p;
     """
 
-@parameterize(Car)
+@parameter(Car)
 @subset(Pedestrian)
 class PedestrianInDanger(Pedestrian):
     def distance(self, p1, p2):

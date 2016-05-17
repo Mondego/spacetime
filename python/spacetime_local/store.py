@@ -8,6 +8,8 @@ from common.recursive_dictionary import RecursiveDictionary
 from pcc.attributes import spacetime_property
 from threading import currentThread
 from common.converter import create_jsondict, create_tracking_obj
+
+spacetime_property.GLOBAL_TRACKER = True
 class _container():
     pass
 class store(object):

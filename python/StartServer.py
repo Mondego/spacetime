@@ -1,4 +1,4 @@
-#!/usr/bin/python
+﻿#!/usr/bin/python
 '''
 Created on Apr 19, 2016
 
@@ -6,7 +6,7 @@ Created on Apr 19, 2016
 '''
 import sys
 from spacetime.store_server import FrameServer
-
-log_level = sys.argv[1] if len(sys.argv) > 1 else None
+import logging
+log_level = sys.argv[1] if len(sys.argv) > 1 else "debug"
 FrameServer(log_level)
 

@@ -53,6 +53,7 @@ class TrafficSimulation(IApplication):
             except Exception:
                 logger.exception("Error: ")
 
+        logger.debug("%s ************** ActiveCars: %s", LOG_HEADER, len(self.frame.get(ActiveCar)))
         for car in self.frame.get(ActiveCar):
             car.move()
         self.ticks += 1

@@ -176,16 +176,27 @@ class Register(Resource):
         typemap = json.loads(data)["sim_typemap"]
         FrameServer.Store.register_app(sim, typemap, FrameServer.name2class, FrameServer.name2baseclasses)
 
-def SetupLoggers() :
+def SetupLoggers(log_level) :
     global logger
+    if log_level == None:
+        logl = logging.INFO
+    elif log_level.lower() == "info":
+        logl = logging.INFO
+    elif log_level.lower() == "warning":
+        logl = logging.WARNING
+    elif log_level.lower() == "debug":
+        logl = logging.DEBUG
+    else:
+        logl = logging.INFO
+
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logl)
     folder = os.path.join(os.path.dirname(__file__), "../logs/")
     if not os.path.exists(folder):
         os.mkdir(folder)
     logfile = filename = os.path.join(folder, "frameserver.log")
     flog = logging.handlers.RotatingFileHandler(logfile, maxBytes=10 * 1024 * 1024, backupCount=50, mode='w')
-    flog.setLevel(logging.WARN)
+    flog.setLevel(logl)
     flog.setFormatter(logging.Formatter('%(levelname)s [%(name)s] %(message)s'))
     logger.addHandler(flog)
 
@@ -206,9 +217,10 @@ class FrameServer(object):
     name2class = dict([(tp.Class().__name__, tp) for tp in DATAMODEL_TYPES])
     name2baseclasses = dict([(tp.Class().__name__, tp.__pcc_bases__) for tp in DATAMODEL_TYPES])
     Shutdown = False
-    def __init__(self):
+    def __init__(self, log_level):
         global server
-        SetupLoggers()
+        SetupLoggers(log_level)
+        logging.info("Log level is " + str(logger.level))
         self.app = app
         self.api = api
         FrameServer.app = app

@@ -308,6 +308,7 @@ class dataframe(object):
                                              set(gettersetter)).union(
                                              set(setter)):
                 tp = name2class[str_tp]
+                logging.debug("register " + str_tp + " by " + str(app) + " " + str(tp))
                 mod = {}
                 new = {}
                 deleted = set()

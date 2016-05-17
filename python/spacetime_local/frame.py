@@ -119,6 +119,9 @@ class frame(IFrame):
         p.daemon = True
         p.start()
 
+    def run_main(self):
+        self.__run()
+
     def run(self):
         """
         Starts application in blocking mode.

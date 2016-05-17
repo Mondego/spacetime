@@ -8,7 +8,7 @@ import logging
 import os
 from random import choice
 
-from datamodel.akshatp.datamodel import Vector3
+from datamodel.nodesim.datamodel import Vector3
 from datamodel.nodesim.datamodel import BusinessNode, ResidentialNode, Node, Waypoint, \
     RouteRequest, Route, Road, Edge
 from spacetime_local import IApplication

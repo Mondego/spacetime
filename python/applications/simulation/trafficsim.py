@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 LOG_HEADER = "[TRAFFIC]"
 
 
-@Producer(Car)
+@Producer(Car, host = 'http://127.0.0.1:12000')
 @GetterSetter(InactiveCar, ActiveCar)
 class TrafficSimulation(IApplication):
     '''
@@ -53,6 +53,7 @@ class TrafficSimulation(IApplication):
             except Exception:
                 logger.exception("Error: ")
 
+        logger.debug("%s ************** ActiveCars: %s", LOG_HEADER, len(self.frame.get(ActiveCar)))
         for car in self.frame.get(ActiveCar):
             car.move()
         self.ticks += 1

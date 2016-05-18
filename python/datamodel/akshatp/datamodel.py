@@ -7,13 +7,11 @@ Created on Dec 15, 2015
 import logging
 from pcc.join import join
 from pcc.subset import subset
-from pcc.parameterize import parameterize
+from pcc.parameter import parameter
 from pcc.projection import projection
 from pcc.set import pcc_set
 from pcc.attributes import dimension, primarykey
 from random import randrange
-
-from spacetime_local.frame import frame
 
 import traceback
 
@@ -134,7 +132,7 @@ class Car_akshatp(object):
 
 
 @subset(Car_akshatp)
-class InactiveCar_akshatp(Car_akshatp):
+class InactiveCar_akshatp(Car_akshatp.Class()):
     @staticmethod
     def __query__(cars):
         return [c for c in cars if InactiveCar_akshatp.__predicate__(c)]
@@ -151,7 +149,7 @@ class InactiveCar_akshatp(Car_akshatp):
 
 
 @subset(Car_akshatp)
-class ActiveCar_akshatp(Car_akshatp):
+class ActiveCar_akshatp(Car_akshatp.Class()):
     @staticmethod
     def __query__(cars):  # @DontTrace
         return [c for c in cars if ActiveCar_akshatp.__predicate__(c)]
@@ -254,7 +252,7 @@ class Pedestrian_akshatp(object):
 
 
 @subset(Pedestrian_akshatp)
-class StoppedPedestrian_akshatp(Pedestrian_akshatp):
+class StoppedPedestrian_akshatp(Pedestrian_akshatp.Class()):
     @staticmethod
     def __query__(peds):
         return [p for p in peds if StoppedPedestrian_akshatp.__predicate__(p)]
@@ -265,7 +263,7 @@ class StoppedPedestrian_akshatp(Pedestrian_akshatp):
 
 
 @subset(Pedestrian_akshatp)
-class Walker_akshatp(Pedestrian_akshatp):
+class Walker_akshatp(Pedestrian_akshatp.Class()):
     @staticmethod
     def __query__(peds):
         return [p for p in peds if Walker_akshatp.__predicate__(p)]
@@ -276,7 +274,7 @@ class Walker_akshatp(Pedestrian_akshatp):
 
 
 @subset(Pedestrian_akshatp)
-class PedestrianHasAvodiedCollision_akshatp(Pedestrian_akshatp):
+class PedestrianHasAvodiedCollision_akshatp(Pedestrian_akshatp.Class()):
     @staticmethod
     def __query__(peds):
         return [p for p in peds if PedestrianHasAvodiedCollision_akshatp.__predicate__(p)]

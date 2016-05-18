@@ -7,12 +7,10 @@ Created on Dec 15, 2015
 import logging
 from pcc.join import join
 from pcc.subset import subset
-from pcc.parameterize import parameterize
+from pcc.parameter import parameter
 from pcc.projection import projection
 from pcc.set import pcc_set
 from pcc.attributes import dimension, primarykey
-
-from spacetime_local.frame import frame
 
 import traceback
 
@@ -122,7 +120,7 @@ class Car(object):
         self.Length = 30;
 
 @subset(Car)
-class InactiveCar(Car):
+class InactiveCar(Car.Class()):
     @staticmethod
     def __query__(cars):
         return [c for c in cars if InactiveCar.__predicate__(c)]
@@ -136,7 +134,7 @@ class InactiveCar(Car):
         self.Velocity = Vector3(self.SPEED, 0, 0)
 
 @subset(Car)
-class ActiveCar(Car):
+class ActiveCar(Car.Class()):
     @staticmethod
     def __query__(cars):  # @DontTrace
         return [c for c in cars if ActiveCar.__predicate__(c)]
@@ -220,7 +218,7 @@ class Pedestrian(object):
 
 
 @subset(Pedestrian)
-class StoppedPedestrian(Pedestrian):
+class StoppedPedestrian(Pedestrian.Class()):
     @staticmethod
     def __query__(peds):
         return [p for p in peds if StoppedPedestrian.__predicate__(p)]
@@ -236,7 +234,7 @@ class StoppedPedestrian(Pedestrian):
 
 
 @subset(Pedestrian)
-class Walker(Pedestrian):
+class Walker(Pedestrian.Class()):
     @staticmethod
     def __query__(peds):
         return [p for p in peds if Walker.__predicate__(p)]
@@ -251,9 +249,9 @@ class Walker(Pedestrian):
       select p;
     """
 
-@parameterize(Car)
+@parameter(Car)
 @subset(Pedestrian)
-class PedestrianInDanger(Pedestrian):
+class PedestrianInDanger(Pedestrian.Class()):
     def distance(self, p1, p2):
         return abs(self.p1.X - self.p2.X);
         #return Math.Sqrt(Math.Pow(Math.Abs(p1.X -p2.X), 2) +

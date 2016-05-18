@@ -234,7 +234,7 @@ class FrameServer(object):
         self.api.add_resource(GetAllTracked, '/<string:sim>/tracked')
         self.api.add_resource(Register, '/<string:sim>')
         server = self
-        self.app.run(port=12000, debug=False, threaded = True)
+        self.app.run(port=12000, debug=False, threaded=True)
 
     def shutdown(self):
         FrameServer.Shutdown = True

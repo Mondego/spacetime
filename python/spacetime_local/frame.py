@@ -36,7 +36,7 @@ class SpacetimeConsole(cmd.Cmd):
 
 class frame(IFrame):
     framelist = []
-    def __init__(self, address = "http://localhost:12000/", time_step = 500):
+    def __init__(self, address = "http://127.0.0.1:12000/", time_step = 500):
         frame.framelist.append(self)
         self.__app = None
         self.__typemap = {}

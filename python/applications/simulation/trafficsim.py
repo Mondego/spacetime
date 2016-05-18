@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 LOG_HEADER = "[TRAFFIC]"
 
 
-@Producer(Car)
+@Producer(Car, host = 'http://127.0.0.1:12000')
 @GetterSetter(InactiveCar, ActiveCar)
 class TrafficSimulation(IApplication):
     '''

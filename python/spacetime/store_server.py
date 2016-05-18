@@ -176,15 +176,9 @@ class Register(Resource):
         typemap = json.loads(data)["sim_typemap"]
         FrameServer.Store.register_app(sim, typemap, FrameServer.name2class, FrameServer.name2baseclasses)
 
-def SetupLoggers(log_level) :
+def SetupLoggers(debug) :
     global logger
-    if log_level == None:
-        logl = logging.INFO
-    elif log_level.lower() == "info":
-        logl = logging.INFO
-    elif log_level.lower() == "warning":
-        logl = logging.WARNING
-    elif log_level.lower() == "debug":
+    if debug:
         logl = logging.DEBUG
     else:
         logl = logging.INFO
@@ -217,9 +211,9 @@ class FrameServer(object):
     name2class = dict([(tp.Class().__name__, tp) for tp in DATAMODEL_TYPES])
     name2baseclasses = dict([(tp.Class().__name__, tp.__pcc_bases__) for tp in DATAMODEL_TYPES])
     Shutdown = False
-    def __init__(self, log_level):
+    def __init__(self, port, debug):
         global server
-        SetupLoggers(log_level)
+        SetupLoggers(debug)
         logging.info("Log level is " + str(logger.level))
         self.app = app
         self.api = api
@@ -234,7 +228,7 @@ class FrameServer(object):
         self.api.add_resource(GetAllTracked, '/<string:sim>/tracked')
         self.api.add_resource(Register, '/<string:sim>')
         server = self
-        self.app.run(port=12000, debug=False, threaded=True)
+        self.app.run(port=port, debug=False, threaded=True)
 
     def shutdown(self):
         FrameServer.Shutdown = True

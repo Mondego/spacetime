@@ -1,11 +1,7 @@
 # Spacetime Framework
 ===========
-Python version required: Python 2.7
+A framework for developing time-stepped, multi-worker applications based on the tuplespace model. Workers compute within spacetimed frames -- 
+a fixed portion of the shared data during a fixed period of time. The locally modified data may be pushed back to the shared store
+at the end of each step.
 
-Required packages to be installed:
-
-1. pygame
-2. flask
-3. flask_restful
-4. requests
-5. pcc (Wheel file included. Install using pip: ``pip install python/pcc-0.0.4-py2-none-any.whl``)
+The first implementation of spacetime is in Python.

@@ -12,6 +12,7 @@ from flask_restful import Api, Resource, reqparse
 from common.recursive_dictionary import RecursiveDictionary
 from common.converter import create_complex_obj, create_jsondict
 from datamodel.all import DATAMODEL_TYPES
+import pcc
 import json
 import os
 import sys
@@ -157,11 +158,11 @@ class dataframe(object):
         try:
             if len(universe) == 1:
                 universe = universe[0]
-            pcc_bind = pcctype(universe = st_dataframe(universe), params = param_list)
-            pcc_bind.create_snapshot()
+            pcc_objects = pcc.create(pcctype, universe, params = param_list)
         except TypeError, e:
+            logging.warn("Exception in __make_pcc: " + e.message)
             return []
-        return [self.__set_id_if_none(pcctype.Class(), create_jsondict(obj)) for obj in pcc_bind.All()]
+        return [self.__set_id_if_none(pcctype.Class(), create_jsondict(obj)) for obj in pcc_objects]
 
     def __construct_pccs(self, objs, pcctypelist, completed, pccs):
         incomplete = set(pcctypelist)

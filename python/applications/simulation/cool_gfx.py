@@ -33,7 +33,7 @@ class CarSprite(pygame.sprite.Sprite):
         self.car_position = car.Position
         self.car_old_position = car.Position
         pygame.sprite.Sprite.__init__(self)
-        self.image, self.rect = load_image('applications/simulation/images/car-small.gif',-1)
+        self.image, self.rect = load_image('images/car-small.gif',-1)
         self.rect.move_ip((self.car_position.X, self.car_position.Y))
 
     def update(self):
@@ -48,7 +48,7 @@ class PedestrianSprites(pygame.sprite.Sprite):
         self.ped_X, self.ped_Y = ped.X, ped.Y
         self.ped_oldX, self.ped_oldY = ped.X, ped.Y
         pygame.sprite.Sprite.__init__(self)
-        self.image, self.rect = load_image('applications/simulation/images/man-walking-small.gif',-1)
+        self.image, self.rect = load_image('images/man-walking-small.gif',-1)
         self.rect.move_ip((self.ped_X, self.ped_Y))
 
     def update(self):

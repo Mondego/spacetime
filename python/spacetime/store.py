@@ -156,9 +156,7 @@ class dataframe(object):
                 param_list.append(pobjs[tp])
 
         try:
-            if len(universe) == 1:
-                universe = universe[0]
-            pcc_objects = pcc.create(pcctype, universe, params = param_list)
+            pcc_objects = pcc.create(pcctype, *universe, params = param_list)
         except TypeError, e:
             logging.warn("Exception in __make_pcc: " + e.message)
             return []

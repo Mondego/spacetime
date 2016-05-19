@@ -193,9 +193,11 @@ class LoadOsm(handler.ContentHandler):
             if(self.storeMap):
                 wayType = self.WayType(self.tags)
                 if(wayType):
-                    self.ways.append({ \
+                    tags = { \
                       't':wayType,
-                      'n':self.waynodes})
+                      'n':self.waynodes}
+                    tags.update(self.tags)
+                    self.ways.append(tags)
 
     def addLink(self,fr,to, routeType, weight=1):
         """Add a routeable edge to the scenario"""

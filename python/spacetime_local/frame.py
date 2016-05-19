@@ -195,7 +195,7 @@ class frame(IFrame):
         if obj.__class__ in self.__typemap["producing"]:
             self.object_store.insert(obj)
         else:
-            raise Exception("Application does not annotate type %s" % (
+            raise Exception("Application is not a producer of type %s" % (
                 obj.__class__.Class()))
 
     def delete(self, tp, obj):

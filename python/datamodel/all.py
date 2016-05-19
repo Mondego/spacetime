@@ -30,5 +30,7 @@ DATAMODEL_TYPES = [
                                         ResidentialNode,
                                         Node,
                                         RouteRequest,
-                                        Route
+                                        Route,
+                                        Road,
+                                        Edge
                                 ]

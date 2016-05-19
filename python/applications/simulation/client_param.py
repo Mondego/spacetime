@@ -40,9 +40,9 @@ class Simulation(object):
 
         frame_car.run_async()
         frame_ped.run_async()
-        gfx_frame.run_async()
+        gfx_frame.run_main()
 
-        frame.loop()
+        #frame.loop()
 
 def SetupLoggers():
     global logger

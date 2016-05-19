@@ -37,7 +37,7 @@ class SpacetimeConsole(cmd.Cmd):
 
 class frame(IFrame):
     framelist = []
-    def __init__(self, address = "http://127.0.0.1:12000/", time_step = 500):
+    def __init__(self, address="http://127.0.0.1:12000/", time_step=500):
         frame.framelist.append(self)
         self.__app = None
         self.__host_typemap = {}
@@ -47,7 +47,7 @@ class frame(IFrame):
         if not address.endswith('/'):
             address += '/'
         self.__address = address
-        self._time_step = (float(time_step)/1000)
+        self._time_step = (float(time_step) / 1000)
         self.__new = {}
         self.__mod = {}
         self.__del = {}
@@ -61,8 +61,7 @@ class frame(IFrame):
         all_types = set()
         for host in self.__host_typemap:
             jobj = dict([(k, [tp.Class().__name__ for tp in v]) for k, v in self.__host_typemap[host].items()])
-            producing, getting, gettingsetting, deleting, setting, tracking = (
-                self.__host_typemap[host].setdefault("producing", set()),
+            producing, getting, gettingsetting, deleting, setting, tracking = (self.__host_typemap[host].setdefault("producing", set()),
                 self.__host_typemap[host].setdefault("getting", set()),
                 self.__host_typemap[host].setdefault("gettingsetting", set()),
                 self.__host_typemap[host].setdefault("deleting", set()),
@@ -74,21 +73,18 @@ class frame(IFrame):
             self.__typemap.setdefault("deleting", set()).update(deleting)
             self.__typemap.setdefault("setting", set()).update(setting)
             self.__typemap.setdefault("tracking", set()).update(tracking)
-            
+
             all_types_host = tracking.union(producing).union(getting).union(gettingsetting).union(deleting).union(setting)
             all_types.update(all_types_host)
             self.__observed_types.update(all_types_host)
-            self.__observed_types_new.update(self.__host_typemap[host]["tracking"].union(
-                                              self.__host_typemap[host]["getting"]).union(
-                                              self.__host_typemap[host]["gettingsetting"]))
+            self.__observed_types_new.update(self.__host_typemap[host]["tracking"].union(self.__host_typemap[host]["getting"]).union(self.__host_typemap[host]["gettingsetting"]))
 
-            self.__observed_types_mod.update(self.__host_typemap[host]["getting"].union(
-                                              self.__host_typemap[host]["gettingsetting"]))
+            self.__observed_types_mod.update(self.__host_typemap[host]["getting"].union(self.__host_typemap[host]["gettingsetting"]))
 
             jsonobj = json.dumps({"sim_typemap": jobj})
             requests.put(host,
-                     data = jsonobj,
-                     headers = {'content-type': 'application/json'})
+                         data = jsonobj,
+                         headers = {'content-type': 'application/json'})
         self.__name2type = dict([(tp.Class().__name__, tp) for tp in all_types])
         self.object_store.add_types(all_types)
         return 
@@ -96,6 +92,13 @@ class frame(IFrame):
     @staticmethod
     def loop():
         SpacetimeConsole().cmdloop()
+
+    def get_timestep(self):
+        """
+        Returns the time-step value in milliseconds.
+        """
+        return self._time_step
+
 
     def attach_app(self, app):
         """
@@ -159,13 +162,14 @@ class frame(IFrame):
             end_time = time.time()
             #take3 = end_time - take2t
             timespent = end_time - st_time
-            #print self.__app.__class__.__name__, take1, take2, take3, timespent
+            #print self.__app.__class__.__name__, take1, take2, take3,
+            #timespent
             if timespent < self._time_step:
                 time.sleep(float(self._time_step - timespent))
 
         self._shutdown()
 
-    def get(self, tp, id = None):
+    def get(self, tp, id=None):
         """
         Retrieves objects from local data storage. If id is provided, returns
         the object identified by id. Otherwise, returns the list of all objects
@@ -184,8 +188,7 @@ class frame(IFrame):
                 return self.object_store.get_one(tp, id)
             return self.object_store.get(tp)
         else:
-            raise Exception("Application does not annotate type %s" % (
-                tp.Class()))
+            raise Exception("Application does not annotate type %s" % (tp.Class()))
 
     def add(self, obj):
         """
@@ -200,8 +203,7 @@ class frame(IFrame):
         if obj.__class__ in self.__typemap["producing"]:
             self.object_store.insert(obj)
         else:
-            raise Exception("Application does not annotate type %s" % (
-                obj.__class__.Class()))
+            raise Exception("Application is not a producer of type %s" % (obj.__class__.Class()))
 
     def delete(self, tp, obj):
         """
@@ -218,8 +220,7 @@ class frame(IFrame):
         if tp in self.__typemap["deleting"]:
             self.object_store.delete(tp, obj)
         else:
-            raise Exception("Application is not registered to delete %s" % (
-                tp.Class()))
+            raise Exception("Application is not registered to delete %s" % (tp.Class()))
 
     def get_new(self, tp):
         """
@@ -295,12 +296,10 @@ class frame(IFrame):
         new_objs, mod_objs, deleted_objs = {}, {}, {}
         for tp in new:
             typeObj = self.__name2type[tp]
-            self.object_store.frame_insert_all(typeObj, new[tp])
-            new_objs[typeObj] = self.get(typeObj)
+            new_objs[typeObj] = self.object_store.frame_insert_all(typeObj, new[tp])
         for tp in mod:
             typeObj = self.__name2type[tp]
-            self.object_store.update_all(typeObj, mod[tp])
-            mod_objs[typeObj] = self.get(typeObj)
+            mod_objs[typeObj] = self.object_store.update_all(typeObj, mod[tp])
         for tp in deleted:
             typeObj = self.__name2type[tp]
             objlist = []
@@ -315,18 +314,18 @@ class frame(IFrame):
         final_resp = RecursiveDictionary()
         for host in self.__host_typemap:
             resp = requests.get(host + "/tracked", data = {
-                "get_types":
-                json.dumps({"types": [tp.Class().__name__ for tp in list(self.__typemap["tracking"])]})
+            "get_types":
+            json.dumps({"types": [tp.Class().__name__ for tp in list(self.__typemap["tracking"])]})
               })
             final_resp.rec_update(resp.json())
             resp = requests.get(host + "/updated", data = {
-                "get_types":
-                json.dumps({
-                    "types":
-                    [tp.Class().__name__
-                     for tp in list(self.__typemap["getting"].union(self.__typemap["gettingsetting"]))]
-                  })
+            "get_types":
+            json.dumps({
+                "types":
+                [tp.Class().__name__
+                 for tp in list(self.__typemap["getting"].union(self.__typemap["gettingsetting"]))]
               })
+          })
             final_resp.rec_update(resp.json())
 
         self.__process_pull_resp(final_resp)
@@ -347,6 +346,8 @@ class frame(IFrame):
             for tp in self.__host_typemap[host]["deleting"]:
                 if tp.Class() in changes["deleted"]:
                     update_dict.setdefault(tp.Class().__name__, {"new": {}, "mod": {}, "deleted": []})["deleted"].extend(changes["deleted"][tp.Class()])
+                    #print "deleting ", tp.Class().__name__,
+                    #update_dict[tp.Class().__name__]["deleted"]
             for tp in update_dict:
                 package = {"update_dict": json.dumps(update_dict[tp])}
                 requests.post(host + "/" + tp, json = package)
@@ -366,7 +367,7 @@ class frame(IFrame):
         logger.debug("Starting logger for %s",name)
         return logger
         #logging.getLogger('requests').setLevel(logging.WARNING)
-
+        
 def shutdown():
     import sys
     print "Shutting down all applications..."

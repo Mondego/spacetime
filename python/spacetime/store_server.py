@@ -4,20 +4,22 @@ Created on Feb 19, 2016
 author: arthurvaladares, Rohan Achar
 '''
 from functools import wraps
+import json
+import logging, logging.handlers
+import os
+import signal
+import sys
+from threading import Timer
+import time
+import urllib2
+
 from flask import Flask, request
 from flask.helpers import make_response
 from flask_restful import Api, Resource, reqparse
-import json
-import os
-import sys
-import signal
-import logging, logging.handlers
-import urllib2
-import time
-
-from store import *
 
 from datamodel.all import DATAMODEL_TYPES
+from store import *
+
 
 parser = reqparse.RequestParser()
 parser.add_argument('update_dict')
@@ -49,6 +51,7 @@ def handle_exceptions(f):
     @wraps(f)
     def wrapped(*args, **kwds):
         try:
+            FrameServer.app_gc_timers[kwds["sim"]] = time.time()
             ret = f(*args, **kwds)
         except Exception, e:
             logger.exception("Exception handling function %s:", f.func_name)
@@ -72,6 +75,7 @@ class GetAllUpdated(Resource):
         ret["new"] = all_new
         ret["updated"] = all_updated
         ret["deleted"] = all_deleted
+
         return ret
 
 class GetAllTracked(Resource):
@@ -90,6 +94,7 @@ class GetAllTracked(Resource):
         ret["new"] = all_new
         ret["updated"] = all_updated
         ret["deleted"] = all_deleted
+
         return ret
 
 class GetUpdated(Resource):
@@ -101,6 +106,7 @@ class GetUpdated(Resource):
         ret["new"] = new
         ret["updated"] = updated
         ret["deleted"] = deleted
+
         return ret
 
 class GetTracked(Resource):
@@ -112,6 +118,7 @@ class GetTracked(Resource):
         ret["new"] = new
         ret["updated"] = updated
         ret["deleted"] = deleted
+
         return ret
 
 
@@ -124,6 +131,7 @@ class GetPushType(Resource):
         ret["new"] = new
         ret["updated"] = mod
         ret["deleted"] = deleted
+
         return ret
 
     @handle_exceptions
@@ -146,6 +154,7 @@ class GetPushType(Resource):
         update_dict = json.loads(data)
         new, mod, deleted = update_dict["new"], update_dict["mod"], update_dict["deleted"]
         FrameServer.Store.put_update(sim, typeObj, new, mod, deleted)
+
         return {}
 
 class GetInsertDeleteObject(Resource):
@@ -211,6 +220,11 @@ class FrameServer(object):
     name2class = dict([(tp.Class().__name__, tp) for tp in DATAMODEL_TYPES])
     name2baseclasses = dict([(tp.Class().__name__, tp.__pcc_bases__) for tp in DATAMODEL_TYPES])
     Shutdown = False
+    app_gc_timers = {}
+
+    # Garbage collection
+    disconnect_timer = None
+    timeout = 30.0
     def __init__(self, port, debug):
         global server
         SetupLoggers(debug)
@@ -228,7 +242,28 @@ class FrameServer(object):
         self.api.add_resource(GetAllTracked, '/<string:sim>/tracked')
         self.api.add_resource(Register, '/<string:sim>')
         server = self
+        FrameServer.start_timer()
         self.app.run(port=port, debug=False, threaded=True)
+
+    ##################################################################
+    ## Client disconnect timeout + Garbage Collection
+    ##################################################################
+    @classmethod
+    def start_timer(cls):
+        cls.disconnect_timer = Timer(cls.timeout, cls.check_disconnect, ())
+        cls.disconnect_timer.start()
+
+    @classmethod
+    def check_disconnect(cls):
+        for sim in cls.app_gc_timers.keys():
+            if time.time() - cls.app_gc_timers[sim] > cls.timeout:
+                cls.disconnect(sim)
+        cls.start_timer()
+
+    @classmethod
+    def disconnect(cls, sim):
+        cls.Store.gc(sim)
+        del cls.app_gc_timers[sim]
 
     def shutdown(self):
         FrameServer.Shutdown = True

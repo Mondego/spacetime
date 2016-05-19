@@ -8,12 +8,15 @@ from common.recursive_dictionary import RecursiveDictionary
 from pcc.attributes import spacetime_property
 from threading import currentThread
 from common.converter import create_jsondict, create_tracking_obj
+import logging
 
 spacetime_property.GLOBAL_TRACKER = True
+
 class _container():
     pass
 class store(object):
     def __init__(self):
+        self.logger = logging.getLogger(__name__)
         self.__objects = RecursiveDictionary()
         self._changes = RecursiveDictionary({"new": RecursiveDictionary(), "deleted": RecursiveDictionary()})
         self.__deleted = set()
@@ -38,10 +41,13 @@ class store(object):
         obj.__primarykey__ = id
         self.__objects.setdefault(tp, RecursiveDictionary())[id] = obj
         obj.__start_tracking__ = True
+        return obj
 
     def frame_insert_all(self, tp, objjsons):
+        ret = []
         for id, obj in objjsons.items():
-            self.frame_insert(tp, id, obj)
+            ret.append(self.frame_insert(tp, id, obj))
+        return ret
 
     def insert(self, obj):
         objjson = create_jsondict(obj)
@@ -56,7 +62,9 @@ class store(object):
                 if hasattr(obj, dimension._name):
                     setattr(new_obj, dimension._name, getattr(obj, dimension._name))
             self.__objects.setdefault(new_obj.__class__, RecursiveDictionary()).setdefault(new_obj.__primarykey__, []).append(new_obj)
-
+        if (hasattr(obj, "__dependent_type__")):
+            obj.__class__ = obj.Class()
+        obj.__start_tracking__ = True
 
     def insert_all(self, objs):
         for obj in objs:
@@ -78,7 +86,7 @@ class store(object):
                 self.__objects[tp] = RecursiveDictionary()
 
     def clear_changes(self):
-        self._changes["new"] = RecursiveDictionary.fromkeys(self._changes["new"], RecursiveDictionary())
+        self._changes["new"].clear()
         if currentThread().getName() in spacetime_property.change_tracker:
             spacetime_property.change_tracker[currentThread().getName()].clear()
         for tp, obj in self.__deleted:
@@ -93,19 +101,31 @@ class store(object):
             for id in self._changes["deleted"][tp]:
                 if tp in mod and id in mod[tp]:
                     del mod[tp][id]
+        for tp in self._changes["new"]:
+            for id in self._changes["new"][tp]:
+                if tp in mod and id in mod[tp]:
+                    del mod[tp][id]
         return {"mod": mod, "new": self._changes["new"], "deleted": self._changes["deleted"]}
 
 
     def update(self, tp, id, updatejson):
-        objjson = create_jsondict(self.get_one(tp, id))
-        objjson.rec_update(updatejson)
-        starttracking = False
-        self.__objects[tp][id].__dict__.update(create_tracking_obj(tp, objjson, self.__objects, starttracking, False).__dict__)
-        starttracking = True
+        try:
+            objjson = create_jsondict(self.get_one(tp, id))
+            objjson.rec_update(updatejson)
+            self.__objects[tp][id].__dict__.update(create_tracking_obj(tp, objjson, self.__objects, False, False).__dict__)
+            self.__objects[tp][id].__start_tracking__ = True
+            return self.__objects[tp][id]
+        except:
+            self.logger.debug("could not update %s: not found in store.", id)
+            return None
 
     def update_all(self, tp, updatejsons):
+        ret = []
         for id, updatejson in updatejsons.items():
-            self.update(tp, id, updatejson)
+            obj = self.update(tp, id, updatejson)
+            if obj is not None:
+                ret.append(obj)
+        return ret
 
     def clear_incoming_record(self):
         self.__incoming_new = {}
@@ -114,11 +134,9 @@ class store(object):
 
     def create_incoming_record(self, new, mod, deleted):
         for tp in new:
-            self.__incoming_new.setdefault(tp, []).extend(self.__objects[tp].values())
+            self.__incoming_new.setdefault(tp, []).extend(new[tp])
         for tp in mod:
-            self.__incoming_mod.setdefault(tp, []).extend(
-                [obj for obj in self.__objects[tp].values() if obj not in self.__incoming_new[tp]]
-              )
+            self.__incoming_mod.setdefault(tp, []).extend(mod[tp])
         for tp in deleted:
             self.__incoming_del.setdefault(tp, []).extend(deleted[tp])
 

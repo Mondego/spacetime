@@ -135,13 +135,13 @@ if __name__ == "__main__":
     data = LoadOsm(sys.argv[1])
 
     try:
-        transport = sys.argv[4]
+        nodes = sys.argv[4]
     except IndexError:
-        transport = 'cycle'
-        print "WARNING: No transport type specified, assuming \"%s\"" % transport
+        nodes = "latlong"
+        print "WARNING: Nodes / Lat|Long not specified, assuming lat/long \"%s\"" % "car"
 
     router = Router(data)
-    result, route = router.doRouteAsLL(int(sys.argv[2]), int(sys.argv[3]), transport)
+    result, route = router.doRouteAsLL(int(sys.argv[2]), int(sys.argv[3]), "car", nodes)
 
     if result == 'success':
         print "Route: %s" % route

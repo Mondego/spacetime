@@ -3,7 +3,7 @@ Created on Dec 15, 2015
 
 @author: arthurvaladares
 '''
-
+from __future__ import absolute_import
 import logging
 from pcc.join import join
 from pcc.subset import subset
@@ -11,48 +11,14 @@ from pcc.parameter import parameter
 from pcc.projection import projection
 from pcc.set import pcc_set
 from pcc.attributes import dimension, primarykey
-from random import randrange
+from random import randrange, choice
 
 import traceback
+from datamodel.common.datamodel import Vector3, Color
 
 
 logger = logging.getLogger(__name__)
 LOG_HEADER = "[DATAMODEL]"
-class Color:
-    Red = 0
-    Green = 1
-    Blue = 2
-    Yellow = 3
-    Black = 4
-    White = 5
-    Grey = 6
-
-#Vector3 = namedtuple("Vector3", ['X', 'Y', 'Z'])
-class Vector3(object):
-    X = 0
-    Y = 0
-    Z = 0
-
-    def __init__(self, X, Y, Z):
-        self.X = X
-        self.Y = Y
-        self.Z = Z
-
-    def __json__(self):
-        return self.__dict__
-
-    def __str__(self):
-        return self.__dict__.__str__()
-
-    def __eq__(self, other):
-        return (isinstance(other, Vector3) and (other.X == self.X and other.Y == self.Y and other.Z == self.Z))
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    @staticmethod
-    def __decode__(dic):
-        return Vector3(dic['X'], dic['Y'], dic['Z'])
 
 @pcc_set
 class Car_akshatp(object):

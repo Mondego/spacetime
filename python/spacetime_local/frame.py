@@ -18,6 +18,7 @@ from IFrame import IFrame
 
 import logging
 from logging import NullHandler
+from common.recursive_dictionary import RecursiveDictionary
 
 class SpacetimeConsole(cmd.Cmd):
     """Command console interpreter for frame."""
@@ -91,6 +92,13 @@ class frame(IFrame):
     @staticmethod
     def loop():
         SpacetimeConsole().cmdloop()
+
+    def get_timestep(self):
+        """
+        Returns the time-step value in milliseconds.
+        """
+        return self._time_step
+
 
     def attach_app(self, app):
         """
@@ -195,7 +203,7 @@ class frame(IFrame):
         if obj.__class__ in self.__typemap["producing"]:
             self.object_store.insert(obj)
         else:
-            raise Exception("Application does not annotate type %s" % (
+            raise Exception("Application is not a producer of type %s" % (
                 obj.__class__.Class()))
 
     def delete(self, tp, obj):
@@ -290,12 +298,10 @@ class frame(IFrame):
         new_objs, mod_objs, deleted_objs = {}, {}, {}
         for tp in new:
             typeObj = self.__name2type[tp]
-            self.object_store.frame_insert_all(typeObj, new[tp])
-            new_objs[typeObj] = self.get(typeObj)
+            new_objs[typeObj] = self.object_store.frame_insert_all(typeObj, new[tp])
         for tp in mod:
             typeObj = self.__name2type[tp]
-            self.object_store.update_all(typeObj, mod[tp])
-            mod_objs[typeObj] = self.get(typeObj)
+            mod_objs[typeObj] = self.object_store.update_all(typeObj, mod[tp])
         for tp in deleted:
             typeObj = self.__name2type[tp]
             objlist = []
@@ -307,12 +313,11 @@ class frame(IFrame):
 
     def __pull(self):
         self.object_store.clear_incoming_record()
-        resp = requests.get(self.__base_address + "/tracked", data = {
+        final_resp = RecursiveDictionary(requests.get(self.__base_address + "/tracked", data = {
             "get_types":
             json.dumps({"types": [tp.Class().__name__ for tp in list(self.__typemap["tracking"])]})
-          })
+          }).json())
 
-        self.__process_pull_resp(resp.json())
         resp = requests.get(self.__base_address + "/updated", data = {
             "get_types":
             json.dumps({
@@ -321,8 +326,8 @@ class frame(IFrame):
                  for tp in list(self.__typemap["getting"].union(self.__typemap["gettingsetting"]))]
               })
           })
-
-        self.__process_pull_resp(resp.json())
+        final_resp.rec_update(resp.json())
+        self.__process_pull_resp(final_resp)
 
     def __push(self):
         changes = self.object_store.get_changes()
@@ -339,6 +344,7 @@ class frame(IFrame):
         for tp in self.__typemap["deleting"]:
             if tp.Class() in changes["deleted"]:
                 update_dict.setdefault(tp.Class().__name__, {"new": {}, "mod": {}, "deleted": []})["deleted"].extend(changes["deleted"][tp.Class()])
+                #print "deleting ", tp.Class().__name__, update_dict[tp.Class().__name__]["deleted"]
         for tp in update_dict:
             package = {"update_dict": json.dumps(update_dict[tp])}
             requests.post(self.__base_address + "/" + tp, json = package)

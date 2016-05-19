@@ -109,8 +109,12 @@ class st_dataframe(object):
 # mod, new, delete are the three sets that have to be maintained for app.
 class dataframe(object):
     def __init__(self, ):
+        self.logger = logging.getLogger(__name__)
         self.__base_store = store()
         self.__apps = set()
+        # Dictionary for garbage collection of objects not deleted after
+        # simulation is gone
+        self.__gc = {}
 
         # app -> mod, new, deleted
         # mod, new : tp -> id -> object changes/full object
@@ -237,7 +241,7 @@ class dataframe(object):
                 self.__app_to_basechanges[app][tp] = (mod_t.fromkeys(mod_t, {})
                                                       if not tracked_only else mod_t,
                                                       {},
-                                                      set())
+                                                      [])
                 mod = {tp: mod_t} if mod_t else {}
                 new = {tp: new_t} if new_t else {}
                 deleted = {tp: deleted_t} if deleted_t else {}
@@ -258,39 +262,50 @@ class dataframe(object):
             isprojection = hasattr(tp, "__pcc_projection__") and tp.__pcc_projection__ == True
             return self.put_update(app, types[0], new if isprojection else {}, mod, set())
 
-    def __put_update(self, app, tp, new, mod, deleted):
+    def __put_update(self, this_app, tp, new, mod, deleted):
         other_apps = set()
         if tp in self.__base_store.get_base_types():
             if tp in self.__type_to_app:
-                other_apps = set(self.__type_to_app[tp])
+                other_apps = set(self.__type_to_app[tp]).difference(set([this_app]))
         for id in new:
             self.__base_store.put(tp, id, new[id])
+            if id not in self.__gc[this_app][tp]:
+                self.__gc[this_app][tp].add(id)
         for app in other_apps:
             with self.__copylock[app]:
                 self.__app_to_basechanges[app][tp][1].update(new)
 
-
+        other_apps = set()
         if tp in self.__base_store.get_base_types():
             if tp in self.__type_to_app:
-                other_apps = set(self.__type_to_app[tp])
+                other_apps = set(self.__type_to_app[tp]).difference(set([this_app]))
         for id in mod:
             self.__base_store.update(tp, id, mod[id])
         for app in other_apps:
             with self.__copylock[app]:
                 self.__app_to_basechanges[app][tp][0].update(mod)
 
-
+        other_apps = set()
         if tp in self.__base_store.get_base_types():
             if tp in self.__type_to_app:
-                other_apps = set(self.__type_to_app[tp])
+                other_apps = set(self.__type_to_app[tp]).difference(set([this_app]))
         for id in deleted:
             self.__base_store.delete(tp, id)
+            if id in self.__gc[this_app][tp]:
+                self.__gc[this_app][tp].remove(id)
         for app in other_apps:
             with self.__copylock[app]:
-                self.__app_to_basechanges[app][tp][2].difference_update(set(deleted))
+                for id in deleted:
+                    if id in self.__app_to_basechanges[app][tp][0]:
+                        del self.__app_to_basechanges[app][tp][0][id]
+                    if id in self.__app_to_basechanges[app][tp][1]:
+                        del self.__app_to_basechanges[app][tp][1][id]
+                    self.__app_to_basechanges[app][tp][2].append(id)
 
     def register_app(self, app, typemap, name2class, name2baseclasses):
         self.__apps.add(app)
+        # Setup structure for garbage collectionf
+        self.__gc[app] = {}
         producer, deleter, tracker, getter, gettersetter, setter = (
             set(typemap.setdefault("producing", set())),
             set(typemap.setdefault("deleting", set())),
@@ -302,7 +317,7 @@ class dataframe(object):
         self.__copylock[app] = Lock()
         with self.__copylock[app]:
             self.__app_to_basechanges[app] = {}
-            mod, new, deleted = ({}, {}, {})
+            mod, new, deleted = ({}, {}, [])
             base_types = set()
             for str_tp in set(tracker).union(
                                              set(getter)).union(
@@ -312,7 +327,7 @@ class dataframe(object):
                 logging.debug("register " + str_tp + " by " + str(app) + " " + str(tp))
                 mod = {}
                 new = {}
-                deleted = set()
+                deleted = []
                 if tp.__PCC_BASE_TYPE__:
                     base_types.add(tp)
                     self.__app_to_basechanges[app][tp] = (mod, new, deleted)
@@ -325,9 +340,11 @@ class dataframe(object):
                         self.__type_to_app.setdefault(base, set()).add(app)
                     self.__app_to_dynamicpcc.setdefault(app, set()).add(tp)
                 self.__type_to_app.setdefault(tp, set()).add(app)
+
             # Add producer and deleter types to base_store, but not to basechanges
             for str_tp in set(producer).union(set(deleter)):
                 tp = name2class[str_tp]
+                self.__gc[app][tp] = set()
                 if tp.__PCC_BASE_TYPE__:
                     base_types.add(tp)
                 else:
@@ -335,3 +352,11 @@ class dataframe(object):
                     for base in bases:
                         base_types.add(base)
             self.__base_store.add_types(base_types)
+
+    def gc(self, app):
+        self.logger.warn("Application %s disconnected. Removing owned objects.",
+                         app)
+        for tp in self.__gc[app]:
+            for oid in self.__gc[app][tp]:
+                self.__base_store.delete(tp, oid)
+        del self.__gc[app]

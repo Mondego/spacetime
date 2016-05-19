@@ -3,35 +3,13 @@ Created on Apr 28, 2016
 
 @author: Arthur Valadares
 '''
+from __future__ import absolute_import
+
 from pcc.set import pcc_set
 from pcc.attributes import primarykey, dimension
 from pcc.projection import projection
-
-class Vector3(object):
-    X = 0
-    Y = 0
-    Z = 0
-
-    def __init__(self, X, Y, Z):
-        self.X = X
-        self.Y = Y
-        self.Z = Z
-
-    def __json__(self):
-        return self.__dict__
-
-    def __str__(self):
-        return self.__dict__.__str__()
-
-    def __eq__(self, other):
-        return (isinstance(other, Vector3) and (other.X == self.X and other.Y == self.Y and other.Z == self.Z))
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    @staticmethod
-    def __decode__(dic):
-        return Vector3(dic['X'], dic['Y'], dic['Z'])
+import numpy as np
+from datamodel.common.datamodel import Vector3
 
 @pcc_set
 class Waypoint(object):
@@ -60,6 +38,155 @@ class Waypoint(object):
     @Wpid.setter
     def Wpid(self, value):
         self._Wpid = value
+
+@pcc_set
+class Edge(object):
+    '''
+    TODO
+    '''
+    @staticmethod
+    def EdgesFromRoads(roads):
+        edges = {}
+        for rd in roads:
+            wps = rd.Waypoints
+            for i in xrange(len(wps)-1):
+                ed = Edge()
+                ed.Source = wps[i]
+                ed.Destination = wps[i+1]
+                ed.Name = wps[i].Wpid + "=o=" + wps[i+1].Wpid
+                ed.Oneway = rd.Oneway
+                edges[ed.Name] = ed
+            if rd.Oneway == False:
+                for i in xrange(len(wps)-1, -1, -1):
+                    ed = Edge()
+                    ed.Source = wps[i]
+                    ed.Destination = wps[i-1]
+                    ed.Name = wps[i].Wpid + "=o=" + wps[i-1].Wpid
+                    ed.Oneway = rd.Oneway
+                    edges[ed.Name] = ed
+        return edges
+
+    # 3 meter offsets for two-way roads
+    _offset = 3
+    @dimension(Waypoint)
+    def Source(self):
+        return self._Source
+
+    @Source.setter
+    def Source(self, value):
+        self._Source = value
+
+    @dimension(Waypoint)
+    def Destination(self):
+        return self._Destination
+
+    @Destination.setter
+    def Destination(self, value):
+        self._Destination = value
+
+    @primarykey(str)
+    def Name(self):
+        return self._Name
+
+    @Name.setter
+    def Name(self, value):
+        self._Name = value
+
+    @dimension(bool)
+    def Oneway(self):
+        return self._Oneway
+
+    @Oneway.setter
+    def Oneway(self, value):
+        self._Oneway = value
+
+    def get_coordinates(self):
+        if self.Oneway == True:
+            return (self.Source.Location, self.Destination.Location)
+        elif hasattr(self, "_coordinates"):
+            return self._coordinates
+        else:
+            (x0,y0) = self.Source.Location.X,  self.Source.Location.Y
+            (x1,y1) = self.Destination.Location.X,  self.Destination.Location.Y
+
+            # normalize and multiply by offset
+            vec = np.array((x1-x0,y1-y0))
+            norm_vec = np.linalg.norm(vec)
+            normal_vec = vec/norm_vec
+
+            # offset normal ortogonal of vector
+            ovec = np.array((normal_vec[1], -normal_vec[0])) * self._offset
+
+            source_coord = ovec + (x0,y0)
+            parallel_coord = (normal_vec * norm_vec) + source_coord
+
+            self._coordinates = (
+                    Vector3(source_coord[0], source_coord[1],0) ,
+                    Vector3(parallel_coord[0], parallel_coord[1],0))
+            #print self._coordinates
+            return self._coordinates
+
+@pcc_set
+class Road(object):
+    '''
+    Description
+
+    A Road contains a list of Waypoints matching the roads in the original map.
+
+    Properties
+
+    ID: Primary key, automatically generated
+    Name: Name of the road
+    Waypoints: List of waypoints defining the road
+    Oneway: True if the road is one-way, false if not
+    Lanes: Number of lanes on the road
+    '''
+    @primarykey(str)
+    def ID(self):
+        return self._ID
+
+    @ID.setter
+    def ID(self, value):
+        self._ID = value
+
+    @dimension(str)
+    def Name(self):
+        return self._Name
+
+    @Name.setter
+    def Name(self, value):
+        self._Name = value
+
+    @dimension(list)
+    def Waypoints(self):
+        return self._Waypoints
+
+    @Waypoints.setter
+    def Waypoints(self, value):
+        self._Waypoints = value
+
+    @dimension(bool)
+    def Oneway(self):
+        return self._Oneway
+
+    @Oneway.setter
+    def Oneway(self, value):
+        self._Oneway = value
+
+    @dimension(int)
+    def Lanes(self):
+        return self._Lanes
+
+    @Lanes.setter
+    def Lanes(self, value):
+        self._Lanes = value
+
+    def __init__(self):
+        self.Lanes = 1
+        self.Waypoints = []
+        self.Name = ""
+        self.Oneway = True
+
 
 @pcc_set
 class Node(object):
@@ -92,17 +219,17 @@ class Node(object):
     def Name(self, value):
         self._Name = value
 
-    _Waypoint = None
     @dimension(Waypoint)
-    def Waypoint(self):
+    def WP(self):
         return self._Waypoint
 
-    @Waypoint.setter
-    def Waypoint(self, value):
-        self._Wapoint = value
+    @WP.setter
+    def WP(self, value):
+        self._Waypoint = value
 
     def __init__(self):
-        self.ID = None
+        self.Name = ""
+        self.WP = None
 
 @pcc_set
 class BusinessNode(Node.Class()):
@@ -123,7 +250,7 @@ class BusinessNode(Node.Class()):
 
     @BusinessType.setter
     def BusinessType(self, value):
-        self.BusinessType = value
+        self._BusinessType = value
 
 @pcc_set
 class ResidentialNode(Node.Class()):
@@ -151,6 +278,7 @@ class RouteRequest(object):
     Source: Source waypoint (set to None for random)
     Destination: Destination waypoint (set to None for random)
     Owner: A unique identifiable name so the application can track its result
+    Name: An optional name for the route
     '''
     @primarykey(str)
     def ID(self):
@@ -174,8 +302,6 @@ class RouteRequest(object):
 
     @Destination.setter
     def Destination(self, value):
-        if type(value) == RouteRequest:
-            pass
         self._Destination = value
 
     @dimension(str)
@@ -186,19 +312,33 @@ class RouteRequest(object):
     def Owner(self, value):
         self._Owner = value
 
+    @dimension(str)
+    def Name(self):
+        return self._Name
+
+    @Name.setter
+    def Name(self, value):
+        self._Name = value
+
+    def __init__(self):
+        self.Source = None
+        self.Destination = None
+        self.Owner = ""
+        self.Name = ""
+
 @pcc_set
 class Route(RouteRequest.Class()):
     '''
     Description
 
-    A Route describes source, destination, and a list of waypoints to get from
-    one to another. Route is created as a response to RouteRequest (see
-    RouteRequest).
+    A Route describes source, destination, and a list of Vector3 coordinates
+    to get from one to another. Route is created as a response to RouteRequest
+    (see RouteRequest).
 
 
     Properties
 
-    Waypoints: A list of Waypoint objects, describing the route from Source to
+    Waypoints: A list of Vector3 objects describing the route from Source to
     Destination point by point. Path between two points should be considered a
     straight line.
     '''

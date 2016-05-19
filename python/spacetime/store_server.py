@@ -4,21 +4,22 @@ Created on Feb 19, 2016
 author: arthurvaladares, Rohan Achar
 '''
 from functools import wraps
+import json
+import logging, logging.handlers
+import os
+import signal
+import sys
+from threading import Timer
+import time
+import urllib2
+
 from flask import Flask, request
 from flask.helpers import make_response
 from flask_restful import Api, Resource, reqparse
-import json
-import os
-import sys
-import signal
-import logging, logging.handlers
-import urllib2
-import time
-
-from store import *
 
 from datamodel.all import DATAMODEL_TYPES
-from threading import Timer
+from store import *
+
 
 parser = reqparse.RequestParser()
 parser.add_argument('update_dict')
@@ -201,16 +202,21 @@ class Register(Resource):
         typemap = json.loads(data)["sim_typemap"]
         FrameServer.Store.register_app(sim, typemap, FrameServer.name2class, FrameServer.name2baseclasses)
 
-def SetupLoggers() :
+def SetupLoggers(debug) :
     global logger
+    if debug:
+        logl = logging.DEBUG
+    else:
+        logl = logging.INFO
+
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logl)
     folder = os.path.join(os.path.dirname(__file__), "../logs/")
     if not os.path.exists(folder):
         os.mkdir(folder)
     logfile = filename = os.path.join(folder, "frameserver.log")
     flog = logging.handlers.RotatingFileHandler(logfile, maxBytes=10 * 1024 * 1024, backupCount=50, mode='w')
-    flog.setLevel(logging.WARN)
+    flog.setLevel(logl)
     flog.setFormatter(logging.Formatter('%(levelname)s [%(name)s] %(message)s'))
     logger.addHandler(flog)
 
@@ -232,10 +238,11 @@ class FrameServer(object):
     name2baseclasses = dict([(tp.Class().__name__, tp.__pcc_bases__) for tp in DATAMODEL_TYPES])
     Shutdown = False
     app_gc_timers = {}
-    timeout = 1000.0
-    def __init__(self):
+    timeout = 30.0
+    def __init__(self, port, debug):
         global server
-        SetupLoggers()
+        SetupLoggers(debug)
+        logging.info("Log level is " + str(logger.level))
         self.app = app
         self.api = api
         FrameServer.app = app
@@ -249,7 +256,7 @@ class FrameServer(object):
         self.api.add_resource(GetAllTracked, '/<string:sim>/tracked')
         self.api.add_resource(Register, '/<string:sim>')
         server = self
-        self.app.run(port=12000, debug=False, threaded = True)
+        self.app.run(port=port, debug=False, threaded=True)
 
     def shutdown(self):
         FrameServer.Shutdown = True

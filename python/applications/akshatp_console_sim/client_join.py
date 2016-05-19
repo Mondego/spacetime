@@ -30,14 +30,14 @@ class Simulation(object):
         frame_car.attach_app(TrafficSimulation(frame_car))
 
         frame_ped = frame(time_step=1000)
-        frame_ped.attach_app(PedestrianSimulation(frame_ped))
+        #frame_ped.attach_app(PedestrianSimulation(frame_ped))
 
         con_frame = frame(time_step=500)
-        con_frame.attach_app(ConsoleSimulation(con_frame))
+        #con_frame.attach_app(ConsoleSimulation(con_frame))
 
         frame_car.run_async()
-        frame_ped.run_async()
-        con_frame.run_async()
+        #frame_ped.run_async()
+        #con_frame.run_async()
 
         frame.loop()
 

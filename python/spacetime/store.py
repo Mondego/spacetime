@@ -240,7 +240,7 @@ class dataframe(object):
                 self.__app_to_basechanges[app][tp] = (mod_t.fromkeys(mod_t, {})
                                                       if not tracked_only else mod_t,
                                                       {},
-                                                      set())
+                                                      [])
                 mod = {tp: mod_t} if mod_t else {}
                 new = {tp: new_t} if new_t else {}
                 deleted = {tp: deleted_t} if deleted_t else {}
@@ -261,44 +261,49 @@ class dataframe(object):
             isprojection = hasattr(tp, "__pcc_projection__") and tp.__pcc_projection__ == True
             return self.put_update(app, types[0], new if isprojection else {}, mod, set())
 
-    def __put_update(self, app, tp, new, mod, deleted):
+    def __put_update(self, this_app, tp, new, mod, deleted):
         other_apps = set()
         if tp in self.__base_store.get_base_types():
             if tp in self.__type_to_app:
-                other_apps = set(self.__type_to_app[tp])
+                other_apps = set(self.__type_to_app[tp]).difference(set([this_app]))
         for id in new:
             self.__base_store.put(tp, id, new[id])
-            if id not in self.__gc[app][tp]:
-                self.__gc[app][tp].add(id)
+            if id not in self.__gc[this_app][tp]:
+                self.__gc[this_app][tp].add(id)
         for app in other_apps:
             with self.__copylock[app]:
                 self.__app_to_basechanges[app][tp][1].update(new)
 
-
+        other_apps = set()
         if tp in self.__base_store.get_base_types():
             if tp in self.__type_to_app:
-                other_apps = set(self.__type_to_app[tp])
+                other_apps = set(self.__type_to_app[tp]).difference(set([this_app]))
         for id in mod:
             self.__base_store.update(tp, id, mod[id])
         for app in other_apps:
             with self.__copylock[app]:
                 self.__app_to_basechanges[app][tp][0].update(mod)
 
-
+        other_apps = set()
         if tp in self.__base_store.get_base_types():
             if tp in self.__type_to_app:
-                other_apps = set(self.__type_to_app[tp])
+                other_apps = set(self.__type_to_app[tp]).difference(set([this_app]))
         for id in deleted:
             self.__base_store.delete(tp, id)
-            if id in self.__gc[app][tp]:
-                self.__gc[app][tp].remove(id)
+            if id in self.__gc[this_app][tp]:
+                self.__gc[this_app][tp].remove(id)
         for app in other_apps:
             with self.__copylock[app]:
-                self.__app_to_basechanges[app][tp][2].difference_update(set(deleted))
+                for id in deleted:
+                    if id in self.__app_to_basechanges[app][tp][0]:
+                        del self.__app_to_basechanges[app][tp][0][id]
+                    if id in self.__app_to_basechanges[app][tp][1]:
+                        del self.__app_to_basechanges[app][tp][1][id]
+                    self.__app_to_basechanges[app][tp][2].append(id)
 
     def register_app(self, app, typemap, name2class, name2baseclasses):
         self.__apps.add(app)
-        # Setup structure for garbage collection
+        # Setup structure for garbage collectionf
         self.__gc[app] = {}
         producer, deleter, tracker, getter, gettersetter, setter = (
             set(typemap.setdefault("producing", set())),
@@ -311,7 +316,7 @@ class dataframe(object):
         self.__copylock[app] = Lock()
         with self.__copylock[app]:
             self.__app_to_basechanges[app] = {}
-            mod, new, deleted = ({}, {}, {})
+            mod, new, deleted = ({}, {}, [])
             base_types = set()
             for str_tp in set(tracker).union(
                                              set(getter)).union(
@@ -320,7 +325,7 @@ class dataframe(object):
                 tp = name2class[str_tp]
                 mod = {}
                 new = {}
-                deleted = set()
+                deleted = []
                 if tp.__PCC_BASE_TYPE__:
                     base_types.add(tp)
                     self.__app_to_basechanges[app][tp] = (mod, new, deleted)

@@ -14,6 +14,21 @@ class Vector3(object):
         self.Y = Y
         self.Z = Z
 
+    def AddVector(self, other) :
+        return Vector3(self.X + other.X, self.Y + other.Y, self.Z + other.Z)
+
+    # -----------------------------------------------------------------
+    def SubVector(self, other) :
+        return Vector3(self.X - other.X, self.Y - other.Y, self.Z - other.Z)
+
+    # -----------------------------------------------------------------
+    def ScaleConstant(self, factor) :
+        return Vector3(self.X * factor, self.Y * factor, self.Z * factor)
+
+    # -----------------------------------------------------------------
+    def ScaleVector(self, scale) :
+        return Vector3(self.X * scale.X, self.Y * scale.Y, self.Z * scale.Z)
+
     def __json__(self):
         return self.__dict__
 
@@ -26,10 +41,34 @@ class Vector3(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    # -----------------------------------------------------------------
+    def __add__(self, other) :
+        return self.AddVector(other)
+
+    # -----------------------------------------------------------------
+    def __sub__(self, other) :
+        return self.SubVector(other)
+
+    # -----------------------------------------------------------------
+    def __mul__(self, factor) :
+        return self.ScaleConstant(factor)
+
+    # -----------------------------------------------------------------
+    def __div__(self, factor) :
+        return self.ScaleConstant(1.0 / factor)
+
     @staticmethod
     def __decode__(dic):
         return Vector3(dic['X'], dic['Y'], dic['Z'])
 
+class Color:
+    Red = 0
+    Green = 1
+    Blue = 2
+    Yellow = 3
+    Black = 4
+    White = 5
+    Grey = 6
 
 @pcc_set
 class Vehicle(object):

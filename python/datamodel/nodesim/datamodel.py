@@ -3,36 +3,13 @@ Created on Apr 28, 2016
 
 @author: Arthur Valadares
 '''
+from __future__ import absolute_import
+
 from pcc.set import pcc_set
 from pcc.attributes import primarykey, dimension
 from pcc.projection import projection
 import numpy as np
-
-class Vector3(object):
-    X = 0
-    Y = 0
-    Z = 0
-
-    def __init__(self, X, Y, Z):
-        self.X = X
-        self.Y = Y
-        self.Z = Z
-
-    def __json__(self):
-        return self.__dict__
-
-    def __str__(self):
-        return self.__dict__.__str__()
-
-    def __eq__(self, other):
-        return (isinstance(other, Vector3) and (other.X == self.X and other.Y == self.Y and other.Z == self.Z))
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    @staticmethod
-    def __decode__(dic):
-        return Vector3(dic['X'], dic['Y'], dic['Z'])
+from datamodel.common.datamodel import Vector3
 
 @pcc_set
 class Waypoint(object):

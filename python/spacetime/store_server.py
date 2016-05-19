@@ -60,7 +60,7 @@ def handle_exceptions(f):
 def reset_timer(sim):
     FrameServer.app_gc_timers[sim].cancel()
     del FrameServer.app_gc_timers[sim]
-    FrameServer.app_gc_timers[sim] = Timer(30.0, disconnected, (sim,))
+    FrameServer.app_gc_timers[sim] = Timer(FrameServer.timeout, disconnected, (sim,))
     FrameServer.app_gc_timers[sim].start()
 
 class GetAllUpdated(Resource):
@@ -195,7 +195,7 @@ def disconnected(sim):
 class Register(Resource):
     @handle_exceptions
     def put(self, sim):
-        FrameServer.app_gc_timers[sim] = Timer(30.0, disconnected, (sim,))
+        FrameServer.app_gc_timers[sim] = Timer(FrameServer.timeout, disconnected, (sim,))
         FrameServer.app_gc_timers[sim].start()
         data = urllib2.unquote(request.data.replace("+", " "))
         typemap = json.loads(data)["sim_typemap"]
@@ -232,6 +232,7 @@ class FrameServer(object):
     name2baseclasses = dict([(tp.Class().__name__, tp.__pcc_bases__) for tp in DATAMODEL_TYPES])
     Shutdown = False
     app_gc_timers = {}
+    timeout = 1000.0
     def __init__(self):
         global server
         SetupLoggers()

@@ -30,7 +30,7 @@ class NodeTestSimulation(IApplication.IApplication):
         pass
 
     def update(self):
-        if self.step % 2 == 0:
+        if self.step % 5 == 0:
             # First route: from a random place to another random place
             req = RouteRequest()
             req.Owner = "NodeTestSimulation"
@@ -43,9 +43,6 @@ class NodeTestSimulation(IApplication.IApplication):
             resnodes = self.frame.get(ResidentialNode)
             bnodes = self.frame.get(BusinessNode)
 
-            for nd in resnodes + bnodes:
-                if not hasattr(nd, "_Waypoint"):
-                    self.logger.error("Missing waypoint in %s", nd.Name)
 
             if len(resnodes) > 0 and len(bnodes) > 0:
                 res_node = choice(resnodes)

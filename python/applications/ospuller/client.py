@@ -10,6 +10,7 @@ import logging.handlers
 import os
 import sys
 from applications.ospuller.ospuller import OpenSimPuller
+from applications.ospuller.testsim import OpenSimPullerTestSimulation
 
 sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
 
@@ -29,7 +30,11 @@ class Simulation(object):
         frameos = frame(time_step=200)
         frameos.attach_app(OpenSimPuller(frameos))
 
+        frametest = frame(time_step=200)
+        frametest.attach_app(OpenSimPullerTestSimulation(frametest))
+
         frameos.run_async()
+        frametest.run_async()
 
         frame.loop()
 

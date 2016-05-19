@@ -1,7 +1,6 @@
 from pcc.set import pcc_set
 from pcc.attributes import primarykey, dimension
 from pcc.projection import projection
-import numpy as np
 import uuid
 
 class Vector3(object):

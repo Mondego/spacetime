@@ -1,4 +1,4 @@
-'''
+﻿'''
 Created on Apr 28, 2016
 
 @author: Arthur Valadares
@@ -8,7 +8,6 @@ from __future__ import absolute_import
 from pcc.set import pcc_set
 from pcc.attributes import primarykey, dimension
 from pcc.projection import projection
-import numpy as np
 from datamodel.common.datamodel import Vector3
 
 @pcc_set
@@ -106,6 +105,7 @@ class Edge(object):
         elif hasattr(self, "_coordinates"):
             return self._coordinates
         else:
+            import numpy as np
             (x0,y0) = self.Source.Location.X,  self.Source.Location.Y
             (x1,y1) = self.Destination.Location.X,  self.Destination.Location.Y
 

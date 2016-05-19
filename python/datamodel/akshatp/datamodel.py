@@ -289,7 +289,7 @@ class CarAndPedestrianNearby_akshatp(object):
 
     @staticmethod
     def __query__(peds, cars):
-        return [CarAndPedestrianNearby_akshatp.Create(p, c) for p in peds for c in cars if
+        return [(p, c) for p in peds for c in cars if
                 CarAndPedestrianNearby_akshatp.__predicate__(p, c)]
 
     @staticmethod

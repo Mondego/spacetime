@@ -160,9 +160,7 @@ class dataframe(object):
                 param_list.append(pobjs[tp])
 
         try:
-            if len(universe) == 1:
-                universe = universe[0]
-            pcc_objects = pcc.create(pcctype, universe, params = param_list)
+            pcc_objects = pcc.create(pcctype, *universe, params = param_list)
         except TypeError, e:
             logging.warn("Exception in __make_pcc: " + e.message)
             return []
@@ -184,6 +182,7 @@ class dataframe(object):
                     if hasattr(pcctype, "__parameter_types__"):
                         for param_tp in pcctype.__parameter_types__:
                             if param_tp in relevant_objs:
+                                params.setdefault(param_tp, []).extend(relevant_objs[param_tp])
                                 continue
                             if param_tp.__PCC_BASE_TYPE__:
                                 params.setdefault(param_tp, []).extend(self.__base_store.get_by_type(param_tp).values())

@@ -51,18 +51,13 @@ def handle_exceptions(f):
     @wraps(f)
     def wrapped(*args, **kwds):
         try:
+            FrameServer.app_gc_timers[kwds["sim"]] = time.time()
             ret = f(*args, **kwds)
         except Exception, e:
             logger.exception("Exception handling function %s:", f.func_name)
             raise
         return ret
     return wrapped
-
-def reset_timer(sim):
-    FrameServer.app_gc_timers[sim].cancel()
-    del FrameServer.app_gc_timers[sim]
-    FrameServer.app_gc_timers[sim] = Timer(FrameServer.timeout, disconnected, (sim,))
-    FrameServer.app_gc_timers[sim].start()
 
 class GetAllUpdated(Resource):
     @handle_exceptions
@@ -81,7 +76,6 @@ class GetAllUpdated(Resource):
         ret["updated"] = all_updated
         ret["deleted"] = all_deleted
 
-        reset_timer(sim)
         return ret
 
 class GetAllTracked(Resource):
@@ -101,7 +95,6 @@ class GetAllTracked(Resource):
         ret["updated"] = all_updated
         ret["deleted"] = all_deleted
 
-        reset_timer(sim)
         return ret
 
 class GetUpdated(Resource):
@@ -114,7 +107,6 @@ class GetUpdated(Resource):
         ret["updated"] = updated
         ret["deleted"] = deleted
 
-        reset_timer(sim)
         return ret
 
 class GetTracked(Resource):
@@ -127,7 +119,6 @@ class GetTracked(Resource):
         ret["updated"] = updated
         ret["deleted"] = deleted
 
-        reset_timer(sim)
         return ret
 
 
@@ -141,7 +132,6 @@ class GetPushType(Resource):
         ret["updated"] = mod
         ret["deleted"] = deleted
 
-        reset_timer(sim)
         return ret
 
     @handle_exceptions
@@ -165,7 +155,6 @@ class GetPushType(Resource):
         new, mod, deleted = update_dict["new"], update_dict["mod"], update_dict["deleted"]
         FrameServer.Store.put_update(sim, typeObj, new, mod, deleted)
 
-        reset_timer(sim)
         return {}
 
 class GetInsertDeleteObject(Resource):
@@ -189,15 +178,9 @@ class GetInsertDeleteObject(Resource):
     def delete(self, sim, t, uid):
         raise Exception("DELETE operation for GetInsertDeleteObject not yet implemented")
 
-def disconnected(sim):
-    FrameServer.Store.gc(sim)
-    del FrameServer.app_gc_timers[sim]
-
 class Register(Resource):
     @handle_exceptions
     def put(self, sim):
-        FrameServer.app_gc_timers[sim] = Timer(FrameServer.timeout, disconnected, (sim,))
-        FrameServer.app_gc_timers[sim].start()
         data = urllib2.unquote(request.data.replace("+", " "))
         typemap = json.loads(data)["sim_typemap"]
         FrameServer.Store.register_app(sim, typemap, FrameServer.name2class, FrameServer.name2baseclasses)
@@ -238,6 +221,9 @@ class FrameServer(object):
     name2baseclasses = dict([(tp.Class().__name__, tp.__pcc_bases__) for tp in DATAMODEL_TYPES])
     Shutdown = False
     app_gc_timers = {}
+
+    # Garbage collection
+    disconnect_timer = None
     timeout = 30.0
     def __init__(self, port, debug):
         global server
@@ -256,7 +242,28 @@ class FrameServer(object):
         self.api.add_resource(GetAllTracked, '/<string:sim>/tracked')
         self.api.add_resource(Register, '/<string:sim>')
         server = self
+        FrameServer.start_timer()
         self.app.run(port=port, debug=False, threaded=True)
+
+    ##################################################################
+    ## Client disconnect timeout + Garbage Collection
+    ##################################################################
+    @classmethod
+    def start_timer(cls):
+        cls.disconnect_timer = Timer(cls.timeout, cls.check_disconnect, ())
+        cls.disconnect_timer.start()
+
+    @classmethod
+    def check_disconnect(cls):
+        for sim in cls.app_gc_timers.keys():
+            if time.time() - cls.app_gc_timers[sim] > cls.timeout:
+                cls.disconnect(sim)
+        cls.start_timer()
+
+    @classmethod
+    def disconnect(cls, sim):
+        cls.Store.gc(sim)
+        del cls.app_gc_timers[sim]
 
     def shutdown(self):
         FrameServer.Shutdown = True

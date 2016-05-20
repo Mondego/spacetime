@@ -8,7 +8,7 @@ import logging
 import os
 from random import choice
 
-from datamodel.common.datamodel import Vehicle
+from datamodel.common.datamodel import Vehicle, Quaternion
 from datamodel.nodesim.datamodel import Vector3
 from spacetime_local import IApplication
 from spacetime_local.declarations import Getter, Tracker
@@ -81,6 +81,7 @@ class OpenSimPuller(IApplication.IApplication):
         base_path = os.path.dirname(os.path.realpath(__file__))
         final_path = os.path.join(base_path, 'data/assets_niagara.js')
         self.assets = json.load(open(final_path))
+        self.step = 0
         #fetch_assets("niagara.ics.uci.edu", "opensim", "opensim", "opensim", "data/assets_niagara.js")
 
         self.carids = {}
@@ -105,19 +106,21 @@ class OpenSimPuller(IApplication.IApplication):
         update_list = []
         for v in mod_vehicles:
             #self.logger.info("Vehicle %s is in %s", v.ID, v.Position)
+            #self.logger.info("[%s] Pulller Position: %s", self.step, v.Position)
             vpos = [v.Position.X, v.Position.Y, v.Position.Z]
             vvel = [v.Velocity.X, v.Velocity.Y, v.Velocity.Z]
-            vrot = [0, 0, 0, 1] # TODO: Calculate rotation
+            vrot = Quaternion.FromVector3(v.Velocity).ToList()
             update_list.append(OpenSimRemoteControl.BulkUpdateItem(v.ID, vpos, vvel, vrot))
             #if not result:
             #    self.logger.error("error updating vehicle %s", v.ID)
 
         del_vehicles = self.frame.get_deleted(Vehicle)
         for v in del_vehicles:
-            self.logger.info("Deleting vehicle %s", v.ID)
+            #self.logger.info("Deleting vehicle %s", v.ID)
             result = self.rc.DeleteObject(v.ID, async=False)
 
         result = self.rc.BulkDynamics(update_list, False)
+        self.step += 1
         #print "result is ", result
 
     def shutdown(self):

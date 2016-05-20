@@ -229,6 +229,7 @@ class FrameServer(object):
         global server
         SetupLoggers(debug)
         logging.info("Log level is " + str(logger.level))
+        self.port = port
         self.app = app
         self.api = api
         FrameServer.app = app
@@ -242,8 +243,10 @@ class FrameServer(object):
         self.api.add_resource(GetAllTracked, '/<string:sim>/tracked')
         self.api.add_resource(Register, '/<string:sim>')
         server = self
+
+    def run(self):
         FrameServer.start_timer()
-        self.app.run(port=port, debug=False, threaded=True)
+        self.app.run(port=self.port, debug=False, threaded=True)
 
     ##################################################################
     ## Client disconnect timeout + Garbage Collection

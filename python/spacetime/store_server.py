@@ -225,11 +225,12 @@ class FrameServer(object):
     # Garbage collection
     disconnect_timer = None
     timeout = 30.0
-    def __init__(self, port, debug):
+    def __init__(self, port, debug, external):
         global server
         SetupLoggers(debug)
         logging.info("Log level is " + str(logger.level))
         self.port = port
+        self.external = external
         self.app = app
         self.api = api
         FrameServer.app = app
@@ -246,7 +247,9 @@ class FrameServer(object):
 
     def run(self):
         FrameServer.start_timer()
-        self.app.run(port=self.port, debug=False, threaded=True)
+        host = '0.0.0.0' if self.external else '127.0.0.1'
+        logging.info("Binding to " + host)
+        self.app.run(host=host, port=self.port, debug=False, threaded=True)
 
     ##################################################################
     ## Client disconnect timeout + Garbage Collection

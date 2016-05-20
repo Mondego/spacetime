@@ -35,10 +35,11 @@ if __name__== "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--port', type=int, default=12000, help='Port where the server will listen (default: 12000)')
     parser.add_argument('-d', '--debug', action='store_true', help='Debug on')
+    parser.add_argument('-e', '--external', action='store_true', help='Make this server externally accessible')
     args = parser.parse_args()
 
     global fs 
-    fs = FrameServer(args.port, args.debug)
+    fs = FrameServer(args.port, args.debug, args.external)
     p = Parallel(target = fs.run)
     p.daemon = True
     p.start()

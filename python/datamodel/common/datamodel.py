@@ -2,6 +2,69 @@ from pcc.set import pcc_set
 from pcc.attributes import primarykey, dimension
 from pcc.projection import projection
 import uuid
+import math
+
+class Quaternion :
+
+    # -----------------------------------------------------------------
+    def __init__(self, x = 0.0, y = 0.0, z = 0.0, w = 1.0) :
+        self.x = x
+        self.y = y
+        self.z = z
+        self.w = w
+
+    # -----------------------------------------------------------------
+    # see http://www.euclideanspace.com/maths/geometry/rotations/conversions/eulerToQuaternion/
+    # where heading is interesting and bank and attitude are 0
+    # -----------------------------------------------------------------
+    @classmethod
+    def FromVector3(cls, vec):
+        heading = math.atan(vec.Y/vec.X)
+        if vec.X < 0:
+            heading = heading + math.pi
+        return Quaternion.FromHeading(heading)
+
+
+    @classmethod
+    def FromHeading(cls, heading) :
+        c1 = math.cos(heading)
+        s1 = math.sin(heading)
+        w = math.sqrt(2.0 + 2.0 * c1) / 2.0
+        z = (2.0 * s1) / (4.0 * w) if w != 0 else 1.0
+        return Quaternion(0.0, 0.0, z, w)
+
+    # -----------------------------------------------------------------
+    def Equals(self, other) :
+        return self.x == other.x and self.y == other.y and self.z == other.z and self.w == other.w
+
+    # -----------------------------------------------------------------
+    def ToList(self) :
+        return [self.x, self.y, self.z, self.w]
+
+    # -----------------------------------------------------------------
+    def ToHeading(self) :
+        return math.atan2(2.0 * self.y * self.w - 2.0 * self.x * self.z, 1.0 - 2.0 * self.y * self.y - 2.0 * self.z * self.z)
+
+    # -----------------------------------------------------------------
+    def __eq__(self, other) :
+        return self.Equals(other)
+
+    # -----------------------------------------------------------------
+    def __str__(self) :
+        fmt = "<{0}, {1}, {2}, {3}>"
+        return fmt.format(self.x, self.y, self.z, self.w)
+
+    @staticmethod
+    def __decode__(dic):
+        if 'x' in dic and 'y' in dic and 'z' in dic and 'w' in dic:
+            return Quaternion(dic['x'], dic['y'], dic['z'], dic['w'])
+        elif 'X' in dic and 'Y' in dic and 'Z' in dic and 'W' in dic:
+            return Quaternion(dic['X'], dic['Y'], dic['Z'], dic['W'])
+        else:
+            raise Exception("Could not decode Vector3 with dic %s" % dic)
+
+    def __json__(self):
+        return self.__dict__
 
 class Vector3(object):
     X = 0
@@ -27,6 +90,13 @@ class Vector3(object):
     # -----------------------------------------------------------------
     def ScaleVector(self, scale) :
         return Vector3(self.X * scale.X, self.Y * scale.Y, self.Z * scale.Z)
+
+    def ToList(self):
+        return [self.X, self.Y, self.Z]
+
+    def Rotate(self, rad):
+        heading = math.atan(self.Y/self.X)
+        return Vector3()
 
     def __json__(self):
         return self.__dict__

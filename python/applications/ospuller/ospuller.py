@@ -20,7 +20,7 @@ import uuid
 import json
 from uuid import UUID
 
-def fetch_assets(host, user, pwd, table, fpath):
+def fetch_assets(host, user, pwd, schema, fpath):
     import MySQLdb
     assets = {}
     assets["Sedan"] = {}
@@ -28,7 +28,7 @@ def fetch_assets(host, user, pwd, table, fpath):
     assets["Taxi"] = {}
 
     # Open database connection
-    db = MySQLdb.connect(host, user, pwd, table)
+    db = MySQLdb.connect(host, user, pwd, schema)
 
     # prepare a cursor object using cursor() method
     cursor = db.cursor()
@@ -67,22 +67,22 @@ def fetch_assets(host, user, pwd, table, fpath):
 
 @Getter(Vehicle)
 class OpenSimPuller(IApplication.IApplication):
-    def __init__(self, frame):
+    def __init__(self, frame, args):
         self.frame = frame
         self.logger = logging.getLogger(__name__)
-        #self.endpoint = "http://ucigridb.nacs.uci.edu:9000/Dispatcher/"
-        self.endpoint = "http://parana.mdg.lab:9000/Dispatcher/"
+        self.endpoint = args.url + "/Dispatcher/"
         self.lifespan = 3600000
-        #self.avname = "Arthur Valadares"
-        #self.passwd = "arthur123"
-        self.avname = "Test User"
-        self.passwd = "test"
-        self.scene_name = "City00"
+        self.avname = args.user
+        self.passwd = args.password
+        self.scene_name = args.scene
+
         base_path = os.path.dirname(os.path.realpath(__file__))
-        final_path = os.path.join(base_path, 'data/assets_niagara.js')
+        final_path = os.path.join(base_path, os.path.join('data', 'assets_' + args.dbhost + '.js'))
+        logging.info('Getting assets from ' + final_path)
+        if args.fetch:
+            fetch_assets(args.dbhost, args.dbuser, args.dbpassword, args.dbschema, final_path)
         self.assets = json.load(open(final_path))
         self.step = 0
-        #fetch_assets("niagara.ics.uci.edu", "opensim", "opensim", "opensim", "data/assets_niagara.js")
 
         self.carids = {}
 

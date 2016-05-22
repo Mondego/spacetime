@@ -75,6 +75,7 @@ class OpenSimPuller(IApplication.IApplication):
         self.avname = args.user
         self.passwd = args.password
         self.scene_name = args.scene
+        self._done = False
 
         base_path = os.path.dirname(os.path.realpath(__file__))
         final_path = os.path.join(base_path, os.path.join('data', 'assets_' + args.dbhost + '.js'))
@@ -116,12 +117,22 @@ class OpenSimPuller(IApplication.IApplication):
 
         del_vehicles = self.frame.get_deleted(Vehicle)
         for v in del_vehicles:
-            #self.logger.info("Deleting vehicle %s", v.ID)
+            self.logger.info("Deleting vehicle %s", v.ID)
             result = self.rc.DeleteObject(v.ID, async=False)
 
         result = self.rc.BulkDynamics(update_list, False)
         self.step += 1
         #print "result is ", result
+
+    @property
+    def done(self):
+        return self._done
+
+    @done.setter
+    def done(self, value):
+        self.logger.info("Done = %s", str(value))
+        self._done = value
+
 
     def shutdown(self):
         for v in self.frame.get(Vehicle):

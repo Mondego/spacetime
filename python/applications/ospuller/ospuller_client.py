@@ -31,11 +31,7 @@ class Simulation(object):
         frameos = frame(time_step=200)
         frameos.attach_app(OpenSimPuller(frameos, args))
 
-        frametest = frame(time_step=200)
-        frametest.attach_app(TestSimulation(frametest))
-
         frameos.run_async()
-        frametest.run_async()
 
         frame.loop()
 

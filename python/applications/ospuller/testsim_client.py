@@ -28,13 +28,9 @@ class Simulation(object):
         '''
         Constructor
         '''
-        frameos = frame(time_step=200)
-        frameos.attach_app(OpenSimPuller(frameos, args))
-
         frametest = frame(time_step=200)
         frametest.attach_app(TestSimulation(frametest))
 
-        frameos.run_async()
         frametest.run_async()
 
         frame.loop()
@@ -54,15 +50,6 @@ def setupLoggers():
 if __name__ == "__main__":
     setupLoggers()
     parser = argparse.ArgumentParser()
-    parser.add_argument('-url', '--url', type=str, default='http://127.0.0.1:9000', help='URL of OpenSim server')
-    parser.add_argument('-u', '--user', type=str, default='Test User', help='Account for OpenSim server')
-    parser.add_argument('-p', '--password', type=str, default='123', help='Password for OpenSim server')
-    parser.add_argument('-s', '--scene', type=str, default='Test 1', help='Scene name for OpenSim server')
-    parser.add_argument('-f', '--fetch', action='store_true', help='Fetch asset IDs from DB')
-    parser.add_argument('-dbh', '--dbhost', type=str, default='127.0.0.1', help='Host of MySQL server')
-    parser.add_argument('-dbu', '--dbuser', type=str, default='opensim', help='Account for MySQL server')
-    parser.add_argument('-dbp', '--dbpassword', type=str, default='opensim', help='Password for MySQL server')
-    parser.add_argument('-dbs', '--dbschema', type=str, default='opensim', help='Database schema in MySQL server')
     args = parser.parse_args()
 
     sim = Simulation(args)

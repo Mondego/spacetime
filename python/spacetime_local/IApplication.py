@@ -10,8 +10,14 @@ class IApplication(object):
     __metaclass__ = ABCMeta
     __declaration_map__ = None
 
-    def is_done(self):
+    @property
+    def done(self):
         return False
+
+    @done.setter
+    @abstractmethod
+    def done(self, value):
+        pass
 
     @abstractmethod
     def initialize(self):

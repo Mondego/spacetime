@@ -27,7 +27,8 @@ class ConsoleSimulation(IApplication):
     frame = None
     ticks = 0
 
-    def is_done(self):
+    @property
+    def done(self):
         return self.start_shutdown
 
     def __init__(self, frame):

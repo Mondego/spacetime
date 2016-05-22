@@ -39,6 +39,7 @@ class frame(IFrame):
     framelist = []
     def __init__(self, address="http://127.0.0.1:12000/", time_step=500):
         frame.framelist.append(self)
+        self.thread = None
         self.__app = None
         self.__host_typemap = {}
         self.__typemap = {}
@@ -123,9 +124,9 @@ class frame(IFrame):
         Exceptions:
         None
         """
-        p = Parallel(target = self.__run)
-        p.daemon = True
-        p.start()
+        self.thread = Parallel(target = self.__run)
+        self.thread.daemon = True
+        self.thread.start()
 
     def run_main(self):
         self.__run()
@@ -140,17 +141,17 @@ class frame(IFrame):
         Exceptions:
         None
         """
-        p = Parallel(target = self.__run)
-        p.daemon = True
-        p.start()
-        p.join()
+        self.thread = Parallel(target = self.__run)
+        self.thread.daemon = True
+        self.thread.start()
+        self.thread.join()
 
     def __run(self):
         if not self.__app:
             raise NotImplementedError("App has not been attached")
         self.__app.initialize()
         self.__push()
-        while not self.__app.is_done():
+        while not self.__app.done:
             st_time = time.time()
             self.__pull()
             #take1t = time.time()
@@ -167,7 +168,11 @@ class frame(IFrame):
             if timespent < self._time_step:
                 time.sleep(float(self._time_step - timespent))
 
+        # One last time, because _shutdown may delete objects from the store
+        self.__pull()
         self._shutdown()
+        self.__push()
+
 
     def get(self, tp, id=None):
         """
@@ -304,8 +309,12 @@ class frame(IFrame):
             typeObj = self.__name2type[tp]
             objlist = []
             for obj_id in deleted[tp]:
-                objlist.append(self.object_store.get_one(typeObj,obj_id))
-                self.object_store.delete_with_id(typeObj, obj_id)
+                try:
+                    objlist.append(self.object_store.get_one(typeObj,obj_id))
+                    self.object_store.delete_with_id(typeObj, obj_id)
+                except:
+                    self.logger.warn("Could delete object %s of type %s",
+                                                        obj_id, typeObj.Class())
             deleted_objs[typeObj] = objlist
         self.object_store.create_incoming_record(new_objs, mod_objs, deleted_objs)
 
@@ -346,8 +355,7 @@ class frame(IFrame):
             for tp in self.__host_typemap[host]["deleting"]:
                 if tp.Class() in changes["deleted"]:
                     update_dict.setdefault(tp.Class().__name__, {"new": {}, "mod": {}, "deleted": []})["deleted"].extend(changes["deleted"][tp.Class()])
-                    #print "deleting ", tp.Class().__name__,
-                    #update_dict[tp.Class().__name__]["deleted"]
+                    self.logger.debug( "deleting %s %s", tp.Class().__name__, update_dict[tp.Class().__name__]["deleted"])
             for tp in update_dict:
                 package = {"update_dict": json.dumps(update_dict[tp])}
                 requests.post(host + "/" + tp, json = package)
@@ -355,10 +363,17 @@ class frame(IFrame):
 
     def _shutdown(self):
         self.__app.shutdown()
+        #frame.framelist.remove(self)
+        #self.__unregister_app()
+
+    def _stop(self):
+        self.__app.done = True
+        #frame.framelist.remove(self)
         #self.__unregister_app()
 
     def __unregister_app(self):
         raise NotImplementedError()
+
     def __setup_logger(self, name, file_path=None):
         logger = logging.getLogger(name)
         # Set default logging handler to avoid "No handler found" warnings.
@@ -371,9 +386,14 @@ class frame(IFrame):
 def shutdown():
     import sys
     print "Shutting down all applications..."
+    threads = []
     for f in frame.framelist:
-        f._shutdown()
+        f._stop()
+        threads.append(f.thread)
+    
+    [t.join() for t in threads]
     sys.exit(0)
+
 
 def signal_handler(signal, signal_frame):
     shutdown()

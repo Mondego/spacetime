@@ -17,7 +17,7 @@ import numpy as np
 @Producer(Vehicle)
 @GetterSetter(Vehicle)
 @Deleter(Vehicle)
-class OpenSimPullerTestSimulation(IApplication.IApplication):
+class TestSimulation(IApplication.IApplication):
     def __init__(self, frame):
         '''
         Constructor
@@ -29,6 +29,7 @@ class OpenSimPullerTestSimulation(IApplication.IApplication):
         self.rotating_degree = 2
         self.rotation = math.radians(self.rotating_degree)
         self.todelete = []
+        self._done = False
 
     def initialize(self):
         pass
@@ -62,6 +63,20 @@ class OpenSimPullerTestSimulation(IApplication.IApplication):
 
         self.step += 1
 
+    @property
+    def done(self):
+        return self._done
+
+    @done.setter
+    def done(self, value):
+        self.logger.info("Done = %s", str(value))
+        self._done = value
 
     def shutdown(self):
-        self.logger.info("Shutting down OpenSimPullerTestSimulation")
+        self.logger.info("Shutting down TestSimulation")
+        cars = self.frame.get(Vehicle)
+        for c in cars:
+            self.logger.info("deleting car " + c.ID)
+            self.frame.delete(Vehicle, c)
+        
+

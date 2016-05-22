@@ -355,7 +355,7 @@ class frame(IFrame):
             for tp in self.__host_typemap[host]["deleting"]:
                 if tp.Class() in changes["deleted"]:
                     update_dict.setdefault(tp.Class().__name__, {"new": {}, "mod": {}, "deleted": []})["deleted"].extend(changes["deleted"][tp.Class()])
-                    self.logger.debug( "deleting %s %s", tp.Class().__name__, update_dict[tp.Class().__name__]["deleted"])
+                    #self.logger.debug( "deleting %s %s", tp.Class().__name__, update_dict[tp.Class().__name__]["deleted"])
             for tp in update_dict:
                 package = {"update_dict": json.dumps(update_dict[tp])}
                 requests.post(host + "/" + tp, json = package)

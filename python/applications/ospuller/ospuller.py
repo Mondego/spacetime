@@ -89,6 +89,21 @@ class OpenSimPuller(IApplication.IApplication):
 
     def initialize(self):
         self.AuthByUserName()
+        new_vehicles = self.frame.get(Vehicle)
+        #print "new:", new_vehicles
+        update_list = []
+        for v in new_vehicles:
+            assetid = UUID(choice(self.assets["Sedan"].values()))
+            result = self.rc.CreateObject(
+                assetid, objectid=v.ID, name=v.Name, async=True,
+                pos = [v.Position.X, v.Position.Y, v.Position.Z],
+                vel = [v.Velocity.X, v.Velocity.Y, v.Velocity.Z])
+            self.logger.info("New vehicle: %s", v.ID)
+            vpos = [v.Position.X, v.Position.Y, v.Position.Z]
+            vvel = [v.Velocity.X, v.Velocity.Y, v.Velocity.Z]
+            vrot = Quaternion.FromVector3(v.Velocity).ToList()
+            update_list.append(OpenSimRemoteControl.BulkUpdateItem(v.ID, vpos, vvel, vrot))
+        result = self.rc.BulkDynamics(update_list, False)
 
     def update(self):
         new_vehicles = self.frame.get_new(Vehicle)

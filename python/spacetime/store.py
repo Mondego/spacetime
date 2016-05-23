@@ -52,7 +52,10 @@ class store(object):
         return self.__data[tp].keys()
 
     def get_by_type(self, tp):
-        return self.__data[tp]
+        if tp in self.__data:
+            return self.__data[tp]
+        else:
+            return {}
 
     def get_as_dict(self):
         return self.__data
@@ -329,6 +332,7 @@ class dataframe(object):
                 deleted = []
                 if tp.__PCC_BASE_TYPE__:
                     base_types.add(tp)
+                    new = self.__base_store.get_by_type(tp) 
                     self.__app_to_basechanges[app][tp] = (mod, new, deleted)
                     self.__type_to_app.setdefault(tp, set()).add(app)
                 else:

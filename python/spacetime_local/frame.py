@@ -149,6 +149,7 @@ class frame(IFrame):
     def __run(self):
         if not self.__app:
             raise NotImplementedError("App has not been attached")
+        self.__pull()
         self.__app.initialize()
         self.__push()
         while not self.__app.done:

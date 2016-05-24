@@ -67,15 +67,22 @@ class SpacetimeConsole(cmd.Cmd):
             print line
 
     def do_clear(self, type_text):
-        """ clear <type>
-        Deletes all objects.
+        """ clear [<type>, '!all']
+        Deletes all objects of the type passed.
 
-        If a type is passed, deletes all objects of that type.
+        If '!all' is passed, all objects of all types are cleared.
         """
         if type_text:
-            fs.Store.clear(fs.name2class[type_text])
-        else:
-            fs.Store.clear()
+            if type_text == "!all":
+                fs.Store.clear()
+                print "cleared all objects in store..."
+            else:
+                try:
+                    fs.Store.clear(fs.name2class[type_text])
+                    print "cleared all objects of type %s" % type_text
+                except:
+                    print "could not clear objects of type %s" % type_text
+
 
     def emptyline(self):
         pass

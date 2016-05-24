@@ -210,8 +210,8 @@ class dataframe(object):
         pccs = {}
         self.__construct_pccs(objs, pcctypelist, set(self.__base_store.get_base_types()), pccs)
         pccsmap = {}
-        for tp in pccs:
-            pccsmap[tp] = dict([(obj[self.__typename_to_primarykey[tp.Class().__name__]], obj) for obj in pccs[tp]])
+        for tp in pcctypelist:
+            pccsmap[tp] = dict([(obj[self.__typename_to_primarykey[tp.Class().__name__]], obj) for obj in pccs[tp]]) if tp in pccs else {}
 
         return pccsmap
 
@@ -229,26 +229,28 @@ class dataframe(object):
     def get_update(self, tp, app, params = None, tracked_only = False):
         # get dynamic pccs with/without params
         # can
+        new, mod, deleted = {tp: {}}, {tp: {}}, {tp: []}
         with self.__copylock[app]:
             # pccs are always recalculated from scratch. Easier
             if not tp.__PCC_BASE_TYPE__:
                 if tp in self.__app_to_dynamicpcc[app]:
-                    mod, new, deleted = {}, self.__calculate_pcc(
+                    mod, new, deleted = mod, self.__calculate_pcc(
                         self.__app_to_basechanges[app],
                         [tp],
-                        params), {}
+                        params), deleted
             else:
-        # take the base changes from the dictionary. Should have been updated with all changes.
-                mod_t, new_t, deleted_t = self.__app_to_basechanges[app][tp]
-                self.__app_to_basechanges[app][tp] = (mod_t.fromkeys(mod_t, {})
-                                                      if not tracked_only else mod_t,
-                                                      {},
-                                                      [])
-                mod = {tp: mod_t} if mod_t else {}
-                new = {tp: new_t} if new_t else {}
-                deleted = {tp: deleted_t} if deleted_t else {}
+            # take the base changes from the dictionary. Should have been updated with all changes.
+                if tp in self.__app_to_basechanges[app]:
+                    mod_t, new_t, deleted_t = self.__app_to_basechanges[app][tp]
+                    self.__app_to_basechanges[app][tp] = (mod_t.fromkeys(mod_t, {})
+                                                          if not tracked_only else mod_t,
+                                                          {},
+                                                          [])
+                    mod = {tp: mod_t} if mod_t else {tp: {}}
+                    new = {tp: new_t} if new_t else {tp: {}}
+                    deleted = {tp: deleted_t} if deleted_t else {tp: []}
 
-        return self.__convert_type_str(new, mod if not tracked_only else {}, deleted)
+        return self.__convert_type_str(new, mod if not tracked_only else {tp: {}}, deleted)
 
     def put_update(self, app, tp, new, mod, deleted):
         if tp.__PCC_BASE_TYPE__:

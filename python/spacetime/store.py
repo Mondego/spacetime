@@ -226,6 +226,25 @@ class dataframe(object):
 
         return new_mod, new_new, new_deleted
 
+    def get_app_list(self):
+        return self.__apps
+
+    def clear(self, tp=None):
+        if tp:
+            for objid in self.__base_store.get_by_type(tp).keys():
+                self.__base_store.delete(tp, objid)
+        else:
+            for tp in DATAMODEL_TYPES:
+                for objid in self.__base_store.get_by_type(tp).keys():
+                    self.__base_store.delete(tp, objid)
+
+
+    def get(self, tp, id=None):
+        if id:
+            return self.__base_store.get(tp, id)
+        else:
+            return self.__base_store.get_by_type(tp)
+
     def get_update(self, tp, app, params = None, tracked_only = False):
         # get dynamic pccs with/without params
         # can
@@ -332,7 +351,7 @@ class dataframe(object):
                 deleted = []
                 if tp.__PCC_BASE_TYPE__:
                     base_types.add(tp)
-                    new = self.__base_store.get_by_type(tp) 
+                    new = self.__base_store.get_by_type(tp)
                     self.__app_to_basechanges[app][tp] = (mod, new, deleted)
                     self.__type_to_app.setdefault(tp, set()).add(app)
                 else:

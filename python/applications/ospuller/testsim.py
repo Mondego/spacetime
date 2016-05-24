@@ -57,7 +57,7 @@ class TestSimulation(IApplication.IApplication):
             self.todelete.append(v.ID)
 
         if len(self.todelete) > 360 / self.rotating_degree:
-            car = self.frame.get_one(Vehicle, self.todelete[0])
+            car = self.frame.get(Vehicle, self.todelete[0])
             self.frame.delete(Vehicle, car)
             del self.todelete[0]
 

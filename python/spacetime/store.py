@@ -41,14 +41,15 @@ def calc_basecls2derived(name2class):
 # must accept changes.
 # must return object when asked for it.
 class store(object):
-    def __init__(self, basecls2derived):
+    def __init__(self):
         # actual type objects
         self.__sets = set()
         self.logger = logging.getLogger(__name__)
         # type -> {id : object} object is just json style recursive dictionary.
         # Onus on the client side to make objects
         self.__data = RecursiveDictionary()
-        self.__base2derived = basecls2derived
+        self.__base2derived = calc_basecls2derived(
+                    dict([(tp.Class().__name__, tp) for tp in DATAMODEL_TYPES]))
 
     def add_types(self, types):
         # types will be list of actual type objects, not names. Load it somewhere.
@@ -138,9 +139,7 @@ class st_dataframe(object):
 class dataframe(object):
     def __init__(self, ):
         self.logger = logging.getLogger(__name__)
-        self.__base_store = store(
-                calc_basecls2derived(
-                    dict([(tp.Class().__name__, tp) for tp in DATAMODEL_TYPES])))
+        self.__base_store = store()
         self.__apps = set()
         # Dictionary for garbage collection of objects not deleted after
         # simulation is gone

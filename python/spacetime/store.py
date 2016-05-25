@@ -19,6 +19,21 @@ import sys
 import uuid
 import logging
 
+def calc_basecls2derived(name2class):
+    result = {}
+    for tp in DATAMODEL_TYPES:
+        if hasattr(tp, "__PCC_BASE_TYPE__") and tp.__PCC_BASE_TYPE__:
+            for base in tp.mro():
+                if (base != tp.Class()
+                        and base.__name__ in name2class 
+                        and hasattr(name2class[base.__name__], "__PCC_BASE_TYPE__") 
+                        and name2class[base.__name__].__PCC_BASE_TYPE__):
+                    result.setdefault(name2class[base.__name__], []).append(tp)
+    #                print base.__name__, tp.__name__
+    #print [(tp.Class().__name__, [der.Class().__name__ for der in result[tp]]) for tp in result]
+    return result
+
+
 
 # not active object.
 # just stores the basic sets.
@@ -33,6 +48,8 @@ class store(object):
         # type -> {id : object} object is just json style recursive dictionary.
         # Onus on the client side to make objects
         self.__data = RecursiveDictionary()
+        self.__base2derived = calc_basecls2derived(
+                    dict([(tp.Class().__name__, tp) for tp in DATAMODEL_TYPES]))
 
     def add_types(self, types):
         # types will be list of actual type objects, not names. Load it somewhere.
@@ -46,16 +63,20 @@ class store(object):
 
     def get(self, tp, id):
         # assume it is there, else raise exception.
-        return self.__data[tp][id]
+        return self.get_by_type(tp)[id]
 
     def get_ids(self, tp):
-        return self.__data[tp].keys()
+        return self.get_by_type(tp).keys()
 
     def get_by_type(self, tp):
-        if tp in self.__data:
-            return self.__data[tp]
-        else:
-            return {}
+        alltps = [tp]
+        if tp in self.__base2derived:
+            alltps.extend(self.__base2derived[tp])
+        result = {}
+        for tp in alltps:
+            if tp in self.__data:
+                result.update(self.__data[tp])
+        return result
 
     def get_as_dict(self):
         return self.__data
@@ -70,7 +91,12 @@ class store(object):
             raise
 
     def update(self, tp, id, object_changes):
-        self.__data[tp][id].update(object_changes)
+        alltps = [tp]
+        if tp in self.__base2derived:
+            alltps.extend(self.__base2derived[tp])
+        for tp in alltps:
+            if tp in self.__data and id in self.__data[tp]:
+                self.__data[tp][id].update(object_changes)
 
     def delete(self, tp, id):
         if tp in self.__data:
@@ -210,8 +236,8 @@ class dataframe(object):
         pccs = {}
         self.__construct_pccs(objs, pcctypelist, set(self.__base_store.get_base_types()), pccs)
         pccsmap = {}
-        for tp in pccs:
-            pccsmap[tp] = dict([(obj[self.__typename_to_primarykey[tp.Class().__name__]], obj) for obj in pccs[tp]])
+        for tp in pcctypelist:
+            pccsmap[tp] = dict([(obj[self.__typename_to_primarykey[tp.Class().__name__]], obj) for obj in pccs[tp]]) if tp in pccs else {}
 
         return pccsmap
 
@@ -248,26 +274,28 @@ class dataframe(object):
     def get_update(self, tp, app, params = None, tracked_only = False):
         # get dynamic pccs with/without params
         # can
+        new, mod, deleted = {tp: {}}, {tp: {}}, {tp: []}
         with self.__copylock[app]:
             # pccs are always recalculated from scratch. Easier
             if not tp.__PCC_BASE_TYPE__:
                 if tp in self.__app_to_dynamicpcc[app]:
-                    mod, new, deleted = {}, self.__calculate_pcc(
+                    mod, new, deleted = mod, self.__calculate_pcc(
                         self.__app_to_basechanges[app],
                         [tp],
-                        params), {}
+                        params), deleted
             else:
-        # take the base changes from the dictionary. Should have been updated with all changes.
-                mod_t, new_t, deleted_t = self.__app_to_basechanges[app][tp]
-                self.__app_to_basechanges[app][tp] = (mod_t.fromkeys(mod_t, {})
-                                                      if not tracked_only else mod_t,
-                                                      {},
-                                                      [])
-                mod = {tp: mod_t} if mod_t else {}
-                new = {tp: new_t} if new_t else {}
-                deleted = {tp: deleted_t} if deleted_t else {}
+            # take the base changes from the dictionary. Should have been updated with all changes.
+                if tp in self.__app_to_basechanges[app]:
+                    mod_t, new_t, deleted_t = self.__app_to_basechanges[app][tp]
+                    self.__app_to_basechanges[app][tp] = (mod_t.fromkeys(mod_t, {})
+                                                          if not tracked_only else mod_t,
+                                                          {},
+                                                          [])
+                    mod = {tp: mod_t} if mod_t else {tp: {}}
+                    new = {tp: new_t} if new_t else {tp: {}}
+                    deleted = {tp: deleted_t} if deleted_t else {tp: []}
 
-        return self.__convert_type_str(new, mod if not tracked_only else {}, deleted)
+        return self.__convert_type_str(new, mod if not tracked_only else {tp: {}}, deleted)
 
     def put_update(self, app, tp, new, mod, deleted):
         if tp.__PCC_BASE_TYPE__:

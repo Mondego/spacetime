@@ -45,7 +45,7 @@ def create_jsondict(obj):
         if tp_marker == "primitive":
             return obj
         elif tp_marker == "dictionary":
-            return RecursiveDictionary([(create_jsondict(k), create_jsondict(v)) for k, v in obj])
+            return RecursiveDictionary([(create_jsondict(k), create_jsondict(v)) for k, v in obj.items()])
         elif tp_marker == "collection":
             return obj.__class__([create_jsondict(item) for item in obj])
         elif tp_marker == "object":

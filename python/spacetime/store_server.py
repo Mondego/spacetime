@@ -27,20 +27,6 @@ parser.add_argument('insert_list')
 parser.add_argument('obj')
 parser.add_argument('get_types')
 
-def calc_basecls2derived(name2class):
-        result = {}
-        for tp in DATAMODEL_TYPES:
-            if hasattr(tp, "__PCC_BASE_TYPE__") and tp.__PCC_BASE_TYPE__:
-                for base in tp.mro():
-                    if (base != tp.Class()
-                            and base.__name__ in name2class 
-                            and hasattr(name2class[base.__name__], "__PCC_BASE_TYPE__") 
-                            and name2class[base.__name__].__PCC_BASE_TYPE__):
-                        result.setdefault(name2class[base.__name__], []).append(tp)
-        #                print base.__name__, tp.__name__
-        #print [(tp.Class().__name__, [der.Class().__name__ for der in result[tp]]) for tp in result]
-        return result
-
 def handle_exceptions(f):
     @wraps(f)
     def wrapped(*args, **kwds):
@@ -82,13 +68,6 @@ class GetAllUpdated(Resource):
         for tp in types:
             typeObj = FrameServer.name2class[tp]
             (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim)
-            if typeObj in FrameServer.basecls2derived:
-                for dertypeObj in FrameServer.basecls2derived[typeObj]:
-                    dertype = dertypeObj.Class().__name__
-                    (dernew, derupdated, derdeleted) = FrameServer.Store.get_update(dertypeObj, sim)
-                    new[tp].update(dernew[dertype])
-                    updated[tp].update(derupdated[dertype])
-                    deleted[tp].append(derdeleted[dertype])
             all_new.update(new)
             all_updated.update(updated)
             all_deleted.update(deleted)
@@ -240,7 +219,6 @@ class FrameServer(object):
     Store = dataframe()
     name2class = dict([(tp.Class().__name__, tp) for tp in DATAMODEL_TYPES])
     name2baseclasses = dict([(tp.Class().__name__, tp.__pcc_bases__) for tp in DATAMODEL_TYPES])
-    basecls2derived = calc_basecls2derived(name2class)
     Shutdown = False
     app_gc_timers = {}
 

@@ -27,6 +27,25 @@ parser.add_argument('insert_list')
 parser.add_argument('obj')
 parser.add_argument('get_types')
 
+def handle_exceptions(f):
+    @wraps(f)
+    def wrapped(*args, **kwds):
+        try:
+            FrameServer.app_gc_timers[kwds["sim"]] = time.time()
+            ret = f(*args, **kwds)
+        except Exception, e:
+            logger.exception("Exception handling function %s:", f.func_name)
+            raise
+        return ret
+    return wrapped    
+
+def signal_handler(signal, frame):
+    print('You pressed Ctrl+C!')
+    server.shutdown()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+
 class FlaskConfig(object):
     RESTFUL_JSON = {}
 
@@ -39,25 +58,6 @@ app.config.from_object(FlaskConfig)
 # app.json_encoder = CADISEncoder()
 FlaskConfig.init_app(app)
 api = Api(app)
-
-def signal_handler(signal, frame):
-    print('You pressed Ctrl+C!')
-    server.shutdown()
-    sys.exit(0)
-
-signal.signal(signal.SIGINT, signal_handler)
-
-def handle_exceptions(f):
-    @wraps(f)
-    def wrapped(*args, **kwds):
-        try:
-            FrameServer.app_gc_timers[kwds["sim"]] = time.time()
-            ret = f(*args, **kwds)
-        except Exception, e:
-            logger.exception("Exception handling function %s:", f.func_name)
-            raise
-        return ret
-    return wrapped
 
 class GetAllUpdated(Resource):
     @handle_exceptions
@@ -225,6 +225,7 @@ class FrameServer(object):
     # Garbage collection
     disconnect_timer = None
     timeout = 30.0
+
     def __init__(self, port, debug, external):
         global server
         SetupLoggers(debug)

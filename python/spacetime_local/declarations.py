@@ -7,9 +7,9 @@ Created on Apr 19, 2016
 class DataAgent(object):
     def __init__(self, keywords):
         if 'host' in keywords:
-            self.host = keywords['host']
+            self.host = (keywords['host'] + ("/" if keywords['host'][-1] != "/" else ""))
         else:
-            self.host = 'http://127.0.0.1:12000'
+            self.host = "default"
 
 class Producer(DataAgent):
     def __init__(self, *types, **keywords):

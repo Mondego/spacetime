@@ -195,49 +195,33 @@ class dataframe(object):
             return []
         return [self.__set_id_if_none(pcctype.Class(), create_jsondict(obj)) for obj in pcc_objects]
 
-    def __construct_pccs(self, objs, pcctypelist, completed, pccs):
-        incomplete = set(pcctypelist)
-        params = {}
-        while len(incomplete) != 0:
-            for pcctype in pcctypelist:
-                if pcctype in completed:
-                    continue
-                if completed.union(set(pcctype.__ENTANGLED_TYPES__)) == completed:
-                    relevant_objs = dict(
-                        [(tp,
-                          objs[tp] if tp in objs else pccs[tp])
-                         for tp in pcctype.__ENTANGLED_TYPES__]
-                      )
-                    if hasattr(pcctype, "__parameter_types__"):
-                        for param_tp in pcctype.__parameter_types__:
-                            if param_tp in relevant_objs:
-                                params.setdefault(param_tp, []).extend(relevant_objs[param_tp])
-                                continue
-                            if param_tp.__PCC_BASE_TYPE__:
-                                params.setdefault(param_tp, []).extend(self.__base_store.get_by_type(param_tp).values())
-                            elif param_tp in pccs:
-                                params.setdefault(param_tp, []).extend(pccs[param_tp].values())
-                            else:
-                                self.__construct_pccs(objs, [param_tp], completed, pccs)
-                                params.setdefault(param_tp, []).extend(pccs[param_tp])
-                    pccs[pcctype] = self.__make_pcc(pcctype, relevant_objs, params)
-                    completed.add(pcctype)
-                    incomplete.remove(pcctype)
+    def __construct_pccs(self, pcctype, pccs):
+        paramtypes = list(pcctype.__parameter_types__) if hasattr(pcctype, "__parameter_types__") else []
+        dependent_types = list(pcctype.__ENTANGLED_TYPES__)
+        dependent_pccs = [tp for tp in (dependent_types + paramtypes) if not tp.__PCC_BASE_TYPE__]
+        to_be_resolved = [tp for tp in dependent_pccs if tp not in pccs]
+        for tp in to_be_resolved:
+            self.__construct_pccs(tp, pccs)
+        params = dict([(tp, 
+               self.__base_store.get_by_type(tp).values() 
+                 if tp.__PCC_BASE_TYPE__ else 
+               pccs[tp]) for tp in paramtypes])
+        
+        relevant_objs = dict([(tp, 
+               self.__base_store.get_by_type(tp).values() 
+                 if tp.__PCC_BASE_TYPE__ else 
+               pccs[tp]) for tp in dependent_types])
 
-
-    def __calculate_pcc(self, basechanges, pcctypelist, params):
-        objs = {}
-        for tp in basechanges:
-            mod, new, deleted = basechanges[tp]
-            all_ids = set([id for id in mod]).union(set([id for id in new])).difference(set(deleted))
-            all_ids = all_ids.union(set(self.__base_store.get_ids(tp)))
-            objs[tp] = [self.__base_store.get(tp, id) for id in all_ids]
-
+        pccs[pcctype] = self.__make_pcc(pcctype, relevant_objs, params)
+    
+    def __calculate_pcc(self, pcctype, params):
         pccs = {}
-        self.__construct_pccs(objs, pcctypelist, set(self.__base_store.get_base_types()), pccs)
+        self.__construct_pccs(pcctype, pccs)
         pccsmap = {}
-        for tp in pcctypelist:
-            pccsmap[tp] = dict([(obj[self.__typename_to_primarykey[tp.Class().__name__]], obj) for obj in pccs[tp]]) if tp in pccs else {}
+        pccsmap[pcctype] = dict([
+                    (obj[self.__typename_to_primarykey[pcctype.Class().__name__]], obj) 
+                    for obj in pccs[pcctype]
+                ]) if pcctype in pccs else {}
 
         return pccsmap
 
@@ -280,8 +264,7 @@ class dataframe(object):
             if not tp.__PCC_BASE_TYPE__:
                 if tp in self.__app_to_dynamicpcc[app]:
                     mod, new, deleted = mod, self.__calculate_pcc(
-                        self.__app_to_basechanges[app],
-                        [tp],
+                        tp,
                         params), deleted
             else:
             # take the base changes from the dictionary. Should have been updated with all changes.
@@ -401,7 +384,8 @@ class dataframe(object):
                     bases = name2baseclasses[tp.Class().__name__]
                     for base in bases:
                         base_types.add(base)
-            self.__base_store.add_types(base_types)
+            final_base_types = [b for b in base_types if b.__PCC_BASE_TYPE__]
+            self.__base_store.add_types(final_base_types)
 
     def gc(self, app):
         self.logger.warn("Application %s disconnected. Removing owned objects.",

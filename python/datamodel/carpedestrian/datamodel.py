@@ -214,8 +214,8 @@ class Walker(Pedestrian.Class()):
       select p;
     """
 
-@parameter(Car)
-@subset(Pedestrian)
+@parameter(ActiveCar)
+@subset(Walker)
 class PedestrianInDanger(Pedestrian.Class()):
     def distance(self, p1, p2):
         return abs(self.p1.X - self.p2.X);
@@ -237,7 +237,7 @@ class PedestrianInDanger(Pedestrian.Class()):
         logger.debug("[Pedestrian]: {0} avoiding collision!".format(self.ID));
         self.Y += 50;
 
-@join(Pedestrian, Car)
+@join(Walker, ActiveCar)
 class CarAndPedestrianNearby(object):
 
     @primarykey(str)

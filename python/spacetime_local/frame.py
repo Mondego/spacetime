@@ -58,7 +58,17 @@ class frame(IFrame):
 
     def __register_app(self, app):
         self.logger = self.__setup_logger("spacetime@" + app.__class__.__name__)
-        self.__host_typemap = dict([(address + "/" + self.__app.__class__.__name__, tpmap) for address, tpmap in self.__app.__declaration_map__.items()])
+        self.__host_typemap = {}        
+        for address, tpmap in self.__app.__declaration_map__.items():
+            if address == "default":
+                address = self.__address
+            fulladdress = address + self.__app.__class__.__name__
+            if fulladdress not in self.__host_typemap:
+                self.__host_typemap[fulladdress] = tpmap
+            else:
+                for declaration in tpmap:
+                    self.__host_typemap[fulladdress].setdefault(declaration, set()).update(set(tpmap[declaration]))
+
         all_types = set()
         for host in self.__host_typemap:
             jobj = dict([(k, [tp.Class().__name__ for tp in v]) for k, v in self.__host_typemap[host].items()])

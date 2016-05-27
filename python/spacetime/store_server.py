@@ -37,7 +37,7 @@ def handle_exceptions(f):
             logger.exception("Exception handling function %s:", f.func_name)
             raise
         return ret
-    return wrapped    
+    return wrapped
 
 def signal_handler(signal, frame):
     print('You pressed Ctrl+C!')
@@ -217,8 +217,8 @@ class FrameServer(object):
     Store server for CADIS
     '''
     Store = dataframe()
-    name2class = dict([(tp.Class().__name__, tp) for tp in DATAMODEL_TYPES])
-    name2baseclasses = dict([(tp.Class().__name__, tp.__pcc_bases__) for tp in DATAMODEL_TYPES])
+    name2class = dict([(tp.__realname__, tp) for tp in DATAMODEL_TYPES])
+    name2baseclasses = dict([(tp.__realname__, tp.__pcc_bases__) for tp in DATAMODEL_TYPES])
     Shutdown = False
     app_gc_timers = {}
 
@@ -236,6 +236,7 @@ class FrameServer(object):
         self.api = api
         FrameServer.app = app
         FrameServer.api = self.api
+        self.DATAMODEL_TYPES = DATAMODEL_TYPES
         # Not currently used
         # self.api.add_resource(GetInsertDeleteObject, '/<string:sim>/<string:t>/<string:uid>')
         self.api.add_resource(GetPushType, '/<string:sim>/<string:t>')
@@ -251,6 +252,22 @@ class FrameServer(object):
         host = '0.0.0.0' if self.external else '127.0.0.1'
         logging.info("Binding to " + host)
         self.app.run(host=host, port=self.port, debug=False, threaded=True)
+
+    def reload_dms(self):
+        from datamodel.all import DATAMODEL_TYPES
+        FrameServer.Store.reload_dms()
+        FrameServer.name2class = dict([(tp.__realname__, tp) for tp in DATAMODEL_TYPES])
+        FrameServer.name2baseclasses = dict([(tp.__realname__, tp.__pcc_bases__) for tp in DATAMODEL_TYPES])
+        print [tp.__realname__ for tp in DATAMODEL_TYPES]
+        self.DATAMODEL_TYPES = DATAMODEL_TYPES
+
+    def pause(self):
+        logging.info("Pausing all applications...")
+        FrameServer.Store.pause()
+
+    def unpause(self):
+        logging.info("Unpausing all applications...")
+        FrameServer.Store.unpause()
 
     ##################################################################
     ## Client disconnect timeout + Garbage Collection
@@ -269,7 +286,7 @@ class FrameServer(object):
 
     @classmethod
     def disconnect(cls, sim):
-        cls.Store.gc(sim)
+        cls.Store.gc(sim, cls.name2class)
         del cls.app_gc_timers[sim]
 
     def shutdown(self):

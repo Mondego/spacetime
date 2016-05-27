@@ -7,8 +7,10 @@ import pkgutil
 import importlib
 import inspect
 
-def load_all_sets():
+DATAMODEL_TYPES = []
+def load_all_sets(reload_modules=False):
     global DATAMODEL_TYPES
+    OLD_DATAMODEL_TYPES = DATAMODEL_TYPES
     DATAMODEL_TYPES = []
 
     module_list = []
@@ -17,14 +19,21 @@ def load_all_sets():
     for _, name, ispkg in pkgutil.iter_modules(['datamodel']):
         if ispkg:
             try:
-                module_list.append(importlib.import_module('datamodel.' + name))
+                mod = importlib.import_module('datamodel.' + name)
+                module_list.append(mod)
+                if reload_modules:
+                    reload(mod)
             except:
                 print "Failed to load module datamodel.%s" % name
+                raise
 
     for module in module_list:
         for _, name, _ in pkgutil.iter_modules(module.__path__):
             try:
-                datamodel_list.append(importlib.import_module(module.__name__ + '.' + name))
+                mod = importlib.import_module(module.__name__ + '.' + name)
+                datamodel_list.append(mod)
+                if reload_modules:
+                    reload(mod)
             except:
                 print "Failed to load module %s.%s" % (module.__name__, name)
 
@@ -32,5 +41,7 @@ def load_all_sets():
         for name, cls in inspect.getmembers(module, inspect.isclass):
             if hasattr(cls, "__dependent_type__"):
                 DATAMODEL_TYPES.append(cls)
+    DATAMODEL_TYPES = list(set(DATAMODEL_TYPES).difference(OLD_DATAMODEL_TYPES))
 
-load_all_sets()
+if not DATAMODEL_TYPES:
+    load_all_sets()

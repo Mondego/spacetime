@@ -70,8 +70,8 @@ def create_complex_obj(tp, objjson, universemap, extra = True):
             if hasattr(dimension._type, "__dependent_type__"):
                 primarykey = objjson[tp.__primarykey__._name]
 
-                if dimension._type in universemap and primarykey in universemap[dimension._type]:
-                    setattr(obj, dimension._name, universemap[dimension._type][primarykey])
+                if hasattr(dimension._type, "__realname__") and dimension._type.__realname__ in universemap and primarykey in universemap[dimension._type.__realname__]:
+                    setattr(obj, dimension._name, universemap[dimension._type.__realname__][primarykey])
                 else:
                     setattr(obj, dimension._name, create_tracking_obj(dimension._type, objjson[dimension._name], universemap, True))
             else:

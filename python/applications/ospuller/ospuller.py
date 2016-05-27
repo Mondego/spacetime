@@ -90,7 +90,6 @@ class OpenSimPuller(IApplication.IApplication):
     def initialize(self):
         self.AuthByUserName()
         new_vehicles = self.frame.get(Vehicle)
-        #print "new:", new_vehicles
         update_list = []
         for v in new_vehicles:
             assetid = UUID(choice(self.assets["Sedan"].values()))

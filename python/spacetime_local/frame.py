@@ -71,7 +71,7 @@ class frame(IFrame):
 
         all_types = set()
         for host in self.__host_typemap:
-            jobj = dict([(k, [tp.Class().__name__ for tp in v]) for k, v in self.__host_typemap[host].items()])
+            jobj = dict([(k, [tp.__realname__ for tp in v]) for k, v in self.__host_typemap[host].items()])
             producing, getting, gettingsetting, deleting, setting, tracking = (self.__host_typemap[host].setdefault("producing", set()),
                 self.__host_typemap[host].setdefault("getting", set()),
                 self.__host_typemap[host].setdefault("gettingsetting", set()),
@@ -96,7 +96,7 @@ class frame(IFrame):
             requests.put(host,
                          data = jsonobj,
                          headers = {'content-type': 'application/json'})
-        self.__name2type = dict([(tp.Class().__name__, tp) for tp in all_types])
+        self.__name2type = dict([(tp.__realname__, tp) for tp in all_types])
         self.object_store.add_types(all_types)
         return 
 
@@ -335,14 +335,14 @@ class frame(IFrame):
         for host in self.__host_typemap:
             resp = requests.get(host + "/tracked", data = {
             "get_types":
-            json.dumps({"types": [tp.Class().__name__ for tp in list(self.__typemap["tracking"])]})
+            json.dumps({"types": [tp.__realname__ for tp in list(self.__typemap["tracking"])]})
               })
             final_resp.rec_update(resp.json())
             resp = requests.get(host + "/updated", data = {
             "get_types":
             json.dumps({
                 "types":
-                [tp.Class().__name__
+                [tp.__realname__
                  for tp in list(self.__typemap["getting"].union(self.__typemap["gettingsetting"]))]
               })
           })
@@ -356,17 +356,17 @@ class frame(IFrame):
             update_dict = {}
             for tp in self.__host_typemap[host]["producing"]:
                 if tp.Class() in changes["new"]:
-                    update_dict.setdefault(tp.Class().__name__, {"new": {}, "mod": {}, "deleted": []})["new"] = changes["new"][tp.Class()]
+                    update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["new"] = changes["new"][tp.Class()]
             for tp in self.__host_typemap[host]["gettingsetting"]:
                 if tp.Class() in changes["mod"]:
-                    update_dict.setdefault(tp.Class().__name__, {"new": {}, "mod": {}, "deleted": []})["mod"] = changes["mod"][tp.Class()]
+                    update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["mod"] = changes["mod"][tp.Class()]
             for tp in self.__host_typemap[host]["setting"]:
                 if tp.Class() in changes["mod"]:
-                    update_dict.setdefault(tp.Class().__name__, {"new": {}, "mod": {}, "deleted": []})["mod"] = changes["mod"][tp.Class()]
+                    update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["mod"] = changes["mod"][tp.Class()]
             for tp in self.__host_typemap[host]["deleting"]:
                 if tp.Class() in changes["deleted"]:
-                    update_dict.setdefault(tp.Class().__name__, {"new": {}, "mod": {}, "deleted": []})["deleted"].extend(changes["deleted"][tp.Class()])
-                    #self.logger.debug( "deleting %s %s", tp.Class().__name__, update_dict[tp.Class().__name__]["deleted"])
+                    update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["deleted"].extend(changes["deleted"][tp.Class()])
+                    #self.logger.debug( "deleting %s %s", tp.__realname__, update_dict[tp.__realname__]["deleted"])
             for tp in update_dict:
                 package = {"update_dict": json.dumps(update_dict[tp])}
                 requests.post(host + "/" + tp, json = package)

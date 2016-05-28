@@ -7,7 +7,6 @@ Created on Apr 19, 2016
 import sys
 import argparse
 from spacetime.store_server import FrameServer
-from datamodel.all import DATAMODEL_TYPES
 import cmd
 from flask import request
 from threading import Thread as Parallel
@@ -32,19 +31,22 @@ class SpacetimeConsole(cmd.Cmd):
         """ objsin <type>
         Prints the primary key of all objects of a type (accepts auto-complete)
         """
-        objs = fs.Store.get(fs.name2class[type_text])
-        if objs:
-            print "{0:20s}".format("ids")
-            print "============="
-            for oid in objs:
-                print "{0:20s}".format(oid)
-            print ""
+        if type_text in fs.name2class:
+            objs = fs.Store.get(fs.name2class[type_text])
+            if objs:
+                print "{0:20s}".format("ids")
+                print "============="
+                for oid in objs:
+                    print "{0:20s}".format(oid)
+                print ""
+        else:
+            print "could not find type %s" % type_text
 
     def complete_objsin(self, text, line, begidx, endidx):
         if not text:
-            completions = [t.Class().__name__ for t in DATAMODEL_TYPES]
+            completions = [t.__realname__ for t in fs.DATAMODEL_TYPES]
         else:
-            completions = [t.Class().__name__ for t in DATAMODEL_TYPES if t.Class().__name__.startswith(text)]
+            completions = [t.__realname__ for t in fs.DATAMODEL_TYPES if t.__realname__.startswith(text)]
         return completions
 
     def complete_list(self, text, line, begidx, endidx):
@@ -57,8 +59,8 @@ class SpacetimeConsole(cmd.Cmd):
         * 'apps' prints the name of all applications registered with the server
         """
         if line == "sets":
-            for t in DATAMODEL_TYPES:
-                print "{0:60s}{1:s}".format(t.Class().__name__, t.Class().__module__)
+            for t in fs.DATAMODEL_TYPES:
+                print "{0:60s}{1:s}".format(t.__realname__, t.Class().__module__)
         elif line == "apps":
             all_apps = fs.Store.get_app_list()
             for app in all_apps:
@@ -102,6 +104,7 @@ if __name__== "__main__":
     parser.add_argument('-p', '--port', type=int, default=12000, help='Port where the server will listen (default: 12000)')
     parser.add_argument('-d', '--debug', action='store_true', help='Debug on')
     parser.add_argument('-e', '--external', action='store_true', help='Make this server externally accessible')
+    parser.add_argument('-w', '--watchdog', action='store_true', help='Starts the server with thes slack/github watchdog')
     args = parser.parse_args()
 
     global fs
@@ -110,6 +113,13 @@ if __name__== "__main__":
     p.daemon = True
     p.start()
 
+    if args.watchdog:
+        try:
+            from slack_watchdog import start_watchdog
+            start_watchdog(fs)
+        except:
+            print "error starting watchdog."
+            raise
     SpacetimeConsole().cmdloop()
 
 

@@ -30,6 +30,7 @@ class NodeSimulation(IApplication.IApplication):
         '''
         self.frame = frame
         self.logger = logging.getLogger(__name__)
+        self._done = False
 
     def initialize(self):
         path_data = os.path.dirname(os.path.realpath(__file__))
@@ -146,3 +147,13 @@ class NodeSimulation(IApplication.IApplication):
 
     def shutdown(self):
         self.logger.info("Shutting down NodeSimulation")
+
+    @property
+    def done(self):
+        return self._done
+
+    @done.setter
+    def done(self, value):
+        self._done = value
+
+

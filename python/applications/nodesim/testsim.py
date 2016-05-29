@@ -25,6 +25,7 @@ class NodeTestSimulation(IApplication.IApplication):
         self.frame = frame
         self.step = 0
         self.logger = logging.getLogger(__name__)
+        self._done = False
 
     def initialize(self):
         pass
@@ -65,3 +66,12 @@ class NodeTestSimulation(IApplication.IApplication):
 
     def shutdown(self):
         self.logger.info("Shutting down NodeTestSimulation")
+
+    @property
+    def done(self):
+        return self._done
+
+    @done.setter
+    def done(self, value):
+        self._done = value
+

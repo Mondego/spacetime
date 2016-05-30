@@ -16,7 +16,7 @@ from random import choice
 @Producer(RouteRequest)
 @GetterSetter(RouteRequest, Route)
 @Tracker(Route, Waypoint, ResidentialNode, BusinessNode)
-@Deleter(Route)
+@Deleter(Route, RouteRequest)
 class NodeTestSimulation(IApplication.IApplication):
     def __init__(self, frame):
         '''

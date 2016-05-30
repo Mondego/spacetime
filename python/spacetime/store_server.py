@@ -204,13 +204,16 @@ def SetupLoggers(debug) :
     logger.addHandler(flog)
 
     clog = logging.StreamHandler()
-    # clog.addFilter(logging.Filter(name='mobdat'))
     clog.setFormatter(logging.Formatter('[%(name)s] %(message)s'))
-    clog.setLevel(logging.DEBUG)
+    if debug:
+        clog.setLevel(logging.DEBUG)
+    else:
+        clog.setLevel(logging.INFO)
     logger.addHandler(clog)
 
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger('werkzeug').setLevel(logging.WARNING)
+    logging.getLogger("requests").setLevel(logging.WARNING)
 
 class FrameServer(object):
     '''

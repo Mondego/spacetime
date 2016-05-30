@@ -35,7 +35,9 @@ def create_jsondict(obj):
         for dimension in obj.__class__.__dimensions__:
             if dimension._primarykey:
                 try:
-                    getattr(obj, dimension._name)
+                    primkey = getattr(obj, dimension._name)
+                    if not primkey:
+                        setattr(obj, dimension._name, str(uuid.uuid4()))
                 except AttributeError:
                     setattr(obj, dimension._name, str(uuid.uuid4()))
             obj_dict[dimension._name] = create_jsondict(getattr(obj, dimension._name))

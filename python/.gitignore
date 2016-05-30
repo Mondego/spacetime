@@ -8,7 +8,7 @@
 *.suo
 *.user
 *.sync/
-
+applications/ospuller/data/*.js
 *.VisualState.xml
 *.pyc
 *.sln

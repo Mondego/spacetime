@@ -66,6 +66,8 @@ class NodeTestSimulation(IApplication.IApplication):
 
     def shutdown(self):
         self.logger.info("Shutting down NodeTestSimulation")
+        for obj in self.frame.get(RouteRequest):
+            self.frame.delete(RouteRequest, obj)
 
     @property
     def done(self):

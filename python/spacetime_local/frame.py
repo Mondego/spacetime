@@ -29,6 +29,11 @@ class SpacetimeConsole(cmd.Cmd):
         """
         shutdown()
 
+    def do_quit(self, line):
+        """ quit
+        Exits all applications by calling their shutdown methods.
+        """
+
     def emptyline(self):
         pass
 
@@ -58,7 +63,7 @@ class frame(IFrame):
 
     def __register_app(self, app):
         self.logger = self.__setup_logger("spacetime@" + app.__class__.__name__)
-        self.__host_typemap = {}        
+        self.__host_typemap = {}
         for address, tpmap in self.__app.__declaration_map__.items():
             if address == "default":
                 address = self.__address
@@ -98,7 +103,7 @@ class frame(IFrame):
                          headers = {'content-type': 'application/json'})
         self.__name2type = dict([(tp.__realname__, tp) for tp in all_types])
         self.object_store.add_types(all_types)
-        return 
+        return
 
     @staticmethod
     def loop():
@@ -165,19 +170,15 @@ class frame(IFrame):
         while not self.__app.done:
             st_time = time.time()
             self.__pull()
-            #take1t = time.time()
-            #take1 = take1t - st_time
             self.__app.update()
-            #take2t = time.time()
-            #take2 = take2t - take1t
             self.__push()
             end_time = time.time()
-            #take3 = end_time - take2t
             timespent = end_time - st_time
-            #print self.__app.__class__.__name__, take1, take2, take3,
-            #timespent
+            # time spent on execution loop
             if timespent < self._time_step:
                 time.sleep(float(self._time_step - timespent))
+            else:
+                self.logger.info("loop exceeded maximum time: %s ms", timespent)
 
         # One last time, because _shutdown may delete objects from the store
         self.__pull()
@@ -373,14 +374,21 @@ class frame(IFrame):
         self.object_store.clear_changes()
 
     def _shutdown(self):
+        """
+        _shutdown
+
+        Called after the frame execution loop stops, in the last pull/push
+        iteration
+        """
         self.__app.shutdown()
-        #frame.framelist.remove(self)
-        #self.__unregister_app()
 
     def _stop(self):
+        """
+        _stop
+
+        Called by frame's command prompt on quit/exit
+        """
         self.__app.done = True
-        #frame.framelist.remove(self)
-        #self.__unregister_app()
 
     def __unregister_app(self):
         raise NotImplementedError()
@@ -393,7 +401,7 @@ class frame(IFrame):
         logger.debug("Starting logger for %s",name)
         return logger
         #logging.getLogger('requests').setLevel(logging.WARNING)
-        
+
 def shutdown():
     import sys
     print "Shutting down all applications..."
@@ -401,7 +409,7 @@ def shutdown():
     for f in frame.framelist:
         f._stop()
         threads.append(f.thread)
-    
+
     [t.join() for t in threads]
     sys.exit(0)
 

@@ -21,7 +21,7 @@ from .pyroute.route import Router
 
 @Producer(Waypoint, Node, BusinessNode, ResidentialNode, Route, Road)
 @GetterSetter(Waypoint)
-@Deleter(RouteRequest)
+@Deleter(RouteRequest, Waypoint, Node, BusinessNode, ResidentialNode, Route, Road)
 @Tracker(RouteRequest)
 class NodeSimulation(IApplication.IApplication):
     def __init__(self, frame):
@@ -146,6 +146,19 @@ class NodeSimulation(IApplication.IApplication):
         plt.show(block=block)
 
     def shutdown(self):
+        for obj in self.frame.get(Waypoint):
+            self.frame.delete(Waypoint, obj)
+        for obj in self.frame.get(ResidentialNode):
+            self.frame.delete(ResidentialNode, obj)
+        for obj in self.frame.get(BusinessNode):
+            self.frame.delete(BusinessNode, obj)
+        for obj in self.frame.get(Node):
+            self.frame.delete(Node, obj)
+        for obj in self.frame.get(Road):
+            self.frame.delete(Road, obj)
+        for obj in self.frame.get(Route):
+            self.frame.delete(Route, obj)
+
         self.logger.info("Shutting down NodeSimulation")
 
     @property

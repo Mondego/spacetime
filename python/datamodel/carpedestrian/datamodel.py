@@ -26,7 +26,6 @@ class Car(object):
     FINAL_POSITION = 700;
     SPEED = 40;
 
-    _ID = None
     @primarykey(str)
     def ID(self):
         return self._ID
@@ -62,7 +61,6 @@ class Car(object):
     def Color(self, value):
         self._Color = value
 
-    _Length = 0
     @dimension(int)
     def Length(self):
         return self._Length
@@ -71,7 +69,6 @@ class Car(object):
     def Length(self, value):
         self._Length = value
 
-    _Width = 0
     @dimension(int)
     def Width(self):
         return self._Width
@@ -79,10 +76,6 @@ class Car(object):
     @Width.setter
     def Width(self, value):
         self._Width = value
-
-    def __init__(self, uid=None):
-        self.ID = uid
-        self.Length = 30;
 
 @subset(Car)
 class InactiveCar(Car.Class()):

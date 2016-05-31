@@ -42,7 +42,7 @@ class Simulation(object):
         frame_ped.run_async()
         gfx_frame.run_main()
 
-        #frame.loop()
+        frame.loop()
 
 def SetupLoggers():
     global logger

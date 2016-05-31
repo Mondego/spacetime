@@ -40,7 +40,10 @@ def create_jsondict(obj):
                         setattr(obj, dimension._name, str(uuid.uuid4()))
                 except AttributeError:
                     setattr(obj, dimension._name, str(uuid.uuid4()))
-            obj_dict[dimension._name] = create_jsondict(getattr(obj, dimension._name))
+            try:
+                obj_dict[dimension._name] = create_jsondict(getattr(obj, dimension._name))
+            except AttributeError:
+                obj_dict[dimension._name] = None
         return obj_dict
     else:
         tp_marker = get_type(obj)

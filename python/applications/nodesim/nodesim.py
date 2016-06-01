@@ -38,7 +38,7 @@ class NodeSimulation(IApplication.IApplication):
         self.logger.info(self.data.report())
         for node, loc in self.data.nodes.items():
             # Y
-            lat = loc[0]
+            lat = loc[0] * 0.8888
             # X
             lon = loc[1]
             wpt = Waypoint()
@@ -46,7 +46,7 @@ class NodeSimulation(IApplication.IApplication):
             wpt.Wpid = str(node)
             self.frame.add(wpt)
 
-            if lat > 1924.0:
+            if lat > 1710.0:
                 bnode = BusinessNode()
                 bnode.BusinessType = ""
                 bnode.Name = str(node)
@@ -55,7 +55,7 @@ class NodeSimulation(IApplication.IApplication):
             # node 310 (lon: 283, lat: 473)
             # node 30 (lon: 633)
             # node 2400 (lat: 982)
-            elif (lat < 982.0 and lon < 283.0) or (lat < 473.0 and lon < 620.0):
+            elif (lat < 822.0 and lon < 283.0) or (lat < 420.0 and lon < 620.0):
                 rnode = ResidentialNode()
                 rnode.Name = str(node)
                 rnode.WP = wpt
@@ -110,13 +110,13 @@ class NodeSimulation(IApplication.IApplication):
                 res.Destination = req.Destination
 
                 edge = self.edges[str(route[0]) + "=o=" + str(route[1])]
-                previous = edge.get_coordinates()[1]
+                previous = edge.get_coordinates()[0]
                 res.Waypoints.append(previous)
                 for i in xrange(1,len(route)-1):
                     edge = self.edges[str(route[i]) + "=o=" + str(route[i+1])]
                     curpoint = copy.copy(edge.get_coordinates()[0])
-                    curpoint.X = (curpoint.X + previous.X)/2
-                    curpoint.Y = (curpoint.Y + previous.Y)/2
+                    #curpoint.X = (curpoint.X + previous.X)/2
+                    #curpoint.Y = (curpoint.Y + previous.Y)/2
                     res.Waypoints.append(curpoint)
                     previous = copy.copy(edge.get_coordinates()[1])
                 res.Waypoints.append(edge.get_coordinates()[1])

@@ -70,6 +70,10 @@ class store(object):
         for obj in objs:
             self.insert(obj)
 
+    def frame_delete_with_id(self, tp, obj_id):
+        obj = self.get_one(tp, obj_id)
+        self.__deleted.add((tp, obj))
+
     def delete(self, tp, obj):
         if tp in self.__objects and obj.__primarykey__ in self.__objects[tp]:
             self._changes["deleted"].setdefault(obj.__class__, set()).add(obj.__primarykey__)

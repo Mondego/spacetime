@@ -19,9 +19,12 @@ class Quaternion :
     # -----------------------------------------------------------------
     @classmethod
     def FromVector3(cls, vec):
-        heading = math.atan(vec.Y/vec.X)
-        if vec.X < 0:
-            heading = heading + math.pi
+        if vec.X == 0:
+            heading = 0
+        else:
+            heading = math.atan(vec.Y/vec.X)
+            if vec.X < 0:
+                heading = heading + math.pi
         return Quaternion.FromHeading(heading)
 
 

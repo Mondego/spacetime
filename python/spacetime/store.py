@@ -377,6 +377,7 @@ class dataframe(object):
             set(typemap.setdefault("setting", set()))
           )
         self.__copylock[app] = RLock()
+        self.__app_to_dynamicpcc[app] = set()
         with self.__copylock[app]:
             self.__app_to_basechanges[app] = {}
             mod, new, deleted = ({}, {}, [])
@@ -401,7 +402,7 @@ class dataframe(object):
                         base_types.add(base)
                         self.__app_to_basechanges[app][base.__realname__] = (mod, new, deleted)
                         self.__type_to_app.setdefault(base.__realname__, set()).add(app)
-                    self.__app_to_dynamicpcc.setdefault(app, set()).add(tp.__realname__)
+                    self.__app_to_dynamicpcc[app].add(tp.__realname__)
                 self.__type_to_app.setdefault(tp.__realname__, set()).add(app)
 
             # Add producer and deleter types to base_store, but not to basechanges

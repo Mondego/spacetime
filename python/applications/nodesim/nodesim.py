@@ -97,6 +97,7 @@ class NodeSimulation(IApplication.IApplication):
             if not req.Destination:
                 req.Destination = choice(self.frame.get(Waypoint))
             try:
+                req.Source.Wpid, req.Destination.Wpid
                 result, route = self.router.doRouteAsLL(int(req.Source.Wpid),
                     int(req.Destination.Wpid), "car", "nodes")
             except:

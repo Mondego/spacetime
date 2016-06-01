@@ -142,7 +142,6 @@ class st_dataframe(object):
         return newobj
 
 
-
 # not active object.
 # wrapper on store, that allows it to keep track of app, and subset merging etc.
 # needs app.
@@ -178,6 +177,9 @@ class dataframe(object):
             else:
                 self.__typename_to_primarykey[tp.__realname__] = tp.__ENTANGLED_TYPES__[0].__primarykey__._name
 
+        self.__base2derived = calc_basecls2derived(
+                    dict([(tp.__realname__, tp) for tp in DATAMODEL_TYPES]))
+
     def reload_dms(self):
         from datamodel.all import DATAMODEL_TYPES
         self.__base_store.reload_dms(DATAMODEL_TYPES)
@@ -188,7 +190,8 @@ class dataframe(object):
                 self.__typename_to_primarykey[tp.__realname__] = tp.__primarykey__._name
             else:
                 self.__typename_to_primarykey[tp.__realname__] = tp.__ENTANGLED_TYPES__[0].__primarykey__._name
-
+        self.__base2derived = calc_basecls2derived(
+                    dict([(tp.__realname__, tp) for tp in DATAMODEL_TYPES]))
     def __convert_to_objects(self, objmap):
         real_objmap = {}
         for tp, objlist in objmap.items():
@@ -299,16 +302,34 @@ class dataframe(object):
                         params), deleted
             else:
             # take the base changes from the dictionary. Should have been updated with all changes.
-                if tp.__realname__ in self.__app_to_basechanges[app]:
-                    mod_t, new_t, deleted_t = self.__app_to_basechanges[app][tp.__realname__]
-                    self.__app_to_basechanges[app][tp.__realname__] = (mod_t.fromkeys(mod_t, {})
-                                                          if not tracked_only else mod_t,
-                                                          {},
-                                                          [])
-                    mod = {tp: mod_t} if mod_t else {tp: {}}
-                    new = {tp: new_t} if new_t else {tp: {}}
-                    deleted = {tp: deleted_t} if deleted_t else {tp: []}
-        return self.__convert_type_str(new, mod if not tracked_only else {tp: {}}, deleted)
+                alltps = [tp]
+                if tp in self.__base2derived:
+                    alltps.extend(self.__base2derived[tp])
+                f_mod_t, f_new_t, f_deleted_t = {}, {}, []
+                for dtp in alltps:
+                    if dtp.__realname__ in self.__app_to_basechanges[app]:
+                        mod_t, new_t, deleted_t = self.__app_to_basechanges[app][dtp.__realname__]
+                        f_mod_t.update(mod_t)
+                        f_new_t.update(new_t)
+                        f_deleted_t.extend(deleted_t)
+                mod = {tp: f_mod_t}
+                new = {tp: f_new_t}
+                deleted = {tp: f_deleted_t}
+        result = self.__convert_type_str(new, mod if not tracked_only else {tp: {}}, deleted)
+        print result 
+        return result
+
+    def clear_buffer(self, app, tracked_only = False):
+        for tpname in self.__app_to_basechanges[app]:
+            newmod = {}
+            if tracked_only:
+                newmod = self.__app_to_basechanges[app][tpname][0]
+            else:
+                for key in self.__app_to_basechanges[app][tpname][0]:
+                    newmod[key] = {}
+
+            self.__app_to_basechanges[app][tpname] = (newmod, {}, [])
+                        
 
     def put_update(self, app, tp, new, mod, deleted):
         if tp.__PCC_BASE_TYPE__:

@@ -68,6 +68,7 @@ class GetAllUpdated(Resource):
         for tp in types:
             typeObj = FrameServer.name2class[tp]
             (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim)
+            FrameServer.Store.clear_buffer(sim)
             all_new.update(new)
             all_updated.update(updated)
             all_deleted.update(deleted)
@@ -87,6 +88,7 @@ class GetAllTracked(Resource):
         for tp in types:
             typeObj = FrameServer.name2class[tp]
             (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim, tracked_only=True)
+            FrameServer.Store.clear_buffer(sim, tracked_only=True)
             all_new.update(new)
             all_updated.update(updated)
             all_deleted.update(deleted)

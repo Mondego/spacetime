@@ -289,34 +289,40 @@ class dataframe(object):
         for app in self.__copylock:
             self.__copylock[app].release()
 
+    def acquire_lock(self, app):
+        if app in self.__copylock:
+            self.__copylock[app].acquire()
+
+    def release_lock(self, app):
+        if app in self.__copylock:
+            self.__copylock[app].release()
+
     def get_update(self, tp, app, params = None, tracked_only = False):
         # get dynamic pccs with/without params
         # can
         new, mod, deleted = {tp: {}}, {tp: {}}, {tp: []}
-        with self.__copylock[app]:
-            # pccs are always recalculated from scratch. Easier
-            if not tp.__PCC_BASE_TYPE__:
-                if tp.__realname__ in self.__app_to_dynamicpcc[app]:
-                    mod, new, deleted = mod, self.__calculate_pcc(
-                        tp,
-                        params), deleted
-            else:
-            # take the base changes from the dictionary. Should have been updated with all changes.
-                alltps = [tp]
-                if tp in self.__base2derived:
-                    alltps.extend(self.__base2derived[tp])
-                f_mod_t, f_new_t, f_deleted_t = {}, {}, []
-                for dtp in alltps:
-                    if dtp.__realname__ in self.__app_to_basechanges[app]:
-                        mod_t, new_t, deleted_t = self.__app_to_basechanges[app][dtp.__realname__]
-                        f_mod_t.update(mod_t)
-                        f_new_t.update(new_t)
-                        f_deleted_t.extend(deleted_t)
-                mod = {tp: f_mod_t}
-                new = {tp: f_new_t}
-                deleted = {tp: f_deleted_t}
+        # pccs are always recalculated from scratch. Easier
+        if not tp.__PCC_BASE_TYPE__:
+            if tp.__realname__ in self.__app_to_dynamicpcc[app]:
+                mod, new, deleted = mod, self.__calculate_pcc(
+                    tp,
+                    params), deleted
+        else:
+        # take the base changes from the dictionary. Should have been updated with all changes.
+            alltps = [tp]
+            if tp in self.__base2derived:
+                alltps.extend(self.__base2derived[tp])
+            f_mod_t, f_new_t, f_deleted_t = {}, {}, []
+            for dtp in alltps:
+                if dtp.__realname__ in self.__app_to_basechanges[app]:
+                    mod_t, new_t, deleted_t = self.__app_to_basechanges[app][dtp.__realname__]
+                    f_mod_t.update(mod_t)
+                    f_new_t.update(new_t)
+                    f_deleted_t.extend(deleted_t)
+            mod = {tp: f_mod_t}
+            new = {tp: f_new_t}
+            deleted = {tp: f_deleted_t}
         result = self.__convert_type_str(new, mod if not tracked_only else {tp: {}}, deleted)
-        print result 
         return result
 
     def clear_buffer(self, app, tracked_only = False):

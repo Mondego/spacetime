@@ -65,6 +65,8 @@ class GetAllUpdated(Resource):
         args = parser.parse_args()
         types = json.loads(args["get_types"])["types"]
         (all_new, all_updated, all_deleted) = ({}, {}, {})
+        FrameServer.Store.acquire_lock(sim)
+            
         for tp in types:
             typeObj = FrameServer.name2class[tp]
             (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim)
@@ -72,6 +74,7 @@ class GetAllUpdated(Resource):
             all_new.update(new)
             all_updated.update(updated)
             all_deleted.update(deleted)
+        FrameServer.Store.release_lock(sim)
         ret = {}
         ret["new"] = all_new
         ret["updated"] = all_updated
@@ -85,6 +88,7 @@ class GetAllTracked(Resource):
         args = parser.parse_args()
         types = json.loads(args["get_types"])["types"]
         (all_new, all_updated, all_deleted) = ({}, {}, {})
+        FrameServer.Store.acquire_lock(sim)
         for tp in types:
             typeObj = FrameServer.name2class[tp]
             (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim, tracked_only=True)
@@ -92,6 +96,7 @@ class GetAllTracked(Resource):
             all_new.update(new)
             all_updated.update(updated)
             all_deleted.update(deleted)
+        FrameServer.Store.release_lock(sim)
         ret = {}
         ret["new"] = all_new
         ret["updated"] = all_updated

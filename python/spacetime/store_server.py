@@ -185,6 +185,10 @@ class Register(Resource):
         typemap = json.loads(data)["sim_typemap"]
         FrameServer.Store.register_app(sim, typemap, FrameServer.name2class, FrameServer.name2baseclasses)
 
+    @handle_exceptions
+    def delete(self, sim):
+        FrameServer.disconnect(sim)
+
 def SetupLoggers(debug) :
     global logger
     if debug:

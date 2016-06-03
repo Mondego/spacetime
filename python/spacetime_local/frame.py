@@ -184,6 +184,7 @@ class frame(IFrame):
         self.__pull()
         self._shutdown()
         self.__push()
+        self.__unregister_app()
 
 
     def get(self, tp, id=None):
@@ -391,7 +392,9 @@ class frame(IFrame):
         self.__app.done = True
 
     def __unregister_app(self):
-        raise NotImplementedError()
+        for host in self.__host_typemap:
+            resp = requests.delete(host)
+            self.logger.info("Successfully deregistered from %s", host)
 
     def __setup_logger(self, name, file_path=None):
         logger = logging.getLogger(name)

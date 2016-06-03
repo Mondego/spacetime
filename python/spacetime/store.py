@@ -278,6 +278,9 @@ class dataframe(object):
         else:
             return self.__base_store.get_by_type(tp)
 
+    def get_ids(self, tp):
+        return self.__base_store.get_ids(tp)
+
     def pause(self):
         for app in self.__copylock:
             self.__copylock[app].acquire()

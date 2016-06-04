@@ -278,6 +278,9 @@ class dataframe(object):
         else:
             return self.__base_store.get_by_type(tp)
 
+    def get_ids(self, tp):
+        return self.__base_store.get_ids(tp)
+
     def pause(self):
         for app in self.__copylock:
             self.__copylock[app].acquire()
@@ -376,8 +379,22 @@ class dataframe(object):
             set(typemap.setdefault("gettingsetting", set())),
             set(typemap.setdefault("setting", set()))
           )
+        if app in self.__copylock:
+            try:
+                with self.__copylock[app]:
+                    # Clean-up old registration
+                    for strtp in self.__type_to_app.keys():
+                        if app in self.__type_to_app[strtp]:
+                            del self.__type_to_app[strtp][app]
+
+                    self.__app_to_basechanges[app] = {}
+                    del self.__copylock[app]
+            except:
+                pass
+
         self.__copylock[app] = RLock()
         self.__app_to_dynamicpcc[app] = set()
+
         with self.__copylock[app]:
             self.__app_to_basechanges[app] = {}
             mod, new, deleted = ({}, {}, [])
@@ -418,10 +435,37 @@ class dataframe(object):
             final_base_types = [b for b in base_types if b.__PCC_BASE_TYPE__]
             self.__base_store.add_types(final_base_types)
 
-    def gc(self, app, name2class):
+    def gc(self, this_app, name2class):
+        mylock = self.__copylock[this_app]
+        self.pause()
         self.logger.warn("Application %s disconnected. Removing owned objects.",
-                         app)
-        for strtp in self.__gc[app]:
-            for oid in self.__gc[app][strtp]:
+                     this_app)
+
+        for strtp in self.__type_to_app.keys():
+            if this_app in self.__type_to_app[strtp]:
+                self.__type_to_app[strtp].remove(this_app)
+
+        other_apps = set()
+        for strtp in self.__gc[this_app]:
+            if strtp in self.__base_store.get_base_types():
+                if strtp in self.__type_to_app.keys():
+                    other_apps = set(self.__type_to_app[strtp]).difference(set([this_app]))
+
+        # delete all owned objects, and inform other simulations of deleted objects
+        for strtp in self.__gc[this_app]:
+            for oid in self.__gc[this_app][strtp]:
                 self.__base_store.delete(name2class[strtp], oid)
-        del self.__gc[app]
+                for app in other_apps:
+                    if strtp in self.__app_to_basechanges[app]:
+                        if oid in self.__app_to_basechanges[app][strtp][0]:
+                            del self.__app_to_basechanges[app][strtp][0][oid]
+                        if oid in self.__app_to_basechanges[app][strtp][1]:
+                            del self.__app_to_basechanges[app][strtp][1][oid]
+                        self.__app_to_basechanges[app][strtp][2].append(oid)
+
+        del self.__copylock[this_app]
+        del self.__gc[this_app]
+        self.__apps.remove(this_app)
+        self.unpause()
+        mylock.release()
+

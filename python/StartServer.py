@@ -44,7 +44,7 @@ class SpacetimeConsole(cmd.Cmd):
                     objs = fs.Store.get(tp)
                     for obj in objs.values():
                         v = obj[dim]
-                        if v == val:
+                        if str(v) == val:
                             for d in obj:
                                 print "%s: %s" % (d, obj[d])
                 else:

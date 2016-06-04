@@ -8,6 +8,7 @@ import sys
 import argparse
 from spacetime.store_server import FrameServer
 import cmd
+import shlex
 from flask import request
 from threading import Thread as Parallel
 
@@ -26,6 +27,69 @@ class SpacetimeConsole(cmd.Cmd):
         Exits all applications by calling their shutdown methods.
         """
         shutdown()
+
+    def do_findobjs(self, line):
+        """ findobjs
+        Looks for objects where a given dimension matches a given value for a
+        given set.
+        """
+        tokens = shlex.split(line)
+        if len(tokens) == 3:
+            type_text = tokens[0]
+            dim = tokens[1]
+            val = tokens[2]
+            if type_text in fs.name2class:
+                tp = fs.name2class[type_text]
+                if hasattr(tp, dim):
+                    objs = fs.Store.get(tp)
+                    for obj in objs.values():
+                        v = obj[dim]
+                        if str(v) == val:
+                            for d in obj:
+                                print "%s: %s" % (d, obj[d])
+                else:
+                    print "type %s does not have dimension %s" % (type_text, dim)
+            else:
+                print "could not find type %s" % type_text
+        else:
+            print "usage: findobjs <type> <dimension> <value>"
+
+    def do_descobj(self, line):
+        """ descobj <type> <id>
+        Given a type and an id, prints all the dimensions and values.
+        Has auto-complete.
+        """
+        tokens = shlex.split(line)
+        if len(tokens) ==  2:
+            type_text = tokens[0]
+            oid = tokens[1]
+            if type_text in fs.name2class:
+                obj = {}
+                try:
+                    obj = fs.Store.get(fs.name2class[type_text], oid)
+                except:
+                    print "could not find object with id %s" % oid
+                for dim in obj:
+                    print "%s: %s" % (dim, obj[dim])
+            else:
+                print "could not find type %s" % type_text
+
+
+    def complete_descobj(self, text, line, begidx, endidx):
+        tokens = shlex.split(line)
+        if len(tokens) == 1:
+            completions = [t.__realname__ for t in fs.DATAMODEL_TYPES]
+        elif len(tokens) == 2 and text:
+            completions = [t.__realname__ for t in fs.DATAMODEL_TYPES if t.__realname__.startswith(text)]
+        else:
+            if tokens[1] in fs.name2class:
+                if len(tokens) == 2 and not text:
+                    completions = [oid for oid in fs.Store.get_ids(fs.name2class[tokens[1]])]
+                elif len(tokens) == 3 and text:
+                    completions = [oid for oid in fs.Store.get(fs.name2class[tokens[1]]) if oid.startswith(text)]
+            else:
+                print "\n%s is not a valid type." % tokens[1]
+        return completions
 
     def do_objsin(self, type_text):
         """ objsin <type>

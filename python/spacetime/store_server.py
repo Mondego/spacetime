@@ -32,6 +32,9 @@ def handle_exceptions(f):
     def wrapped(*args, **kwds):
         try:
             FrameServer.app_gc_timers[kwds["sim"]] = time.time()
+            if type(args[0]) is not Register:
+                if kwds["sim"] not in FrameServer.Store.get_app_list():
+                    return {}, 401
             ret = f(*args, **kwds)
         except Exception, e:
             logger.exception("Exception handling function %s:", f.func_name)
@@ -59,13 +62,59 @@ app.config.from_object(FlaskConfig)
 FlaskConfig.init_app(app)
 api = Api(app)
 
-class GetAllUpdated(Resource):
+# class GetAllUpdated(Resource):
+#     @handle_exceptions
+#     def get(self, sim):
+#         args = parser.parse_args()
+#         types = json.loads(args["get_types"])["types"]
+#         (all_new, all_updated, all_deleted) = ({}, {}, {})
+#         for tp in types:
+#             typeObj = FrameServer.name2class[tp]
+#             (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim)
+#             all_new.update(new)
+#             all_updated.update(updated)
+#             all_deleted.update(deleted)
+#         ret = {}
+#         ret["new"] = all_new
+#         ret["updated"] = all_updated
+#         ret["deleted"] = all_deleted
+#
+#         return ret
+#
+# class GetAllTracked(Resource):
+#     @handle_exceptions
+#     def get(self, sim):
+#         args = parser.parse_args()
+#         types = json.loads(args["get_types"])["types"]
+#         (all_new, all_updated, all_deleted) = ({}, {}, {})
+#         for tp in types:
+#             typeObj = FrameServer.name2class[tp]
+#             (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim, tracked_only=True)
+#             all_new.update(new)
+#             all_updated.update(updated)
+#             all_deleted.update(deleted)
+#         ret = {}
+#         ret["new"] = all_new
+#         ret["updated"] = all_updated
+#         ret["deleted"] = all_deleted
+#
+#         return ret
+
+class GetAllUpdatedTracked(Resource):
     @handle_exceptions
     def get(self, sim):
         args = parser.parse_args()
-        types = json.loads(args["get_types"])["types"]
+        types_tracked = json.loads(args["get_types"])["types_tracked"]
+        types_updated = json.loads(args["get_types"])["types_updated"]
         (all_new, all_updated, all_deleted) = ({}, {}, {})
-        for tp in types:
+        for tp in set(types_tracked).difference(set(types_updated)):
+            typeObj = FrameServer.name2class[tp]
+            (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim, tracked_only=True)
+            all_new.update(new)
+            all_updated.update(updated)
+            all_deleted.update(deleted)
+
+        for tp in types_updated:
             typeObj = FrameServer.name2class[tp]
             (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim)
             all_new.update(new)
@@ -75,27 +124,21 @@ class GetAllUpdated(Resource):
         ret["new"] = all_new
         ret["updated"] = all_updated
         ret["deleted"] = all_deleted
-
         return ret
 
-class GetAllTracked(Resource):
     @handle_exceptions
-    def get(self, sim):
+    def post(self, sim):
         args = parser.parse_args()
-        types = json.loads(args["get_types"])["types"]
-        (all_new, all_updated, all_deleted) = ({}, {}, {})
-        for tp in types:
-            typeObj = FrameServer.name2class[tp]
-            (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim, tracked_only=True)
-            all_new.update(new)
-            all_updated.update(updated)
-            all_deleted.update(deleted)
-        ret = {}
-        ret["new"] = all_new
-        ret["updated"] = all_updated
-        ret["deleted"] = all_deleted
+        # update dict is a dictionary of dictionaries: { primary_key : {
+        # property_name : property_value } }
+        data = args["update_dict"]
+        update_dict = json.loads(data)
+        for strtp in update_dict.keys():
+            typeObj = FrameServer.name2class[strtp]
+            new, mod, deleted = update_dict[strtp]["new"], update_dict[strtp]["mod"], update_dict[strtp]["deleted"]
+            FrameServer.Store.put_update(sim, typeObj, new, mod, deleted)
+        return {}
 
-        return ret
 
 class GetUpdated(Resource):
     @handle_exceptions
@@ -120,7 +163,6 @@ class GetTracked(Resource):
         ret["deleted"] = deleted
 
         return ret
-
 
 class GetPushType(Resource):
     @handle_exceptions
@@ -249,8 +291,8 @@ class FrameServer(object):
         self.api.add_resource(GetPushType, '/<string:sim>/<string:t>')
         self.api.add_resource(GetUpdated, '/<string:sim>/updated/<string:t>')
         self.api.add_resource(GetTracked, '/<string:sim>/tracked/<string:t>')
-        self.api.add_resource(GetAllUpdated, '/<string:sim>/updated')
-        self.api.add_resource(GetAllTracked, '/<string:sim>/tracked')
+        self.api.add_resource(GetAllUpdatedTracked, '/<string:sim>/updated')
+        #self.api.add_resource(GetAllTracked, '/<string:sim>/tracked')
         self.api.add_resource(Register, '/<string:sim>')
         server = self
 

@@ -221,9 +221,11 @@ class frame(IFrame):
                 self.__push()
                 self.__unregister_app()
             except ConnectionError as cerr:
-                self.logger.error("A connnection error ocurred: %s", cerr.message)
+                self.logger.error("A connection error occurred: %s", cerr.message)
             except HTTPError as herr:
-                self.logger.error("A fatal error communicating with the server: %s", herr.message)
+                self.logger.error("A fatal error has occurred while communicating with the server: %s", herr.message)
+        else:
+            self.logger.info("Could not register, exiting run loop...")
 
 
     def get(self, tp, id=None):

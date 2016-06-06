@@ -20,6 +20,8 @@ import uuid
 import logging
 from threading import RLock
 
+from cache import Cache
+
 def calc_basecls2derived(name2class):
     result = {}
     for tp in DATAMODEL_TYPES:
@@ -43,8 +45,6 @@ def calc_basecls2derived(name2class):
 # must return object when asked for it.
 class store(object):
     def __init__(self):
-        # actual type objects
-        self.__sets = set()
         self.logger = logging.getLogger(__name__)
         # type -> {id : object} object is just json style recursive dictionary.
         # Onus on the client side to make objects
@@ -57,13 +57,12 @@ class store(object):
                     dict([(tp.__realname__, tp) for tp in datamodel_types]))
 
     def add_types(self, types):
-        # types will be list of actual type objects, not names. Load it somewhere.
-        self.__sets.update(types)
+        # types will be list of string names.
         for tp in types:
             self.__data.setdefault(tp.__realname__, RecursiveDictionary())
 
     def get_base_types(self):
-        # returns actual types back.
+        # returns string types back.
         return self.__data.keys()
 
     def get(self, tp, id):
@@ -120,28 +119,6 @@ class store(object):
         if count == 0:
             self.logger.warn("Object ID %s missing from data storage.", id)
 
-class st_dataframe(object):
-    '''
-    Dummy class for dataframe and pccs to work nicely
-    '''
-    def __init__(self, objs):
-        self.items = objs
-
-    def getcopies(self):
-        return self.items
-
-    def merge(self):
-        pass
-
-    def _change_type(self, baseobj, actual):
-        class _container(object):
-            pass
-        newobj = _container()
-        newobj.__dict__ = baseobj.__dict__
-        newobj.__class__ = actual
-        return newobj
-
-
 # not active object.
 # wrapper on store, that allows it to keep track of app, and subset merging etc.
 # needs app.
@@ -159,7 +136,7 @@ class dataframe(object):
         # app -> mod, new, deleted
         # mod, new : tp -> id -> object changes/full object
         # deleted: list of ids deleted
-        self.__app_to_basechanges = RecursiveDictionary()
+        self.__cache = Cache()
 
         # app -> list of dynamic types tracked by app.
         self.__app_to_dynamicpcc = {}
@@ -251,17 +228,6 @@ class dataframe(object):
 
         return pccsmap
 
-    def __convert_type_str(self, mod, new, deleted):
-        new_mod, new_new, new_deleted = {}, {}, {}
-        for tp in mod:
-            new_mod[tp.__realname__] = mod[tp]
-        for tp in new:
-            new_new[tp.__realname__] = new[tp]
-        for tp in deleted:
-            new_deleted[tp.__realname__] = deleted[tp]
-
-        return new_mod, new_new, new_deleted
-
     def get_app_list(self):
         return self.__apps
 
@@ -303,7 +269,8 @@ class dataframe(object):
     def get_update(self, tp, app, params = None, tracked_only = False):
         # get dynamic pccs with/without params
         # can
-        new, mod, deleted = {tp: {}}, {tp: {}}, {tp: []}
+        tpname = tp.__realname__
+        new, mod, deleted = {tpname: {}}, {tpname: {}}, {tpname: []}
         # pccs are always recalculated from scratch. Easier
         if not tp.__PCC_BASE_TYPE__:
             if tp.__realname__ in self.__app_to_dynamicpcc[app]:
@@ -317,27 +284,20 @@ class dataframe(object):
                 alltps.extend(self.__base2derived[tp])
             f_mod_t, f_new_t, f_deleted_t = {}, {}, []
             for dtp in alltps:
-                if dtp.__realname__ in self.__app_to_basechanges[app]:
-                    mod_t, new_t, deleted_t = self.__app_to_basechanges[app][dtp.__realname__]
-                    f_mod_t.update(mod_t)
-                    f_new_t.update(new_t)
-                    f_deleted_t.extend(deleted_t)
-            mod = {tp: f_mod_t}
-            new = {tp: f_new_t}
-            deleted = {tp: f_deleted_t}
-        result = self.__convert_type_str(new, mod if not tracked_only else {tp: {}}, deleted)
-        return result
+                dtpname = dtp.__realname__
+                new_t, mod_t, deleted_t = self.__cache.get_all_updates(app, dtpname)
+                f_mod_t.update(mod_t)
+                f_new_t.update(new_t)
+                f_deleted_t.extend(deleted_t)
+            mod = {tpname: f_mod_t} if f_mod_t else {}
+            new = {tpname: f_new_t} if f_new_t else {}
+            deleted = {tpname: f_deleted_t} if f_deleted_t else {}
+        return new, mod if not tracked_only else {}, deleted
 
-    def clear_buffer(self, app, tracked_only = False):
-        for tpname in self.__app_to_basechanges[app]:
-            newmod = {}
-            if tracked_only:
-                newmod = self.__app_to_basechanges[app][tpname][0]
-            else:
-                for key in self.__app_to_basechanges[app][tpname][0]:
-                    newmod[key] = {}
-
-            self.__app_to_basechanges[app][tpname] = (newmod, {}, [])
+    def clear_buffer(self, app, tp, tracked_only = False):
+        (self.__cache.reset_tracking_cache_for_type(app, tp) 
+            if tracked_only else 
+        self.__cache.reset_cache_for_type(app, tp))
                         
 
     def put_update(self, app, tp, new, mod, deleted):
@@ -365,7 +325,7 @@ class dataframe(object):
                 self.__gc[this_app][tp.__realname__].add(id)
         for app in other_apps:
             with self.__copylock[app]:
-                self.__app_to_basechanges[app][tp.__realname__][1].update(new)
+                self.__cache.add_new(app, tp.__realname__, new)
 
         other_apps = set()
         if tp.__realname__ in self.__base_store.get_base_types():
@@ -375,7 +335,7 @@ class dataframe(object):
             self.__base_store.update(tp, id, mod[id])
         for app in other_apps:
             with self.__copylock[app]:
-                self.__app_to_basechanges[app][tp.__realname__][0].update(mod)
+                self.__cache.add_updated(app, tp.__realname__, mod)
 
         other_apps = set()
         if tp.__realname__ in self.__base_store.get_base_types():
@@ -387,12 +347,7 @@ class dataframe(object):
                 self.__gc[this_app][tp.__realname__].remove(id)
         for app in other_apps:
             with self.__copylock[app]:
-                for id in deleted:
-                    if id in self.__app_to_basechanges[app][tp.__realname__][0]:
-                        del self.__app_to_basechanges[app][tp.__realname__][0][id]
-                    if id in self.__app_to_basechanges[app][tp.__realname__][1]:
-                        del self.__app_to_basechanges[app][tp.__realname__][1][id]
-                    self.__app_to_basechanges[app][tp.__realname__][2].append(id)
+                self.__cache.add_deleted(app, tp.__realname__, deleted)
 
     def register_app(self, app, typemap, name2class, name2baseclasses):
         self.__apps.add(app)
@@ -406,6 +361,21 @@ class dataframe(object):
             set(typemap.setdefault("gettingsetting", set())),
             set(typemap.setdefault("setting", set()))
           )
+        types_allowed = set(tracker).union(
+                                          set(getter)).union(
+                                          set(gettersetter)).union(
+                                          set(setter))
+        types_to_get = set()
+        self.__base2derived
+        for strtp in types_allowed:
+            types_to_get.add(strtp)
+            actual_cls = name2class[strtp]
+            if actual_cls in self.__base2derived:
+                types_to_get.update(
+                    set([tp.__realname__ for tp in self.__base2derived[actual_cls]]))
+            types_extra = types_to_get.difference(types_allowed)
+        self.__cache.register_app(app, types_allowed, types_extra)
+            
         if app in self.__copylock:
             try:
                 with self.__copylock[app]:
@@ -414,7 +384,6 @@ class dataframe(object):
                         if app in self.__type_to_app[strtp]:
                             del self.__type_to_app[strtp][app]
 
-                    self.__app_to_basechanges[app] = {}
                     del self.__copylock[app]
             except:
                 pass
@@ -423,13 +392,10 @@ class dataframe(object):
         self.__app_to_dynamicpcc[app] = set()
 
         with self.__copylock[app]:
-            self.__app_to_basechanges[app] = {}
+            self.__cache.reset_cache_for_all_types(app)
             mod, new, deleted = ({}, {}, [])
             base_types = set()
-            for str_tp in set(tracker).union(
-                                             set(getter)).union(
-                                             set(gettersetter)).union(
-                                             set(setter)):
+            for str_tp in types_to_get:
                 tp = name2class[str_tp]
                 logging.debug("register " + str_tp + " by " + str(app) + " " + str(tp))
                 mod = {}
@@ -438,13 +404,12 @@ class dataframe(object):
                 if tp.__PCC_BASE_TYPE__:
                     base_types.add(tp)
                     new = self.__base_store.get_by_type(tp)
-                    self.__app_to_basechanges[app][tp.__realname__] = (mod, new, deleted)
+                    self.__cache.add(app, tp.__realname__, new, mod, deleted)
                     self.__type_to_app.setdefault(tp.__realname__, set()).add(app)
                 else:
                     bases = name2baseclasses[tp.__realname__]
                     for base in bases:
                         base_types.add(base)
-                        self.__app_to_basechanges[app][base.__realname__] = (mod, new, deleted)
                         self.__type_to_app.setdefault(base.__realname__, set()).add(app)
                     self.__app_to_dynamicpcc[app].add(tp.__realname__)
                 self.__type_to_app.setdefault(tp.__realname__, set()).add(app)
@@ -480,19 +445,15 @@ class dataframe(object):
 
         # delete all owned objects, and inform other simulations of deleted objects
         for strtp in self.__gc[this_app]:
+            for app in other_apps:
+                self.__cache.add_deleted(app, strtp, self.__gc[this_app][strtp])
             for oid in self.__gc[this_app][strtp]:
                 self.__base_store.delete(name2class[strtp], oid)
-                for app in other_apps:
-                    if strtp in self.__app_to_basechanges[app]:
-                        if oid in self.__app_to_basechanges[app][strtp][0]:
-                            del self.__app_to_basechanges[app][strtp][0][oid]
-                        if oid in self.__app_to_basechanges[app][strtp][1]:
-                            del self.__app_to_basechanges[app][strtp][1][oid]
-                        self.__app_to_basechanges[app][strtp][2].append(oid)
 
         del self.__copylock[this_app]
         del self.__gc[this_app]
         self.__apps.remove(this_app)
+        self.__cache.delete_app(this_app)
         self.unpause()
         mylock.release()
 

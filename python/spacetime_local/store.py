@@ -89,6 +89,12 @@ class store(object):
             if not tp.__PCC_BASE_TYPE__:
                 self.__objects[tp] = RecursiveDictionary()
 
+    def clear_all(self):
+        self.clear_changes()
+        self.clear_incoming_record()
+        for tp in self.__objects.keys():
+            self.__objects[tp] = RecursiveDictionary()
+
     def clear_changes(self):
         self._changes["new"].clear()
         if currentThread().getName() in spacetime_property.change_tracker:

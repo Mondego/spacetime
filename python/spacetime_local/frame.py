@@ -19,6 +19,7 @@ from pcc.recursive_dictionary import RecursiveDictionary
 
 import logging
 from logging import NullHandler
+from requests.exceptions import HTTPError, ConnectionError
 
 class SpacetimeConsole(cmd.Cmd):
     """Command console interpreter for frame."""
@@ -33,6 +34,21 @@ class SpacetimeConsole(cmd.Cmd):
         """ quit
         Exits all applications by calling their shutdown methods.
         """
+        shutdown()
+
+    def do_stop(self, line):
+        """ stop
+        Stops all applications, but does not exist prompt.
+        """
+        for f in frame.framelist:
+            f._stop()
+
+    def do_restart(self, line):
+        """ restart
+        Restarts all frames
+        """
+        for f in frame.framelist:
+            f.run_async()
 
     def emptyline(self):
         pass
@@ -41,9 +57,9 @@ class SpacetimeConsole(cmd.Cmd):
         shutdown()
 
 class frame(IFrame):
-    framelist = []
+    framelist = set()
     def __init__(self, address="http://127.0.0.1:12000/", time_step=500):
-        frame.framelist.append(self)
+        frame.framelist.add(self)
         self.thread = None
         self.__app = None
         self.__host_typemap = {}
@@ -98,12 +114,20 @@ class frame(IFrame):
             self.__observed_types_mod.update(self.__host_typemap[host]["getting"].union(self.__host_typemap[host]["gettingsetting"]))
 
             jsonobj = json.dumps({"sim_typemap": jobj})
-            requests.put(host,
-                         data = jsonobj,
-                         headers = {'content-type': 'application/json'})
+            try:
+                resp = requests.put(host,
+                             data = jsonobj,
+                             headers = {'content-type': 'application/json'})
+            except HTTPError as exc:
+                self.__handle_request_errors(resp, exc)
+                return False
+            except ConnectionError:
+                self.logger.exception("Cannot connect to host.")
+                self.__disconnected = True
+                return False
         self.__name2type = dict([(tp.__realname__, tp) for tp in all_types])
         self.object_store.add_types(all_types)
-        return
+        return True
 
     @staticmethod
     def loop():
@@ -127,7 +151,6 @@ class frame(IFrame):
         None
         """
         self.__app = app
-        self.__register_app(app)
 
     def run_async(self):
         """
@@ -161,30 +184,48 @@ class frame(IFrame):
         self.thread.start()
         self.thread.join()
 
+    def __clear(self):
+        self.__disconnected = False
+        self.__app.done = False
+        self.object_store.clear_all()
+        self.__new = {}
+        self.__mod = {}
+        self.__del = {}
+
     def __run(self):
+        self.__clear()
         if not self.__app:
             raise NotImplementedError("App has not been attached")
-        self.__pull()
-        self.__app.initialize()
-        self.__push()
-        while not self.__app.done:
-            st_time = time.time()
-            self.__pull()
-            self.__app.update()
-            self.__push()
-            end_time = time.time()
-            timespent = end_time - st_time
-            # time spent on execution loop
-            if timespent < self._time_step:
-                time.sleep(float(self._time_step - timespent))
-            else:
-                self.logger.info("loop exceeded maximum time: %s ms", timespent)
+        success = self.__register_app(self.__app)
+        if success:
+            try:
+                self.__pull()
+                self.__app.initialize()
+                self.__push()
+                while not self.__app.done:
+                    st_time = time.time()
+                    self.__pull()
+                    self.__app.update()
+                    self.__push()
+                    end_time = time.time()
+                    timespent = end_time - st_time
+                    # time spent on execution loop
+                    if timespent < self._time_step:
+                        time.sleep(float(self._time_step - timespent))
+                    else:
+                        self.logger.info("loop exceeded maximum time: %s ms", timespent)
 
-        # One last time, because _shutdown may delete objects from the store
-        self.__pull()
-        self._shutdown()
-        self.__push()
-        self.__unregister_app()
+                # One last time, because _shutdown may delete objects from the store
+                self.__pull()
+                self._shutdown()
+                self.__push()
+                self.__unregister_app()
+            except ConnectionError as cerr:
+                self.logger.error("A connection error occurred: %s", cerr.message)
+            except HTTPError as herr:
+                self.logger.error("A fatal error has occurred while communicating with the server: %s", herr.message)
+        else:
+            self.logger.info("Could not register, exiting run loop...")
 
 
     def get(self, tp, id=None):
@@ -309,6 +350,14 @@ class frame(IFrame):
                 "always returned"),tp.Class())
             return []
 
+    def __handle_request_errors(self, resp, exc):
+        if resp.status_code == 401:
+            self.logger.error("This application is not registered at the server. Stopping...")
+            raise
+        else:
+            self.logger.warn("Non-success code received from server: %s %s",
+                                          resp.status_code, resp.reason)
+
     def __process_pull_resp(self,resp):
         new, mod, deleted = resp["new"], resp["updated"], resp["deleted"]
         new_objs, mod_objs, deleted_objs = {}, {}, {}
@@ -332,27 +381,35 @@ class frame(IFrame):
         self.object_store.create_incoming_record(new_objs, mod_objs, deleted_objs)
 
     def __pull(self):
+        if self.__disconnected:
+            return
         self.object_store.clear_incoming_record()
-        final_resp = RecursiveDictionary()
-        for host in self.__host_typemap:
-            resp = requests.get(host + "/tracked", data = {
-            "get_types":
-            json.dumps({"types": [tp.__realname__ for tp in list(self.__typemap["tracking"])]})
-              })
-            final_resp.rec_update(resp.json())
-            resp = requests.get(host + "/updated", data = {
-            "get_types":
-            json.dumps({
-                "types":
-                [tp.__realname__
-                 for tp in list(self.__typemap["getting"].union(self.__typemap["gettingsetting"]))]
-              })
-          })
-            final_resp.rec_update(resp.json())
+        updates = RecursiveDictionary()
+        try:
+            for host in self.__host_typemap:
+                type_dict = {}
+                type_dict["types_tracked"] = [tp.__realname__ for tp in list(self.__typemap["tracking"])]
+                type_dict["types_updated"] = [tp.__realname__
+                     for tp in list(self.__typemap["getting"].union(self.__typemap["gettingsetting"]))]
+                resp  = requests.get(host + "/updated", data = {
+                "get_types":
+                json.dumps(type_dict)
+                  })
+                try:
+                    resp.raise_for_status()
+                    updates.rec_update(resp.json())
+                except HTTPError as exc:
+                    self.__handle_request_errors(resp, exc)
 
-        self.__process_pull_resp(final_resp)
+            self.__process_pull_resp(updates)
+        except ConnectionError:
+            self.logger.exception("Disconnected from host.")
+            self.__disconnected = True
+            self._stop()
 
     def __push(self):
+        if self.__disconnected:
+            return
         changes = self.object_store.get_changes()
         for host in self.__host_typemap:
             update_dict = {}
@@ -368,10 +425,17 @@ class frame(IFrame):
             for tp in self.__host_typemap[host]["deleting"]:
                 if tp.Class() in changes["deleted"]:
                     update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["deleted"].extend(changes["deleted"][tp.Class()])
-                    #self.logger.debug( "deleting %s %s", tp.__realname__, update_dict[tp.__realname__]["deleted"])
-            for tp in update_dict:
-                package = {"update_dict": json.dumps(update_dict[tp])}
-                requests.post(host + "/" + tp, json = package)
+
+            package = {"update_dict": json.dumps(update_dict)}
+            try:
+                resp = requests.post(host + "/updated", json = package)
+            except HTTPError as exc:
+                self.__handle_request_errors(resp, exc)
+            except ConnectionError:
+                self.logger.exception("Disconnected from host.")
+                self.__disconnected = True
+                self._stop()
+
         self.object_store.clear_changes()
 
     def _shutdown(self):

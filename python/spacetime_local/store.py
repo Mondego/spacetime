@@ -93,7 +93,7 @@ class store(object):
         self.clear_changes()
         self.clear_incoming_record()
         for tp in self.__objects.keys():
-            self.__objects.setdefault(tp, RecursiveDictionary())
+            self.__objects[tp] = RecursiveDictionary()
 
     def clear_changes(self):
         self._changes["new"].clear()

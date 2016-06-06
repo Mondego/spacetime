@@ -58,47 +58,8 @@ class FlaskConfig(object):
 
 app = Flask(__name__)
 app.config.from_object(FlaskConfig)
-# app.json_encoder = CADISEncoder()
 FlaskConfig.init_app(app)
 api = Api(app)
-
-# class GetAllUpdated(Resource):
-#     @handle_exceptions
-#     def get(self, sim):
-#         args = parser.parse_args()
-#         types = json.loads(args["get_types"])["types"]
-#         (all_new, all_updated, all_deleted) = ({}, {}, {})
-#         for tp in types:
-#             typeObj = FrameServer.name2class[tp]
-#             (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim)
-#             all_new.update(new)
-#             all_updated.update(updated)
-#             all_deleted.update(deleted)
-#         ret = {}
-#         ret["new"] = all_new
-#         ret["updated"] = all_updated
-#         ret["deleted"] = all_deleted
-#
-#         return ret
-#
-# class GetAllTracked(Resource):
-#     @handle_exceptions
-#     def get(self, sim):
-#         args = parser.parse_args()
-#         types = json.loads(args["get_types"])["types"]
-#         (all_new, all_updated, all_deleted) = ({}, {}, {})
-#         for tp in types:
-#             typeObj = FrameServer.name2class[tp]
-#             (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim, tracked_only=True)
-#             all_new.update(new)
-#             all_updated.update(updated)
-#             all_deleted.update(deleted)
-#         ret = {}
-#         ret["new"] = all_new
-#         ret["updated"] = all_updated
-#         ret["deleted"] = all_deleted
-#
-#         return ret
 
 class GetAllUpdatedTracked(Resource):
     @handle_exceptions
@@ -107,19 +68,27 @@ class GetAllUpdatedTracked(Resource):
         types_tracked = json.loads(args["get_types"])["types_tracked"]
         types_updated = json.loads(args["get_types"])["types_updated"]
         (all_new, all_updated, all_deleted) = ({}, {}, {})
-        for tp in set(types_tracked).difference(set(types_updated)):
-            typeObj = FrameServer.name2class[tp]
-            (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim, tracked_only=True)
-            all_new.update(new)
-            all_updated.update(updated)
-            all_deleted.update(deleted)
+        
+        with FrameServer.Store.get_lock(sim):
+            only_tracked_types = set(types_tracked).difference(set(types_updated))
+            for tp in only_tracked_types:
+                typeObj = FrameServer.name2class[tp]
+                (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim, tracked_only=True)
+                all_new.update(new)
+                all_updated.update(updated)
+                all_deleted.update(deleted)
 
-        for tp in types_updated:
-            typeObj = FrameServer.name2class[tp]
-            (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim)
-            all_new.update(new)
-            all_updated.update(updated)
-            all_deleted.update(deleted)
+            for tp in types_updated:
+                typeObj = FrameServer.name2class[tp]
+                (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim)
+                all_new.update(new)
+                all_updated.update(updated)
+                all_deleted.update(deleted)
+
+            for tp in set(types_updated).union(set(types_tracked)):
+                if FrameServer.name2class[tp].__PCC_BASE_TYPE__:
+                    FrameServer.Store.clear_buffer(sim, tp, tracked_only = tp in only_tracked_types)
+                
         ret = {}
         ret["new"] = all_new
         ret["updated"] = all_updated

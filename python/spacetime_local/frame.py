@@ -477,7 +477,7 @@ def shutdown():
         f._stop()
         threads.append(f.thread)
 
-    [t.join() for t in threads]
+    [t.join() for t in threads if t]
     sys.exit(0)
 
 

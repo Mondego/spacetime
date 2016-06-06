@@ -327,7 +327,7 @@ class RouteRequest(object):
         self.Name = ""
 
 @pcc_set
-class Route(RouteRequest.Class()):
+class Route(object):
     '''
     Description
 
@@ -342,6 +342,47 @@ class Route(RouteRequest.Class()):
     Destination point by point. Path between two points should be considered a
     straight line.
     '''
+
+    @primarykey(str)
+    def ID(self):
+        return self._ID
+
+    @ID.setter
+    def ID(self, value):
+        self._ID = value
+
+    @dimension(Waypoint)
+    def Source(self):
+        return self._Source
+
+    @Source.setter
+    def Source(self, value):
+        self._Source = value
+
+    @dimension(Waypoint)
+    def Destination(self):
+        return self._Destination
+
+    @Destination.setter
+    def Destination(self, value):
+        self._Destination = value
+
+    @dimension(str)
+    def Owner(self):
+        return self._Owner
+
+    @Owner.setter
+    def Owner(self, value):
+        self._Owner = value
+
+    @dimension(str)
+    def Name(self):
+        return self._Name
+
+    @Name.setter
+    def Name(self, value):
+        self._Name = value
+
     @dimension(list)
     def Waypoints(self):
         return self._Waypoints
@@ -349,3 +390,10 @@ class Route(RouteRequest.Class()):
     @Waypoints.setter
     def Waypoints(self, value):
         self._Waypoints = value
+
+    def __init__(self):
+        self.Source = None
+        self.Destination = None
+        self.Owner = ""
+        self.Name = ""
+

@@ -12,12 +12,14 @@ class IApplication(object):
 
     @property
     def done(self):
-        return False
+        try:
+            return self.__done
+        except AttributeError:
+            return False
 
     @done.setter
-    @abstractmethod
     def done(self, value):
-        pass
+        self.__done = value
 
     @abstractmethod
     def initialize(self):

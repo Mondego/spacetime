@@ -221,7 +221,7 @@ class dataframe(object):
         pccs = {}
         self.__construct_pccs(pcctype, pccs)
         pccsmap = {}
-        pccsmap[pcctype] = dict([
+        pccsmap[pcctype.__realname__] = dict([
                     (obj[self.__typename_to_primarykey[pcctype.__realname__]], obj)
                     for obj in pccs[pcctype]
                 ]) if pcctype in pccs else {}
@@ -410,7 +410,6 @@ class dataframe(object):
                     bases = name2baseclasses[tp.__realname__]
                     for base in bases:
                         base_types.add(base)
-                        self.__type_to_app.setdefault(base.__realname__, set()).add(app)
                     self.__app_to_dynamicpcc[app].add(tp.__realname__)
                 self.__type_to_app.setdefault(tp.__realname__, set()).add(app)
 

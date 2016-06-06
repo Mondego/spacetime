@@ -64,16 +64,12 @@ class GFXSimulation(IApplication):
 
     frame = None
     ticks = 0
-    @property
-    def done(self):
-        return self.start_shutdown
-
+    
     def __init__(self, frame):
         '''
         Constructor
         '''
         self.frame = frame
-        self.start_shutdown = False
         pygame.init()
         self.width = 640
         self.height = 480
@@ -114,6 +110,8 @@ class GFXSimulation(IApplication):
         events = pygame.event.get(pygame.QUIT)
         if events:
             pygame.display.quit()
+            self.done = True
 
     def shutdown(self):
+        print "Quitting!!!"
         pass

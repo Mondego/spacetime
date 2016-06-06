@@ -258,13 +258,8 @@ class dataframe(object):
         for app in self.__copylock:
             self.__copylock[app].release()
 
-    def acquire_lock(self, app):
-        if app in self.__copylock:
-            self.__copylock[app].acquire()
-
-    def release_lock(self, app):
-        if app in self.__copylock:
-            self.__copylock[app].release()
+    def get_lock(self, app):
+        return self.__copylock[app]
 
     def get_update(self, tp, app, params = None, tracked_only = False):
         # get dynamic pccs with/without params

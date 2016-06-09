@@ -291,10 +291,10 @@ class dataframe(object):
         return new, mod if not tracked_only else {}, deleted, touched
 
     def clear_buffer(self, app, tp, tracked_only = False):
-        (self.__cache.reset_tracking_cache_for_type(app, tp) 
-            if tracked_only else 
+        (self.__cache.reset_tracking_cache_for_type(app, tp)
+            if tracked_only else
         self.__cache.reset_cache_for_type(app, tp))
-                        
+
 
     def put_update(self, app, tp, new, mod, deleted):
         if tp.__PCC_BASE_TYPE__:
@@ -337,10 +337,14 @@ class dataframe(object):
         if tp.__realname__ in self.__base_store.get_base_types():
             if tp.__realname__ in self.__type_to_app:
                 other_apps = set(self.__type_to_app[tp.__realname__]).difference(set([this_app]))
+
+        producer_apps = [app for app in self.__gc if tp.__realname__ in self.__gc[app]]
         for id in deleted:
+            for app in producer_apps:
+                if id in self.__gc[app][tp.__realname__]:
+                    self.__gc[app][tp.__realname__].remove(id)
             self.__base_store.delete(tp, id)
-            if id in self.__gc[this_app][tp.__realname__]:
-                self.__gc[this_app][tp.__realname__].remove(id)
+
         for app in other_apps:
             with self.__copylock[app]:
                 self.__cache.add_deleted(app, tp.__realname__, deleted)
@@ -371,7 +375,7 @@ class dataframe(object):
                     set([tp.__realname__ for tp in self.__base2derived[actual_cls]]))
             types_extra = types_to_get.difference(types_allowed)
         self.__cache.register_app(app, types_allowed, types_extra)
-            
+
         if app in self.__copylock:
             try:
                 with self.__copylock[app]:
@@ -401,7 +405,6 @@ class dataframe(object):
                     base_types.add(tp)
                     new = self.__base_store.get_by_type(tp)
                     self.__cache.add(app, tp.__realname__, new, mod, deleted)
-                    self.__type_to_app.setdefault(tp.__realname__, set()).add(app)
                 else:
                     bases = name2baseclasses[tp.__realname__]
                     for base in bases:
@@ -410,9 +413,10 @@ class dataframe(object):
                 self.__type_to_app.setdefault(tp.__realname__, set()).add(app)
 
             # Add producer and deleter types to base_store, but not to basechanges
-            for str_tp in set(producer).union(set(deleter)):
+            for str_tp in producer.union(set(deleter)):
                 tp = name2class[str_tp]
-                self.__gc[app][tp.__realname__] = set()
+                if str_tp in producer:
+                    self.__gc[app][tp.__realname__] = set()
                 if tp.__PCC_BASE_TYPE__:
                     base_types.add(tp)
                 else:
@@ -425,30 +429,31 @@ class dataframe(object):
     def gc(self, this_app, name2class):
         mylock = self.__copylock[this_app]
         self.pause()
-        self.logger.warn("Application %s disconnected. Removing owned objects.",
-                     this_app)
+        try:
+            self.logger.warn("Application %s disconnected. Removing owned objects.",
+                         this_app)
 
-        for strtp in self.__type_to_app.keys():
-            if this_app in self.__type_to_app[strtp]:
-                self.__type_to_app[strtp].remove(this_app)
+            for strtp in self.__type_to_app.keys():
+                if this_app in self.__type_to_app[strtp]:
+                    self.__type_to_app[strtp].remove(this_app)
 
-        other_apps = set()
-        for strtp in self.__gc[this_app]:
-            if strtp in self.__base_store.get_base_types():
-                if strtp in self.__type_to_app.keys():
+            other_apps = set()
+
+            # delete all owned objects, and inform other simulations of deleted objects
+            for strtp in self.__gc[this_app]:
+                if strtp in self.__base_store.get_base_types() and strtp in self.__type_to_app:
                     other_apps = set(self.__type_to_app[strtp]).difference(set([this_app]))
-
-        # delete all owned objects, and inform other simulations of deleted objects
-        for strtp in self.__gc[this_app]:
-            for app in other_apps:
-                self.__cache.add_deleted(app, strtp, self.__gc[this_app][strtp])
-            for oid in self.__gc[this_app][strtp]:
-                self.__base_store.delete(name2class[strtp], oid)
-
-        del self.__copylock[this_app]
-        del self.__gc[this_app]
-        self.__apps.remove(this_app)
-        self.__cache.delete_app(this_app)
-        self.unpause()
+                    for app in other_apps:
+                        self.__cache.add_deleted(app, strtp, self.__gc[this_app][strtp])
+                        for oid in self.__gc[this_app][strtp]:
+                            self.__base_store.delete(name2class[strtp], oid)
+            del self.__copylock[this_app]
+            del self.__gc[this_app]
+            self.__apps.remove(this_app)
+            self.__cache.delete_app(this_app)
+        except:
+            raise
+        finally:
+            self.unpause()
         mylock.release()
 

@@ -68,26 +68,29 @@ class GetAllUpdatedTracked(Resource):
         types_tracked = json.loads(args["get_types"])["types_tracked"]
         types_updated = json.loads(args["get_types"])["types_updated"]
         (all_new, all_updated, all_deleted) = ({}, {}, {})
-        
+        all_touched_types_t = set()
+        all_touched_types_u = set()
         with FrameServer.Store.get_lock(sim):
             only_tracked_types = set(types_tracked).difference(set(types_updated))
             for tp in only_tracked_types:
                 typeObj = FrameServer.name2class[tp]
-                (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim, tracked_only=True)
+                (new, updated, deleted, touched_types) = FrameServer.Store.get_update(typeObj, sim, tracked_only=True)
                 all_new.update(new)
                 all_updated.update(updated)
                 all_deleted.update(deleted)
+                all_touched_types_t.update(touched_types)
 
             for tp in types_updated:
                 typeObj = FrameServer.name2class[tp]
-                (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim)
+                (new, updated, deleted, touched_types) = FrameServer.Store.get_update(typeObj, sim)
                 all_new.update(new)
                 all_updated.update(updated)
                 all_deleted.update(deleted)
+                all_touched_types_u.update(touched_types)
 
-            for tp in set(types_updated).union(set(types_tracked)):
+            for tp in set(all_touched_types_t).union(set(all_touched_types_u)):
                 if FrameServer.name2class[tp].__PCC_BASE_TYPE__:
-                    FrameServer.Store.clear_buffer(sim, tp, tracked_only = tp in only_tracked_types)
+                    FrameServer.Store.clear_buffer(sim, tp, tracked_only = tp in all_touched_types_t.difference(all_touched_types_u))
                 
         ret = {}
         ret["new"] = all_new

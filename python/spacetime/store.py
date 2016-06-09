@@ -265,13 +265,13 @@ class dataframe(object):
         # get dynamic pccs with/without params
         # can
         tpname = tp.__realname__
-        new, mod, deleted = {tpname: {}}, {tpname: {}}, {tpname: []}
+        new, mod, deleted, touched  = {tpname: {}}, {tpname: {}}, {tpname: []}, set()
         # pccs are always recalculated from scratch. Easier
         if not tp.__PCC_BASE_TYPE__:
             if tp.__realname__ in self.__app_to_dynamicpcc[app]:
-                mod, new, deleted = mod, self.__calculate_pcc(
+                mod, new, deleted, touched = mod, self.__calculate_pcc(
                     tp,
-                    params), deleted
+                    params), deleted, set([tpname])
         else:
         # take the base changes from the dictionary. Should have been updated with all changes.
             alltps = [tp]
@@ -287,7 +287,8 @@ class dataframe(object):
             mod = {tpname: f_mod_t} if f_mod_t else {}
             new = {tpname: f_new_t} if f_new_t else {}
             deleted = {tpname: f_deleted_t} if f_deleted_t else {}
-        return new, mod if not tracked_only else {}, deleted
+            touched = set([t.__realname__ for t in alltps])
+        return new, mod if not tracked_only else {}, deleted, touched
 
     def clear_buffer(self, app, tp, tracked_only = False):
         (self.__cache.reset_tracking_cache_for_type(app, tp) 

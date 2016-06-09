@@ -90,7 +90,7 @@ class GetAllUpdatedTracked(Resource):
 
             for tp in set(all_touched_types_t).union(set(all_touched_types_u)):
                 if FrameServer.name2class[tp].__PCC_BASE_TYPE__:
-                    FrameServer.Store.clear_buffer(sim, tp, tracked_only = tp in all_touched_types_t)
+                    FrameServer.Store.clear_buffer(sim, tp, tracked_only = tp in all_touched_types_t.difference(all_touched_types_u))
                 
         ret = {}
         ret["new"] = all_new

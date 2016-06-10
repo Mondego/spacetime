@@ -105,7 +105,7 @@ class store(object):
             if strtp in self.__data and id in self.__data[strtp]:
                 self.__data[strtp][id].update(object_changes)
 
-    def delete(self, tp, id):
+    def delete(self, tp, id, verbose=True):
         count = 0
         alltps = [tp]
         if tp in self.__base2derived:
@@ -116,7 +116,7 @@ class store(object):
                 if id in self.__data[strtp]:
                     del self.__data[strtp][id]
                     count += 1
-        if count == 0:
+        if count == 0 and verbose:
             self.logger.warn("Object ID %s missing from data storage.", id)
 
 # not active object.
@@ -143,6 +143,9 @@ class dataframe(object):
 
         # app -> copylock
         self.__copylock = {}
+
+        # locks the frame, avoiding deadlocks on pause/unpause
+        self.__framelock = RLock()
 
         # Type -> List of apps that use it
         self.__type_to_app = {}
@@ -251,12 +254,14 @@ class dataframe(object):
         return self.__base_store.get_ids(tp)
 
     def pause(self):
+        self.__framelock.acquire()
         for app in self.__copylock:
             self.__copylock[app].acquire()
 
     def unpause(self):
         for app in self.__copylock:
             self.__copylock[app].release()
+        self.__framelock.release()
 
     def get_lock(self, app):
         return self.__copylock[app]
@@ -350,81 +355,87 @@ class dataframe(object):
                 self.__cache.add_deleted(app, tp.__realname__, deleted)
 
     def register_app(self, app, typemap, name2class, name2baseclasses):
-        self.__apps.add(app)
-        # Setup structure for garbage collection
-        self.__gc[app] = {}
-        producer, deleter, tracker, getter, gettersetter, setter = (
-            set(typemap.setdefault("producing", set())),
-            set(typemap.setdefault("deleting", set())),
-            set(typemap.setdefault("tracking", set())),
-            set(typemap.setdefault("getting", set())),
-            set(typemap.setdefault("gettingsetting", set())),
-            set(typemap.setdefault("setting", set()))
-          )
-        types_allowed = set(tracker).union(
-                                          set(getter)).union(
-                                          set(gettersetter)).union(
-                                          set(setter))
-        types_to_get = set()
-        self.__base2derived
-        for strtp in types_allowed:
-            types_to_get.add(strtp)
-            actual_cls = name2class[strtp]
-            if actual_cls in self.__base2derived:
-                types_to_get.update(
-                    set([tp.__realname__ for tp in self.__base2derived[actual_cls]]))
-            types_extra = types_to_get.difference(types_allowed)
-        self.__cache.register_app(app, types_allowed, types_extra)
+        self.__framelock.acquire()
+        try:
+            self.__apps.add(app)
+            # Setup structure for garbage collection
+            self.__gc[app] = {}
+            producer, deleter, tracker, getter, gettersetter, setter = (
+                set(typemap.setdefault("producing", set())),
+                set(typemap.setdefault("deleting", set())),
+                set(typemap.setdefault("tracking", set())),
+                set(typemap.setdefault("getting", set())),
+                set(typemap.setdefault("gettingsetting", set())),
+                set(typemap.setdefault("setting", set()))
+              )
+            types_allowed = set(tracker).union(
+                                              set(getter)).union(
+                                              set(gettersetter)).union(
+                                              set(setter))
+            types_to_get = set()
+            self.__base2derived
+            for strtp in types_allowed:
+                types_to_get.add(strtp)
+                actual_cls = name2class[strtp]
+                if actual_cls in self.__base2derived:
+                    types_to_get.update(
+                        set([tp.__realname__ for tp in self.__base2derived[actual_cls]]))
+                types_extra = types_to_get.difference(types_allowed)
+            self.__cache.register_app(app, types_allowed, types_extra)
 
-        if app in self.__copylock:
-            try:
-                with self.__copylock[app]:
-                    # Clean-up old registration
-                    for strtp in self.__type_to_app.keys():
-                        if app in self.__type_to_app[strtp]:
-                            del self.__type_to_app[strtp][app]
+            if app in self.__copylock:
+                try:
+                    with self.__copylock[app]:
+                        # Clean-up old registration
+                        for strtp in self.__type_to_app.keys():
+                            if app in self.__type_to_app[strtp]:
+                                del self.__type_to_app[strtp][app]
 
-                    del self.__copylock[app]
-            except:
-                pass
+                        del self.__copylock[app]
+                except:
+                    pass
 
-        self.__copylock[app] = RLock()
-        self.__app_to_dynamicpcc[app] = set()
+            self.__copylock[app] = RLock()
+            self.__app_to_dynamicpcc[app] = set()
 
-        with self.__copylock[app]:
-            self.__cache.reset_cache_for_all_types(app)
-            mod, new, deleted = ({}, {}, [])
-            base_types = set()
-            for str_tp in types_to_get:
-                tp = name2class[str_tp]
-                logging.debug("register " + str_tp + " by " + str(app) + " " + str(tp))
-                mod = {}
-                new = {}
-                deleted = []
-                if tp.__PCC_BASE_TYPE__:
-                    base_types.add(tp)
-                    new = self.__base_store.get_by_type(tp)
-                    self.__cache.add(app, tp.__realname__, new, mod, deleted)
-                else:
-                    bases = name2baseclasses[tp.__realname__]
-                    for base in bases:
-                        base_types.add(base)
-                    self.__app_to_dynamicpcc[app].add(tp.__realname__)
-                self.__type_to_app.setdefault(tp.__realname__, set()).add(app)
+            with self.__copylock[app]:
+                self.__cache.reset_cache_for_all_types(app)
+                mod, new, deleted = ({}, {}, [])
+                base_types = set()
+                for str_tp in types_to_get:
+                    tp = name2class[str_tp]
+                    logging.debug("register " + str_tp + " by " + str(app) + " " + str(tp))
+                    mod = {}
+                    new = {}
+                    deleted = []
+                    if tp.__PCC_BASE_TYPE__:
+                        base_types.add(tp)
+                        new = self.__base_store.get_by_type(tp)
+                        self.__cache.add(app, tp.__realname__, new, mod, deleted)
+                    else:
+                        bases = name2baseclasses[tp.__realname__]
+                        for base in bases:
+                            base_types.add(base)
+                        self.__app_to_dynamicpcc[app].add(tp.__realname__)
+                    self.__type_to_app.setdefault(tp.__realname__, set()).add(app)
 
-            # Add producer and deleter types to base_store, but not to basechanges
-            for str_tp in producer.union(set(deleter)):
-                tp = name2class[str_tp]
-                if str_tp in producer:
-                    self.__gc[app][tp.__realname__] = set()
-                if tp.__PCC_BASE_TYPE__:
-                    base_types.add(tp)
-                else:
-                    bases = name2baseclasses[tp.__realname__]
-                    for base in bases:
-                        base_types.add(base)
-            final_base_types = [b for b in base_types if b.__PCC_BASE_TYPE__]
-            self.__base_store.add_types(final_base_types)
+                # Add producer and deleter types to base_store, but not to basechanges
+                for str_tp in producer.union(set(deleter)):
+                    tp = name2class[str_tp]
+                    if str_tp in producer:
+                        self.__gc[app][tp.__realname__] = set()
+                    if tp.__PCC_BASE_TYPE__:
+                        base_types.add(tp)
+                    else:
+                        bases = name2baseclasses[tp.__realname__]
+                        for base in bases:
+                            base_types.add(base)
+                final_base_types = [b for b in base_types if b.__PCC_BASE_TYPE__]
+                self.__base_store.add_types(final_base_types)
+        except:
+            raise
+        finally:
+            self.__framelock.release()
 
     def gc(self, this_app, name2class):
         mylock = self.__copylock[this_app]
@@ -446,7 +457,7 @@ class dataframe(object):
                     for app in other_apps:
                         self.__cache.add_deleted(app, strtp, self.__gc[this_app][strtp])
                         for oid in self.__gc[this_app][strtp]:
-                            self.__base_store.delete(name2class[strtp], oid)
+                            self.__base_store.delete(name2class[strtp], oid, False)
             del self.__copylock[this_app]
             del self.__gc[this_app]
             self.__apps.remove(this_app)
@@ -455,5 +466,5 @@ class dataframe(object):
             raise
         finally:
             self.unpause()
-        mylock.release()
+            mylock.release()
 

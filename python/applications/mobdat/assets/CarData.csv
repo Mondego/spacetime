@@ -1,0 +1,109 @@
+Name,Color,AssetBox,Description,Length,Rate,ProfileTypes,Acceleration,Deceleration,Sigma,MinGap,MaxSpeed
+Model A,BLACK,SumoAssets Vehicles,Yugo,2.85,15,"worker, student, homemaker",0.8,2,0.5,2,1.2
+Model A,BLUE,SumoAssets Vehicles,Yugo,2.85,15,"worker, student, homemaker",0.8,2,0.5,2,1.2
+Model A,GRAY,SumoAssets Vehicles,Yugo,2.85,15,"worker, student, homemaker",0.8,2,0.5,2,1.2
+Model A,GREEN,SumoAssets Vehicles,Yugo,2.85,15,"worker, student, homemaker",0.8,2,0.5,2,1.2
+Model A,ORANGE,SumoAssets Vehicles,Yugo,2.85,15,"worker, student, homemaker",0.8,2,0.5,2,1.2
+Model A,PURPLE,SumoAssets Vehicles,Yugo,2.85,15,"worker, student, homemaker",0.8,2,0.5,2,1.2
+Model A,RED,SumoAssets Vehicles,Yugo,2.85,15,"worker, student, homemaker",0.8,2,0.5,2,1.2
+Model A,WHITE,SumoAssets Vehicles,Yugo,2.85,15,"worker, student, homemaker",0.8,2,0.5,2,1.2
+Model A,YELLOW,SumoAssets Vehicles,Yugo,2.85,15,"worker, student, homemaker",0.8,2,0.5,2,1.2
+Model B,BLACK,SumoAssets Vehicles,Sedan,3.65,35,"worker, student, homemaker",2,2,0.5,2,3
+Model B,BLUE,SumoAssets Vehicles,Sedan,3.65,35,"worker, student, homemaker",2,2,0.5,2,3
+Model B,GRAY,SumoAssets Vehicles,Sedan,3.65,35,"worker, student, homemaker",2,2,0.5,2,3
+Model B,GREEN,SumoAssets Vehicles,Sedan,3.65,35,"worker, student, homemaker",2,2,0.5,2,3
+Model B,ORANGE,SumoAssets Vehicles,Sedan,3.65,35,"worker, student, homemaker",2,2,0.5,2,3
+Model B,PURPLE,SumoAssets Vehicles,Sedan,3.65,35,"worker, student, homemaker",2,2,0.5,2,3
+Model B,RED,SumoAssets Vehicles,Sedan,3.65,35,"worker, student, homemaker",2,2,0.5,2,3
+Model B,WHITE,SumoAssets Vehicles,Sedan,3.65,35,"worker, student, homemaker",2,2,0.5,2,3
+Model B,YELLOW,SumoAssets Vehicles,Sedan,3.65,35,"worker, student, homemaker",2,2,0.5,2,3
+Model C,BLACK,SumoAssets Vehicles,Sports Car,4,10,"worker, student, homemaker",3,2,0.5,2,4
+Model C,BLUE,SumoAssets Vehicles,Sports Car,4,10,"worker, student, homemaker",3,2,0.5,2,4
+Model C,GRAY,SumoAssets Vehicles,Sports Car,4,10,"worker, student, homemaker",3,2,0.5,2,4
+Model C,GREEN,SumoAssets Vehicles,Sports Car,4,10,"worker, student, homemaker",3,2,0.5,2,4
+Model C,ORANGE,SumoAssets Vehicles,Sports Car,4,10,"worker, student, homemaker",3,2,0.5,2,4
+Model C,PURPLE,SumoAssets Vehicles,Sports Car,4,10,"worker, student, homemaker",3,2,0.5,2,4
+Model C,RED,SumoAssets Vehicles,Sports Car,4,10,"worker, student, homemaker",3,2,0.5,2,4
+Model C,WHITE,SumoAssets Vehicles,Sports Car,4,10,"worker, student, homemaker",3,2,0.5,2,4
+Model C,YELLOW,SumoAssets Vehicles,Sports Car,4,10,"worker, student, homemaker",3,2,0.5,2,4
+Model D,BLACK,SumoAssets Vehicles,Hatchback,3.65,35,"worker, student, homemaker",1.75,2,0.5,2,2
+Model D,BLUE,SumoAssets Vehicles,Hatchback,3.65,35,"worker, student, homemaker",1.75,2,0.5,2,2
+Model D,GRAY,SumoAssets Vehicles,Hatchback,3.65,35,"worker, student, homemaker",1.75,2,0.5,2,2
+Model D,GREEN,SumoAssets Vehicles,Hatchback,3.65,35,"worker, student, homemaker",1.75,2,0.5,2,2
+Model D,ORANGE,SumoAssets Vehicles,Hatchback,3.65,35,"worker, student, homemaker",1.75,2,0.5,2,2
+Model D,PURPLE,SumoAssets Vehicles,Hatchback,3.65,35,"worker, student, homemaker",1.75,2,0.5,2,2
+Model D,RED,SumoAssets Vehicles,Hatchback,3.65,35,"worker, student, homemaker",1.75,2,0.5,2,2
+Model D,WHITE,SumoAssets Vehicles,Hatchback,3.65,35,"worker, student, homemaker",1.75,2,0.5,2,2
+Model D,YELLOW,SumoAssets Vehicles,Hatchback,3.65,35,"worker, student, homemaker",1.75,2,0.5,2,2
+Model E,BLACK,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model E,BLUE,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model E,GRAY,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model E,GREEN,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model E,ORANGE,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model E,PURPLE,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model E,RED,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model E,WHITE,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model E,YELLOW,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model F,BLACK,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model F,BLUE,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model F,GRAY,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model F,GREEN,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model F,ORANGE,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model F,PURPLE,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model F,RED,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model F,WHITE,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model F,YELLOW,SumoAssets Vehicles,Sport Utility,3.65,15,"worker, student, homemaker",1.5,1.5,0.5,2,2.5
+Model G,BLACK,SumoAssets Vehicles,Big Sport Utility,4.25,10,"worker, student, homemaker",1.25,1.25,0.5,2,2
+Model G,BLUE,SumoAssets Vehicles,Big Sport Utility,4.25,10,"worker, student, homemaker",1.25,1.25,0.5,2,2
+Model G,GRAY,SumoAssets Vehicles,Big Sport Utility,4.25,10,"worker, student, homemaker",1.25,1.25,0.5,2,2
+Model G,GREEN,SumoAssets Vehicles,Big Sport Utility,4.25,10,"worker, student, homemaker",1.25,1.25,0.5,2,2
+Model G,ORANGE,SumoAssets Vehicles,Big Sport Utility,4.25,10,"worker, student, homemaker",1.25,1.25,0.5,2,2
+Model G,PURPLE,SumoAssets Vehicles,Big Sport Utility,4.25,10,"worker, student, homemaker",1.25,1.25,0.5,2,2
+Model G,RED,SumoAssets Vehicles,Big Sport Utility,4.25,10,"worker, student, homemaker",1.25,1.25,0.5,2,2
+Model G,WHITE,SumoAssets Vehicles,Big Sport Utility,4.25,10,"worker, student, homemaker",1.25,1.25,0.5,2,2
+Model G,YELLOW,SumoAssets Vehicles,Big Sport Utility,4.25,10,"worker, student, homemaker",1.25,1.25,0.5,2,2
+Model H,BLACK,SumoAssets Vehicles,Minivan,4,25,"worker, student, homemaker",1.5,1.5,0.5,2,2
+Model H,BLUE,SumoAssets Vehicles,Minivan,4,25,"worker, student, homemaker",1.5,1.5,0.5,2,2
+Model H,GRAY,SumoAssets Vehicles,Minivan,4,25,"worker, student, homemaker",1.5,1.5,0.5,2,2
+Model H,GREEN,SumoAssets Vehicles,Minivan,4,25,"worker, student, homemaker",1.5,1.5,0.5,2,2
+Model H,ORANGE,SumoAssets Vehicles,Minivan,4,25,"worker, student, homemaker",1.5,1.5,0.5,2,2
+Model H,PURPLE,SumoAssets Vehicles,Minivan,4,25,"worker, student, homemaker",1.5,1.5,0.5,2,2
+Model H,RED,SumoAssets Vehicles,Minivan,4,25,"worker, student, homemaker",1.5,1.5,0.5,2,2
+Model H,WHITE,SumoAssets Vehicles,Minivan,4,25,"worker, student, homemaker",1.5,1.5,0.5,2,2
+Model H,YELLOW,SumoAssets Vehicles,Minivan,4,25,"worker, student, homemaker",1.5,1.5,0.5,2,2
+Model I,BLACK,SumoAssets Vehicles,Van,4.35,10,"worker, student, homemaker",1.25,1.25,0.5,2,1.5
+Model I,BLUE,SumoAssets Vehicles,Van,4.35,10,"worker, student, homemaker",1.25,1.25,0.5,2,1.5
+Model I,GRAY,SumoAssets Vehicles,Van,4.35,10,"worker, student, homemaker",1.25,1.25,0.5,2,1.5
+Model I,GREEN,SumoAssets Vehicles,Van,4.35,10,"worker, student, homemaker",1.25,1.25,0.5,2,1.5
+Model I,ORANGE,SumoAssets Vehicles,Van,4.35,10,"worker, student, homemaker",1.25,1.25,0.5,2,1.5
+Model I,PURPLE,SumoAssets Vehicles,Van,4.35,10,"worker, student, homemaker",1.25,1.25,0.5,2,1.5
+Model I,RED,SumoAssets Vehicles,Van,4.35,10,"worker, student, homemaker",1.25,1.25,0.5,2,1.5
+Model I,WHITE,SumoAssets Vehicles,Van,4.35,10,"worker, student, homemaker",1.25,1.25,0.5,2,1.5
+Model I,YELLOW,SumoAssets Vehicles,Van,4.35,10,"worker, student, homemaker",1.25,1.25,0.5,2,1.5
+Model J,BLACK,SumoAssets Vehicles,Cargo Van,4.35,5,"worker, student, homemaker",1,1,0.5,2,1.5
+Model J,BLUE,SumoAssets Vehicles,Cargo Van,4.35,5,"worker, student, homemaker",1,1,0.5,2,1.5
+Model J,GRAY,SumoAssets Vehicles,Cargo Van,4.35,5,"worker, student, homemaker",1,1,0.5,2,1.5
+Model J,GREEN,SumoAssets Vehicles,Cargo Van,4.35,5,"worker, student, homemaker",1,1,0.5,2,1.5
+Model J,ORANGE,SumoAssets Vehicles,Cargo Van,4.35,5,"worker, student, homemaker",1,1,0.5,2,1.5
+Model J,PURPLE,SumoAssets Vehicles,Cargo Van,4.35,5,"worker, student, homemaker",1,1,0.5,2,1.5
+Model J,RED,SumoAssets Vehicles,Cargo Van,4.35,5,"worker, student, homemaker",1,1,0.5,2,1.5
+Model J,WHITE,SumoAssets Vehicles,Cargo Van,4.35,5,"worker, student, homemaker",1,1,0.5,2,1.5
+Model J,YELLOW,SumoAssets Vehicles,Cargo Van,4.35,5,"worker, student, homemaker",1,1,0.5,2,1.5
+Model K,BLACK,SumoAssets Vehicles,Flatbed Pickup,4,5,"worker, student, homemaker",1.5,2,0.5,2,2
+Model K,BLUE,SumoAssets Vehicles,Flatbed Pickup,4,5,"worker, student, homemaker",1.5,2,0.5,2,2
+Model K,GRAY,SumoAssets Vehicles,Flatbed Pickup,4,5,"worker, student, homemaker",1.5,2,0.5,2,2
+Model K,GREEN,SumoAssets Vehicles,Flatbed Pickup,4,5,"worker, student, homemaker",1.5,2,0.5,2,2
+Model K,ORANGE,SumoAssets Vehicles,Flatbed Pickup,4,5,"worker, student, homemaker",1.5,2,0.5,2,2
+Model K,PURPLE,SumoAssets Vehicles,Flatbed Pickup,4,5,"worker, student, homemaker",1.5,2,0.5,2,2
+Model K,RED,SumoAssets Vehicles,Flatbed Pickup,4,5,"worker, student, homemaker",1.5,2,0.5,2,2
+Model K,WHITE,SumoAssets Vehicles,Flatbed Pickup,4,5,"worker, student, homemaker",1.5,2,0.5,2,2
+Model K,YELLOW,SumoAssets Vehicles,Flatbed Pickup,4,5,"worker, student, homemaker",1.5,2,0.5,2,2
+Model L,BLACK,SumoAssets Vehicles,Pickup,3.85,15,"worker, student, homemaker",1.5,2,0.5,2,2.25
+Model L,BLUE,SumoAssets Vehicles,Pickup,3.85,15,"worker, student, homemaker",1.5,2,0.5,2,2.25
+Model L,GRAY,SumoAssets Vehicles,Pickup,3.85,15,"worker, student, homemaker",1.5,2,0.5,2,2.25
+Model L,GREEN,SumoAssets Vehicles,Pickup,3.85,15,"worker, student, homemaker",1.5,2,0.5,2,2.25
+Model L,ORANGE,SumoAssets Vehicles,Pickup,3.85,15,"worker, student, homemaker",1.5,2,0.5,2,2.25
+Model L,PURPLE,SumoAssets Vehicles,Pickup,3.85,15,"worker, student, homemaker",1.5,2,0.5,2,2.25
+Model L,RED,SumoAssets Vehicles,Pickup,3.85,15,"worker, student, homemaker",1.5,2,0.5,2,2.25
+Model L,WHITE,SumoAssets Vehicles,Pickup,3.85,15,"worker, student, homemaker",1.5,2,0.5,2,2.25
+Model L,YELLOW,SumoAssets Vehicles,Pickup,3.85,15,"worker, student, homemaker",1.5,2,0.5,2,2.25

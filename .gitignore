@@ -14,3 +14,8 @@
 *.pyc
 *.sln
 .vs
+*.DS_Store
+*$py.class
+*.js
+python/applications/mobdat/networks/fullnet/net/*
+

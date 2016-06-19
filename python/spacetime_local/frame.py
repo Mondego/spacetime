@@ -38,7 +38,7 @@ class SpacetimeConsole(cmd.Cmd):
 
     def do_stop(self, line):
         """ stop
-        Stops all applications, but does not exist prompt.
+        Stops all applications, but does not exit prompt.
         """
         for f in frame.framelist:
             f._stop()

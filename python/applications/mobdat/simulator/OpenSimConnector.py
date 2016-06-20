@@ -47,12 +47,6 @@ from datamodel.mobdat.datamodel import MovingVehicle, MobdatVehicle
 from spacetime_local.declarations import GetterSetter
 from spacetime_local.IApplication import IApplication
 
-# we need to import python modules from the $SUMO_HOME/tools directory
-sys.path.append(os.path.join(os.environ.get("SUMO_HOME"), "tools"))
-sys.path.append(os.path.join(os.environ.get("OPENSIM","/share/opensim"),"lib","python"))
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "lib")))
-
 import uuid
 import BaseConnector, EventHandler, EventTypes
 from datamodel.common.datamodel import Vector3, Quaternion

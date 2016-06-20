@@ -43,12 +43,8 @@ import math
 import os, sys
 from datamodel.mobdat.datamodel import MobdatVehicle
 from spacetime_local.declarations import Producer, GetterSetter
-from spacetime_local import IApplication
+from spacetime_local.IApplication import IApplication
 from datamodel.common.datamodel import Vector3, Quaternion
-sys.path.append(os.path.join(os.environ.get("SUMO_HOME"), "tools"))
-sys.path.append(os.path.join(os.environ.get("OPENSIM","/share/opensim"),"lib","python"))
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "lib")))
 
 import platform
 import subprocess

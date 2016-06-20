@@ -3,6 +3,7 @@ Created on Apr 19, 2016
 
 @author: Rohan Achar
 '''
+from __future__ import absolute_import
 
 from threading import Thread as Parallel
 #from multiprocessing import Process as Parallel
@@ -13,8 +14,8 @@ import signal
 import cmd
 import sys
 
-from store import store
-from IFrame import IFrame
+from .store import store
+from .IFrame import IFrame
 from pcc.recursive_dictionary import RecursiveDictionary
 
 import logging

@@ -41,11 +41,6 @@ the social (people) aspects of the mobdat simulation.
 import os, sys
 import logging
 
-sys.path.append(os.path.join(os.environ.get("SUMO_HOME"), "tools"))
-sys.path.append(os.path.join(os.environ.get("OPENSIM","/share/opensim"),"lib","python"))
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "lib")))
-
 from applications.mobdat.common.Utilities import GenName
 
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX

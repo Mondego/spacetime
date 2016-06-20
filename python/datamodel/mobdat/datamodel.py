@@ -3,6 +3,7 @@ Created on Jun 18, 2016
 
 @author: arthurvaladares
 '''
+from __future__ import absolute_import
 
 import logging
 from collections import namedtuple
@@ -78,7 +79,7 @@ class SimulationNode(object):
     def Width(self, value):
         self._Width = value
 
-    @dimension(Rezcap)
+    @dimension(Capsule)
     def Rezcap(self):
         return self._Rezcap
 
@@ -192,7 +193,7 @@ class BusinessNode(SimulationNode.Class()):
         super(BusinessNode, self).Class().__init__()
 
 @pcc_set
-class ResidentialNode(SimulationNode):
+class ResidentialNode(SimulationNode.Class()):
     @dimension(int)
     def ResidentsPerNode(self):
         return self._ResidentsPerNode

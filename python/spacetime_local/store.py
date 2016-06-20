@@ -4,6 +4,8 @@ Created on Apr 19, 2016
 @author: Rohan Achar
 '''
 
+from __future__ import absolute_import
+
 from common.recursive_dictionary import RecursiveDictionary
 from pcc.attributes import spacetime_property
 from threading import currentThread

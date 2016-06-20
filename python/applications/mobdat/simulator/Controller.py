@@ -38,14 +38,15 @@ sets up the connectors and then drives the simulation through the periodic
 clock ticks.
 
 """
+from __future__ import absolute_import
 
 import logging
 from multiprocessing import Process, Manager
 import os, sys
 import platform, time, threading, cmd
 
-import EventRouter, EventTypes
-import SumoConnector, OpenSimConnector, SocialConnector, StatsConnector
+from applications.mobdat.simulator import EventRouter, EventTypes
+from applications.mobdat.simulator import SumoConnector, OpenSimConnector, SocialConnector, StatsConnector
 from spacetime_local.frame import frame
 
 from applications.mobdat.common import LayoutSettings, WorldInfo
@@ -54,11 +55,6 @@ from applications.mobdat.prime import PrimeSimulator
 
 import datetime
 from threading import Thread
-
-
-sys.path.append(os.path.join(os.environ.get("OPENSIM", "/share/opensim"), "lib", "python"))
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "lib")))
 
 
 # -----------------------------------------------------------------

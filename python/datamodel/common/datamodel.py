@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 from pcc.set import pcc_set
 from pcc.attributes import primarykey, dimension
 from pcc.projection import projection

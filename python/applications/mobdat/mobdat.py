@@ -36,6 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 This is the main script for running the mobdat mobile data simulator.
 
 """
+from __future__ import absolute_import
 
 import sys, os
 import logging, logging.handlers, warnings
@@ -43,7 +44,7 @@ import logging, logging.handlers, warnings
 import OpenSimRemoteControl
 import getpass
 
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "../../")))
+sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
 
 import time, json, argparse
 from applications.mobdat.simulator import Controller
@@ -133,8 +134,15 @@ def ParseCommandLine(config, args) :
 def SetupLoggers() :
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
+    logfile = filename=os.path.join(os.path.dirname(__file__), "logs/mobdat.log")
 
-    logfile = filename=os.path.join(os.path.dirname(__file__), "../logs/mobdat.log")
+    if not os.path.exists(os.path.dirname(filename)):
+        try:
+            os.makedirs(os.path.dirname(filename))
+        except:
+            print "could not create directory for logs, quitting"
+            raise
+
     flog = logging.handlers.RotatingFileHandler(logfile, maxBytes=10*1024*1024, backupCount=50, mode='w')
     flog.setLevel(logging.WARN)
     flog.setFormatter(logging.Formatter('%(levelname)s [%(name)s] %(message)s'))

@@ -45,12 +45,7 @@ from uuid import UUID, uuid4
 from datamodel.mobdat.datamodel import BusinessNode, MobdatVehicle, Person,\
     ResidentialNode, Road, SimulationNode
 from spacetime_local.declarations import Producer, Tracker
-from spacetime_local import IApplication
-
-sys.path.append(os.path.join(os.environ.get("SUMO_HOME"), "tools"))
-sys.path.append(os.path.join(os.environ.get("OPENSIM","/share/opensim"),"lib","python"))
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "lib")))
+from spacetime_local.IApplication import IApplication
 
 import heapq
 import BaseConnector, EventHandler, EventTypes, Traveler

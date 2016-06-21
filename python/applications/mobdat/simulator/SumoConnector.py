@@ -48,8 +48,8 @@ from datamodel.common.datamodel import Vector3, Quaternion
 
 import platform
 import subprocess
-from sumolib import checkBinary
-import traci
+from applications.mobdat.tools.sumolib import checkBinary
+from applications.mobdat.tools import traci
 
 import BaseConnector, EventHandler, EventTypes
 import traci.constants as tc

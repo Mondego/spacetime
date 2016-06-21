@@ -36,6 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 This file defines the opensim builder class for mobdat traffic networks.
 The functions in this file will rez a mobdat network in an OpenSim region.
 """
+from __future__ import absolute_import
 
 import os, sys
 import logging

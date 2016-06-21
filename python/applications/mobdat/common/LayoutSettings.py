@@ -41,8 +41,6 @@ information in the nodes for later use in rezzing the network.
 
 import os, sys
 
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
-
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 class IntersectionInfo :

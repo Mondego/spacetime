@@ -39,19 +39,10 @@ The functions in this file will rez a mobdat network in an OpenSim region.
 
 import os, sys
 import logging
-from mobdat.simulator.DataModel import Road, SimulationNode, BusinessNode,\
-    ResidentialNode, Person, VehicleInfo, JobDescription, Capsule
-from mobdat.common.ValueTypes import Vector3
-from cadis.language.schema import CADISEncoder
 
-# we need to import python modules from the $SUMO_HOME/tools directory
-sys.path.append(os.path.join(os.environ.get("OPENSIM","/share/opensim"),"lib","python"))
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "lib")))
-
-from mobdat.common.graph.LayoutDecoration import EdgeMapDecoration
-from mobdat.common.graph import Edge
-from mobdat.common.Utilities import AuthByUserName, GenCoordinateMap,\
+from applications.mobdat.common.graph.LayoutDecoration import EdgeMapDecoration
+from applications.mobdat.common.graph import Edge
+from applications.mobdat.common.Utilities import AuthByUserName, GenCoordinateMap,\
     CalculateOSCoordinates, CalculateOSCoordinatesFromOrigin
 import json
 

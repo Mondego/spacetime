@@ -38,14 +38,11 @@ sets up the connectors and then drives the simulation through the periodic
 clock ticks.
 
 """
+from __future__ import absolute_import
 
 import os, sys, traceback
 import logging
 import cProfile
-
-sys.path.append(os.path.join(os.environ.get("OPENSIM","/share/opensim"),"lib","python"))
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "lib")))
 
 import json
 from applications.mobdat.common import LayoutSettings

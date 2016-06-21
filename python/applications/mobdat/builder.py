@@ -42,7 +42,9 @@ for the specified connectors (opensim, sumo or social)
 import os, sys
 import logging, logging.handlers, warnings
 
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
+#sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
+sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
+
 
 from applications.mobdat.builder import Controller
 
@@ -141,7 +143,15 @@ def SetupLoggers() :
     global logger
     logger.setLevel(logging.DEBUG)
 
-    logfile = filename=os.path.join(os.path.dirname(__file__), "../logs/builder.log")
+    #logfile = filename=os.path.join(os.path.dirname(__file__), "../logs/builder.log")
+    logfile = filename=os.path.join(os.path.dirname(__file__), "logs/builder.log")
+
+    if not os.path.exists(os.path.dirname(filename)):
+        try:
+            os.makedirs(os.path.dirname(filename))
+        except:
+            print "could not create directory for logs, quitting"
+            raise
     flog = logging.FileHandler(logfile, mode='w')
     flog.setFormatter(logging.Formatter('%(levelname)s [%(name)s] %(message)s'))
     logger.addHandler(flog)

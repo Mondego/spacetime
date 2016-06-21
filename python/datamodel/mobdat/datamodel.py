@@ -190,7 +190,7 @@ class BusinessNode(SimulationNode.Class()):
         self.PreferredBusinessTypes = 0
         self.PeakEmployeeCount = 0
         self.PeakCustomerCount = 0
-        super(BusinessNode, self).Class().__init__()
+        super(BusinessNode.Class(), self).__init__()
 
 @pcc_set
 class ResidentialNode(SimulationNode.Class()):
@@ -222,7 +222,7 @@ class ResidentialNode(SimulationNode.Class()):
         self.ResidentsPerNode = 0
         self.ResidentCount = 0
         self.ResidenceList = []
-        super(ResidentialNode, self).Class().__init__()
+        super(ResidentialNode.Class(), self).__init__()
 
 class JobDescription(object):
     def __init__(self, salary = 0, flexhours = False, schedule = None):
@@ -411,7 +411,7 @@ class PrimeNode(BusinessNode.Class()):
 
     def __init__(self):
         self.Customers = []
-        super(PrimeNode, self).Class().__init__()
+        super(PrimeNode.Class(), self).__init__()
 
 @parameter(Person)
 @subset(BusinessNode)

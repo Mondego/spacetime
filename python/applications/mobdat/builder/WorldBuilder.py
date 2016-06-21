@@ -37,24 +37,17 @@ This file defines routines used to build features of a mobdat traffic
 network such as building a grid of roads.
 
 """
+from __future__ import absolute_import
 
-from mobdat.common import WorldInfo
-from mobdat.common.Utilities import GenName, GenNameFromCoordinates
-from mobdat.common.graph import Edge, LayoutNodes, LayoutEdges, LayoutDecoration, \
+from applications.mobdat.common import WorldInfo
+from applications.mobdat.common.Utilities import GenName, GenNameFromCoordinates
+from applications.mobdat.common.graph import Edge, LayoutNodes, LayoutEdges, LayoutDecoration, \
     SocialNodes
 import copy
 import json
 import logging
 import os
 import sys
-
-# we need to import python modules from the $SUMO_HOME/tools directory
-sys.path.append(os.path.join(os.environ.get("OPENSIM","/share/opensim"),"lib","python"))
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "lib")))
-
-
-
 
 logger = logging.getLogger(__name__)
 

@@ -41,11 +41,11 @@ the social (people) aspects of the mobdat simulation.
 import os, sys
 import logging
 import json
-from uuid import UUID, uuid4
 from datamodel.mobdat.datamodel import BusinessNode, MobdatVehicle, Person,\
     ResidentialNode, Road, SimulationNode
 from spacetime_local.declarations import Producer, Tracker
 from spacetime_local.IApplication import IApplication
+from common.converter import create_obj
 
 import heapq
 import BaseConnector, EventHandler, EventTypes, Traveler
@@ -206,7 +206,7 @@ class SocialConnector(BaseConnector.BaseConnector, IApplication):
 
         event -- a DeleteObject event object
         """
-        deleted = self.frame.deleted(MobdatVehicle)
+        deleted = self.frame.get_deleted(MobdatVehicle)
         # self.__Logger.debug("Tick SUMO: New vehicles %s", added)
         for car in deleted:
             self.__Logger.warn("### Car %s has arrived, completing his trip.", car.Name)
@@ -222,7 +222,7 @@ class SocialConnector(BaseConnector.BaseConnector, IApplication):
 
         event -- Timer event object
         """
-        self.CurrentStep = self.frame.step
+        self.CurrentStep = self.frame.get_curstep()
         self.HandleDeleteVehicles()
         if self.CurrentStep % 100 == 0 :
             wtime = self.WorldTime
@@ -242,21 +242,6 @@ class SocialConnector(BaseConnector.BaseConnector, IApplication):
     def HandleShutdownEvent(self, event) :
         pass
 
-    def __decode__(self, jsonlist, typeObj):
-        objlist = []
-        for data in jsonlist:
-            obj = typeObj.__new__(typeObj)
-            for dim in obj._dimensions:
-                prop = getattr(obj, dim._name)
-                if hasattr(prop, "__decode__"):
-                    prop = prop.__decode__(data[dim._name])
-                else:
-                    prop = data[dim._name]
-                setattr(obj, dim._name, prop)
-            obj.ID = uuid4()
-            objlist.append(obj)
-        return objlist
-
     # -----------------------------------------------------------------
     def initialize(self, limit = None) :
         self.mybusiness = None
@@ -274,9 +259,9 @@ class SocialConnector(BaseConnector.BaseConnector, IApplication):
             try:
                 f = open(os.path.join(self.DataFolder,"people.js"), "r")
                 jsonlist = json.loads(f.read())
-                self.people = self.__decode__(jsonlist, Person)
                 f.close()
-                for person in self.people[:plimit]:
+                for objjson in jsonlist[:plimit:]:
+                    person = create_obj(Person, objjson)
                     self.frame.add(person)
             except:
                 self.__Logger.exception("could not read data from people.js")
@@ -284,9 +269,9 @@ class SocialConnector(BaseConnector.BaseConnector, IApplication):
             try:
                 f = open(os.path.join(self.DataFolder,"business.js"), "r")
                 jsonlist = json.loads(f.read())
-                self.business = self.__decode__(jsonlist, BusinessNode)
                 f.close()
-                for business in self.business[:blimit]:
+                for objjson in jsonlist[:blimit:]:
+                    business = create_obj(BusinessNode, objjson)
                     self.frame.add(business)
             except:
                 self.__Logger.exception("could not read data from business.js")
@@ -294,9 +279,9 @@ class SocialConnector(BaseConnector.BaseConnector, IApplication):
             try:
                 f = open(os.path.join(self.DataFolder,"residential.js"), "r")
                 jsonlist = json.loads(f.read())
-                self.residential = self.__decode__(jsonlist, ResidentialNode)
                 f.close()
-                for residence in self.residential[:rlimit]:
+                for objjson in jsonlist[:rlimit:]:
+                    residence = create_obj(ResidentialNode, objjson)
                     self.frame.add(residence)
             except:
                 self.__Logger.exception("could not read data from residential.js")
@@ -304,9 +289,9 @@ class SocialConnector(BaseConnector.BaseConnector, IApplication):
             try:
                 f = open(os.path.join(self.DataFolder,"roads.js"), "r")
                 jsonlist = json.loads(f.read())
-                self.cadis_roads = self.__decode__(jsonlist, Road)
                 f.close()
-                for road in self.cadis_roads[:rolimit]:
+                for objjson in jsonlist[:blimit:]:
+                    road = create_obj(Road, objjson)
                     self.frame.add(road)
             except:
                 self.__Logger.exception("could not read data from roads.js")
@@ -314,9 +299,9 @@ class SocialConnector(BaseConnector.BaseConnector, IApplication):
             try:
                 f = open(os.path.join(self.DataFolder,"intersections.js"), "r")
                 jsonlist = json.loads(f.read())
-                self.intersections = self.__decode__(jsonlist, SimulationNode)
                 f.close()
-                for intersection in self.intersections[:ilimit]:
+                for objjson in jsonlist[:ilimit:]:
+                    intersection = create_obj(SimulationNode, objjson)
                     self.frame.add(intersection)
             except:
                 self.__Logger.exception("could not read data from roads.js")

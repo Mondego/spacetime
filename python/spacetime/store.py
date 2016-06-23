@@ -152,6 +152,9 @@ class dataframe(object):
 
         self.__typename_to_primarykey = {}
         for tp in DATAMODEL_TYPES:
+            if not tp.__primarykey__:
+                self.logger.error("Type %s has no defined a primary key, skipping...")
+                continue
             if tp.__PCC_BASE_TYPE__ or tp.__name__ == "_Join":
                 self.__typename_to_primarykey[tp.__realname__] = tp.__primarykey__._name
             else:

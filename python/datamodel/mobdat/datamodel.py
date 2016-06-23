@@ -8,12 +8,10 @@ from __future__ import absolute_import
 import logging
 from collections import namedtuple
 #from spacetime_local.frame import frame
-import uuid
 from datamodel.common.datamodel import Quaternion, Vector3
 from pcc.set import pcc_set
 from pcc.attributes import dimension, primarykey
 from pcc.subset import subset
-from pcc.join import join
 from pcc.parameter import parameter
 
 logger = logging.getLogger(__name__)
@@ -271,7 +269,14 @@ class Person(object):
         self.Vehicle = VehicleInfo()
         self.EmployedBy = None
 
-    _Name = None
+    @primarykey(str)
+    def ID(self):
+        return self._ID
+
+    @ID.setter
+    def ID(self, value):
+        self._ID = value
+
     @dimension(str)
     def Name(self):
         return self._Name
@@ -325,7 +330,14 @@ class MobdatVehicle(object):
     '''
     classdocs
     '''
-    _Name = None
+
+    @primarykey(str)
+    def ID(self):
+        return self._ID
+
+    @ID.setter
+    def ID(self, value):
+        self._ID = value
     @dimension(str)
     def Name(self):
         return self._Name
@@ -383,7 +395,13 @@ class MobdatVehicle(object):
         self._Rotation = value
 
     def __init__(self):
-        self.ID = uuid.uuid4()
+        self.Name = ""
+        self.Position = Vector3(0,0,0)
+        self.Route = ""
+        self.Target = ""
+        self.Velocity = Vector3(0,0,0)
+        self.Rotation = Quaternion(0,0,0,0)
+        self.Type = ""
 
 @subset(MobdatVehicle)
 class MovingVehicle(MobdatVehicle.Class()):
@@ -394,10 +412,6 @@ class MovingVehicle(MobdatVehicle.Class()):
     @staticmethod
     def __predicate__(v):
         return v.Velocity != Vector3(0,0,0) or v.Position != (0,0,0)
-
-    @staticmethod
-    def query(store):
-        return [c.ID for c in store.get(Vehicle, False) if c.Position != None or c.Position != (0,0,0)]  # @UndefinedVariable
 
 @pcc_set
 class PrimeNode(BusinessNode.Class()):
@@ -423,7 +437,7 @@ class EmptyBusiness(BusinessNode.Class()):
     @staticmethod
     def __predicate__(b, ppl):
         for p in ppl:
-            if p.EmployedBy == b.ID:
+            if p.EmployedBy.ID == b.ID:
                     occupied = True
                     continue
             if not occupied:

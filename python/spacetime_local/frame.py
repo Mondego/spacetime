@@ -70,13 +70,15 @@ class frame(IFrame):
         if not address.endswith('/'):
             address += '/'
         self.__address = address
-        self._time_step = (float(time_step) / 1000)
+        self.__time_step = (float(time_step) / 1000)
         self.__new = {}
         self.__mod = {}
         self.__del = {}
         self.__observed_types = set()
         self.__observed_types_new = set()
         self.__observed_types_mod = set()
+        self.__curtime = time.time()
+        self.__curstep = 0
 
     def __register_app(self, app):
         self.logger = self.__setup_logger("spacetime@" + app.__class__.__name__)
@@ -134,11 +136,23 @@ class frame(IFrame):
     def loop():
         SpacetimeConsole().cmdloop()
 
+    def get_curtime(self):
+        """
+        Returns the timestamp of the current step
+        """
+        return self.__curtime
+
+    def get_curstep(self):
+        """
+        Returns the current step value of the simulation.
+        """
+        return self.__curstep
+
     def get_timestep(self):
         """
         Returns the time-step value in milliseconds.
         """
-        return self._time_step
+        return self.__time_step
 
 
     def attach_app(self, app):
@@ -210,9 +224,11 @@ class frame(IFrame):
                     self.__push()
                     end_time = time.time()
                     timespent = end_time - st_time
+                    self.__curstep += 1
+                    self.__curtime = time.time()
                     # time spent on execution loop
-                    if timespent < self._time_step:
-                        time.sleep(float(self._time_step - timespent))
+                    if timespent < self.__time_step:
+                        time.sleep(float(self.__time_step - timespent))
                     else:
                         self.logger.info("loop exceeded maximum time: %s ms", timespent)
 
@@ -360,7 +376,11 @@ class frame(IFrame):
                                           resp.status_code, resp.reason)
 
     def __process_pull_resp(self,resp):
-        new, mod, deleted = resp["new"], resp["updated"], resp["deleted"]
+        try:
+            new, mod, deleted = resp["new"], resp["updated"], resp["deleted"]
+        except KeyError:
+            self.logger.error("Error parsing tracked objects. Server response: %s", resp)
+            return {}, {}, {}
         new_objs, mod_objs, deleted_objs = {}, {}, {}
         for tp in new:
             typeObj = self.__name2type[tp]
@@ -427,9 +447,11 @@ class frame(IFrame):
                 if tp.Class() in changes["deleted"]:
                     update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["deleted"].extend(changes["deleted"][tp.Class()])
 
-            package = {"update_dict": json.dumps(update_dict)}
             try:
+                package = {"update_dict": json.dumps(update_dict)}
                 resp = requests.post(host + "/updated", json = package)
+            except TypeError:
+                self.logger.exception("error encoding json. Object: %s", update_dict)
             except HTTPError as exc:
                 self.__handle_request_errors(resp, exc)
             except ConnectionError:

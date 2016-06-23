@@ -111,7 +111,7 @@ def Controller(settings) :
 
         cframe = frame(time_step=200)
         connector = _SimulationControllers[cname](settings, world, laysettings, cname, cframe)
-        cframe.attach(connector)
+        cframe.attach_app(connector)
         connectors.append(cframe)
         cframe.run_async()
 

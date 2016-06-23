@@ -42,14 +42,14 @@ import logging
 import math
 import os, sys
 from datamodel.mobdat.datamodel import MobdatVehicle
-from spacetime_local.declarations import Producer, GetterSetter
+from spacetime_local.declarations import Producer, GetterSetter, Deleter
 from spacetime_local.IApplication import IApplication
 from datamodel.common.datamodel import Vector3, Quaternion
 
 import platform
 import subprocess
-from applications.mobdat.tools.sumolib import checkBinary
-from applications.mobdat.tools import traci
+from sumolib import checkBinary
+import traci
 
 import BaseConnector, EventHandler, EventTypes
 import traci.constants as tc
@@ -58,6 +58,7 @@ import traci.constants as tc
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 @Producer(MobdatVehicle)
 @GetterSetter(MobdatVehicle)
+@Deleter(MobdatVehicle)
 class SumoConnector(BaseConnector.BaseConnector, IApplication) :
 
     # -----------------------------------------------------------------
@@ -184,7 +185,7 @@ class SumoConnector(BaseConnector.BaseConnector, IApplication) :
             #event = EventTypes.EventDeleteObject(v)
             #self.PublishEvent(event)
             self.__Logger.info("Vehicle %s arrived at %s", self.cars[v].Name, self.cars[v].Position)
-            self.frame.delete(self.cars[v].__class__, self.cars[v].ID)
+            self.frame.delete(MobdatVehicle, self.cars[v])
             del self.cars[v]
 
     # -----------------------------------------------------------------
@@ -205,7 +206,7 @@ class SumoConnector(BaseConnector.BaseConnector, IApplication) :
 
     # -----------------------------------------------------------------
     def NewVehicles(self):
-        added = self.frame.new(MobdatVehicle)
+        added = self.frame.get_new(MobdatVehicle)
         #self.__Logger.debug("Tick SUMO: New vehicles %s", added)
         for car in added:
             self.__Logger.debug('add vehicle %s going from %s to %s', car.Name, car.Route, car.Target)

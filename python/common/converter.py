@@ -73,7 +73,7 @@ def create_complex_obj(tp, objjson, universemap, extra = True):
         if dimension._name in objjson:
             all_attribs.remove(dimension._name)
             if hasattr(dimension._type, "__dependent_type__"):
-                primarykey = objjson[tp.__primarykey__._name]
+                primarykey = str(objjson[tp.__primarykey__._name])
 
                 if hasattr(dimension._type, "__realname__") and dimension._type.__realname__ in universemap and primarykey in universemap[dimension._type.__realname__]:
                     setattr(obj, dimension._name, universemap[dimension._type.__realname__][primarykey])
@@ -87,13 +87,18 @@ def create_complex_obj(tp, objjson, universemap, extra = True):
     return obj
 
 def create_obj(tp, objjson):
-    category = get_type(objjson)
-    if category == "primitive":
-        return objjson
-    elif category == "collection":
-        return objjson
+    try:
+        category = get_type(objjson)
+        if category == "primitive":
+            return objjson
+        elif category == "collection":
+            return objjson
 
-    obj = _container()
-    obj.__dict__ = objjson
-    obj.__class__ = tp
-    return obj
+        obj = _container()
+        obj.__dict__ = objjson
+        obj.__class__ = tp
+        return obj
+    except:
+        print "Failed to create PCC object from JSON. Obj: %s\n json: %s" % (
+             str(objjson), str(tp.Class()))
+        raise

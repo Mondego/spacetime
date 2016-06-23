@@ -43,8 +43,22 @@ import logging, logging.handlers, warnings
 
 import OpenSimRemoteControl
 import getpass
+import platform
 
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
+if platform.system() == 'Windows' or platform.system().startswith("CYGWIN"):
+    if os.environ.get("SUMO_WINDOWS"):
+        sys.path.append(os.path.join(os.environ.get("SUMO_WINDOWS"), "tools"))
+    else:
+        print "set environment variable SUMO_WINDOWS to the SUMO directory"
+        sys.exit(1)
+else:
+    if os.environ.get("SUMO_LINUX"):
+        sys.path.append(os.path.join(os.environ.get("SUMO_LINUX"), "tools"))
+    else:
+        print "set environment variable SUMO_LINUX to the SUMO directory"
+        sys.exit(1)
+
 
 import time, json, argparse
 from applications.mobdat.simulator import Controller

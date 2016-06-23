@@ -227,7 +227,7 @@ class OpenSimVehicle :
 
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-@GetterSetter(MovingVehicle)
+@GetterSetter(MovingVehicle, MobdatVehicle)
 class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
 
     # -----------------------------------------------------------------
@@ -323,10 +323,10 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
     # -----------------------------------------------------------------
     # @instrument TODO
     def HandleCreateObjectEvent(self):
-        cars = self.frame.new(MovingVehicle)
+        cars = self.frame.get_new(MobdatVehicle)
         for car in cars:
             OpenSimPosition = car.Position.ScaleVector(self.WorldSize).AddVector(self.WorldOffset)
-            sim = GetSceneFromCoordinates(OpenSimPosition.x,OpenSimPosition.y,self)
+            sim = GetSceneFromCoordinates(OpenSimPosition.X,OpenSimPosition.Y,self)
 
             vtype = sim["VehicleTypes"][car.Type]
             vtypename = vtype.Name
@@ -373,7 +373,8 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
         the simulation.
         """
 
-        deleted = self.frame.deleted(MovingVehicle)
+        deleted = self.frame.get_deleted(MobdatVehicle)
+        moving = set([v.ID for v in self.frame.get(MovingVehicle)])
         for car in deleted:
             vname = car.Name
             self.__Logger.info("deleting car %s from OpenSim", vname)
@@ -404,12 +405,14 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
     # -----------------------------------------------------------------
     # @instrument TODO
     def HandleObjectDynamicsEvent(self) :
-        changed = self.frame.changed(MovingVehicle)
+        changed = self.frame.get_mod(MobdatVehicle)
+        moving = set([v.ID for v in self.frame.get(MovingVehicle)])
         for car in changed:
+            if car.ID not in moving:
+                continue
             vname = car.Name
             if vname not in self.Vehicles2Sim :
                 self.__Logger.warn("attempt to update unknown vehicle %s" % (vname))
-                cars = self.frame.get(MovingVehicle)
                 continue
 
             sim = self.Vehicles2Sim[vname]
@@ -477,8 +480,8 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
     # Returns True if the simulation can continue
     # @instrument TODO
     def update(self) :
-        self.CurrentStep = self.frame.step
-        self.CurrentTime = self.frame.curtime
+        self.CurrentStep = self.frame.get_curstep()
+        self.CurrentTime = self.frame.get_curtime()
 
         # Compute the clock skew
         self.AverageClockSkew = (9.0 * self.AverageClockSkew + (self.Clock() - self.CurrentTime)) / 10.0

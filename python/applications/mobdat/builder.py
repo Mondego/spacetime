@@ -41,11 +41,21 @@ for the specified connectors (opensim, sumo or social)
 
 import os, sys
 import logging, logging.handlers, warnings
+import platform
 
-#sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
-
-
+if platform.system() == 'Windows' or platform.system().startswith("CYGWIN"):
+    if os.environ.get("SUMO_WINDOWS"):
+        sys.path.append(os.path.join(os.environ.get("SUMO_WINDOWS"), "tools"))
+    else:
+        print "set environment variable SUMO_WINDOWS to the SUMO directory"
+        sys.exit(1)
+else:
+    if os.environ.get("SUMO_LINUX"):
+        sys.path.append(os.path.join(os.environ.get("SUMO_LINUX"), "tools"))
+    else:
+        print "set environment variable SUMO_LINUX to the SUMO directory"
+        sys.exit(1)
 from applications.mobdat.builder import Controller
 
 import time, argparse, json

@@ -1,10 +1,12 @@
+from __future__ import absolute_import
+
 from pcc.set import pcc_set
 from pcc.attributes import primarykey, dimension
 from pcc.projection import projection
 import uuid
 import math
 
-class Quaternion :
+class Quaternion (object):
 
     # -----------------------------------------------------------------
     def __init__(self, x = 0.0, y = 0.0, z = 0.0, w = 1.0) :
@@ -49,6 +51,29 @@ class Quaternion :
         return math.atan2(2.0 * self.y * self.w - 2.0 * self.x * self.z, 1.0 - 2.0 * self.y * self.y - 2.0 * self.z * self.z)
 
     # -----------------------------------------------------------------
+    def ApproxEquals(self, other, tolerance) :
+        return self.VectorDistanceSquared(other) < (tolerance * tolerance)
+
+    # -----------------------------------------------------------------
+    def VectorDistanceSquared(self, other) :
+        dx = self.x - other.x
+        dy = self.y - other.y
+        dz = self.z - other.z
+        return dx * dx + dy * dy + dz * dz
+
+    # -----------------------------------------------------------------
+    def VectorDistance(self, other) :
+        return math.sqrt(self.VectorDistanceSquared(other))
+
+    # -----------------------------------------------------------------
+    def Length(self) :
+        return math.sqrt(self.VectorDistanceSquared(ZeroVector))
+
+    # -----------------------------------------------------------------
+    def LengthSquared(self) :
+        return self.VectorDistanceSquared(ZeroVector)
+
+    # -----------------------------------------------------------------
     def __eq__(self, other) :
         return self.Equals(other)
 
@@ -70,14 +95,29 @@ class Quaternion :
         return self.__dict__
 
 class Vector3(object):
-    X = 0
-    Y = 0
-    Z = 0
-
-    def __init__(self, X, Y, Z):
+    def __init__(self, X=0.0, Y=0.0, Z=0.0):
         self.X = X
         self.Y = Y
         self.Z = Z
+
+    # -----------------------------------------------------------------
+    def VectorDistanceSquared(self, other) :
+        dx = self.X - other.X
+        dy = self.Y - other.Y
+        dz = self.Z - other.Z
+        return dx * dx + dy * dy + dz * dz
+
+    # -----------------------------------------------------------------
+    def VectorDistance(self, other) :
+        return math.sqrt(self.VectorDistanceSquared(other))
+
+    # -----------------------------------------------------------------
+    def Length(self) :
+        return math.sqrt(self.VectorDistanceSquared(ZeroVector))
+
+    # -----------------------------------------------------------------
+    def LengthSquared(self) :
+        return self.VectorDistanceSquared(ZeroVector)
 
     def AddVector(self, other) :
         return Vector3(self.X + other.X, self.Y + other.Y, self.Z + other.Z)
@@ -101,6 +141,17 @@ class Vector3(object):
         heading = math.atan(self.Y/self.X)
         return Vector3()
 
+    # -----------------------------------------------------------------
+    def Equals(self, other) :
+        if isinstance(other, Vector3):
+            return self.X == other.X and self.Y == other.Y and self.Z == other.Z
+        elif isinstance(other, tuple) or isinstance(other, list):
+            return (other[0] == self.X and other[1] == self.Y and other[2] == self.Z)
+
+    # -----------------------------------------------------------------
+    def ApproxEquals(self, other, tolerance) :
+        return self.VectorDistanceSquared(other) < (tolerance * tolerance)
+
     def __json__(self):
         return self.__dict__
 
@@ -108,7 +159,7 @@ class Vector3(object):
         return self.__dict__.__str__()
 
     def __eq__(self, other):
-        return (isinstance(other, Vector3) and (other.X == self.X and other.Y == self.Y and other.Z == self.Z))
+        return self.Equals(other)
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -132,6 +183,8 @@ class Vector3(object):
     @staticmethod
     def __decode__(dic):
         return Vector3(dic['X'], dic['Y'], dic['Z'])
+
+ZeroVector = Vector3()
 
 class Color:
     Red = 0

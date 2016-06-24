@@ -46,6 +46,7 @@ import OpenSimRemoteControl
 from datamodel.mobdat.datamodel import MovingVehicle, MobdatVehicle
 from spacetime_local.declarations import GetterSetter
 from spacetime_local.IApplication import IApplication
+from common.instrument import timethis
 
 import uuid
 import BaseConnector, EventHandler, EventTypes
@@ -296,7 +297,7 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
             self.Clock = time.clock
 
     # -----------------------------------------------------------------
-    # @instrument TODO
+    @timethis
     def _FindAssetInObject(self, assetinfo) :
         oname = assetinfo["ObjectName"]
         iname = assetinfo["ItemName"]
@@ -321,7 +322,7 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
         return None
 
     # -----------------------------------------------------------------
-    # @instrument TODO
+    @timethis
     def HandleCreateObjectEvent(self):
         cars = self.frame.get_new(MobdatVehicle)
         for car in cars:
@@ -366,7 +367,7 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
         return True
 
     # -----------------------------------------------------------------
-    # @instrument TODO: implement instrumentation
+    @timethis
     def HandleDeleteObjectEvent(self) :
         """Handle the delete object event. In this case, rather than delete the
         object from the scene completely, mothball it in a location well away from
@@ -403,7 +404,7 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
         return True
 
     # -----------------------------------------------------------------
-    # @instrument TODO
+    @timethis
     def HandleObjectDynamicsEvent(self) :
         changed = self.frame.get_mod(MobdatVehicle)
         moving = set([v.ID for v in self.frame.get(MovingVehicle)])
@@ -478,7 +479,7 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
 
     # -----------------------------------------------------------------
     # Returns True if the simulation can continue
-    # @instrument TODO
+    @timethis
     def update(self) :
         self.CurrentStep = self.frame.get_curstep()
         self.CurrentTime = self.frame.get_curtime()

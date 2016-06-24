@@ -21,6 +21,8 @@ from pcc.recursive_dictionary import RecursiveDictionary
 import logging
 from logging import NullHandler
 from requests.exceptions import HTTPError, ConnectionError
+from common.instrument import SpacetimeInstruments as si
+from common.instrument import timethis
 
 class SpacetimeConsole(cmd.Cmd):
     """Command console interpreter for frame."""
@@ -59,7 +61,7 @@ class SpacetimeConsole(cmd.Cmd):
 
 class frame(IFrame):
     framelist = set()
-    def __init__(self, address="http://127.0.0.1:12000/", time_step=500):
+    def __init__(self, address="http://127.0.0.1:12000/", time_step=500, instrument=False):
         frame.framelist.add(self)
         self.thread = None
         self.__app = None
@@ -79,6 +81,9 @@ class frame(IFrame):
         self.__observed_types_mod = set()
         self.__curtime = time.time()
         self.__curstep = 0
+        self.__instrumented = instrument
+        if instrument:
+            self._instruments = {}
 
     def __register_app(self, app):
         self.logger = self.__setup_logger("spacetime@" + app.__class__.__name__)
@@ -154,6 +159,11 @@ class frame(IFrame):
         """
         return self.__time_step
 
+    def get_app(self):
+        """
+        Returns a reference to the application.
+        """
+        return self.__app
 
     def attach_app(self, app):
         """
@@ -231,6 +241,10 @@ class frame(IFrame):
                         time.sleep(float(self.__time_step - timespent))
                     else:
                         self.logger.info("loop exceeded maximum time: %s ms", timespent)
+
+                    # Writes down total time spent in spacetime methods
+                    if self.__instrumented:
+                        si.record_instruments(timespent, self)
 
                 # One last time, because _shutdown may delete objects from the store
                 self.__pull()
@@ -401,6 +415,7 @@ class frame(IFrame):
             deleted_objs[typeObj] = objlist
         self.object_store.create_incoming_record(new_objs, mod_objs, deleted_objs)
 
+    @timethis
     def __pull(self):
         if self.__disconnected:
             return
@@ -428,6 +443,7 @@ class frame(IFrame):
             self.__disconnected = True
             self._stop()
 
+    @timethis
     def __push(self):
         if self.__disconnected:
             return

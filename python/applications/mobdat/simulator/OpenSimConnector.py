@@ -37,18 +37,18 @@ Simple test combining sumo traffic simulation and opensim 3d virtual world.
 
 """
 
-import os, sys
 import logging
 from applications.mobdat.common.Utilities import AuthByUserName, GenCoordinateMap,\
-    CalculateOSCoordinates, CalculateOSCoordinatesFromScene,\
+    CalculateOSCoordinatesFromScene,\
     GetSceneFromCoordinates
 import OpenSimRemoteControl
-from datamodel.mobdat.datamodel import MovingVehicle, MobdatVehicle
-from spacetime_local.declarations import GetterSetter
+from datamodel.mobdat.datamodel import MobdatVehicle
+from spacetime_local.declarations import  Getter
 from spacetime_local.IApplication import IApplication
+from common.instrument import timethis
 
 import uuid
-import BaseConnector, EventHandler, EventTypes
+import BaseConnector
 from datamodel.common.datamodel import Vector3, Quaternion
 
 
@@ -87,35 +87,8 @@ class OpenSimUpdateThread(threading.Thread) :
     # -----------------------------------------------------------------
     def ProcessUpdatesLoop(self) :
         while True :
-            try :
-                # wait synchronously for the first incoming request
-                vname = self.WorkQ.get(True)
-                if not vname :
-                    return
-
-                updates = [vname]
-                self.WorkQ.task_done()
-
-                count = 1
-
-                # then grab everything thats in the queue
-                while not self.WorkQ.empty() :
-                    vname = self.WorkQ.get()
-                    if not vname :
-                        self.WorkQ.task_done()
-                        return
-
-                    updates.append(vname)
-                    self.WorkQ.task_done()
-
-                    count += 1
-                    if count >= 50 :
-                        break
-
-                self.ProcessUpdates(updates)
-
-            except Queue.Empty as _ :
-                pass
+            updates = self.WorkQ.get(True)
+            self.ProcessUpdates(updates)
 
     # -----------------------------------------------------------------
     def ProcessUpdates(self, vnames) :
@@ -227,7 +200,7 @@ class OpenSimVehicle :
 
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-@GetterSetter(MovingVehicle, MobdatVehicle)
+@Getter(MobdatVehicle)
 class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
 
     # -----------------------------------------------------------------
@@ -296,7 +269,7 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
             self.Clock = time.clock
 
     # -----------------------------------------------------------------
-    # @instrument TODO
+    @timethis
     def _FindAssetInObject(self, assetinfo) :
         oname = assetinfo["ObjectName"]
         iname = assetinfo["ItemName"]
@@ -321,7 +294,7 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
         return None
 
     # -----------------------------------------------------------------
-    # @instrument TODO
+    @timethis
     def HandleCreateObjectEvent(self):
         cars = self.frame.get_new(MobdatVehicle)
         for car in cars:
@@ -366,7 +339,7 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
         return True
 
     # -----------------------------------------------------------------
-    # @instrument TODO: implement instrumentation
+    @timethis
     def HandleDeleteObjectEvent(self) :
         """Handle the delete object event. In this case, rather than delete the
         object from the scene completely, mothball it in a location well away from
@@ -374,7 +347,6 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
         """
 
         deleted = self.frame.get_deleted(MobdatVehicle)
-        moving = set([v.ID for v in self.frame.get(MovingVehicle)])
         for car in deleted:
             vname = car.Name
             self.__Logger.info("deleting car %s from OpenSim", vname)
@@ -394,22 +366,16 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
             vehicle.LastUpdate = mothball
             vehicle.InUpdateQueue = True
 
-            self.WorkQ.put(vehicle.VehicleName)
+            self.WorkQ.put([vehicle.VehicleName])
 
-            # result = self.OpenSimConnector.DeleteObject(vehicleID)
-            # result = sim["RemoteControl"].DeleteObject(vehicleID)
-
-            # print "Deleted vehicle " + vname + " with id " + str(vehicle)
         return True
 
     # -----------------------------------------------------------------
-    # @instrument TODO
+    @timethis
     def HandleObjectDynamicsEvent(self) :
+        insert_list = []
         changed = self.frame.get_mod(MobdatVehicle)
-        moving = set([v.ID for v in self.frame.get(MovingVehicle)])
         for car in changed:
-            if car.ID not in moving:
-                continue
             vname = car.Name
             if vname not in self.Vehicles2Sim :
                 self.__Logger.warn("attempt to update unknown vehicle %s" % (vname))
@@ -427,7 +393,6 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
             update.Velocity = car.Velocity.ScaleVector(self.WorldSize)
             update.Rotation = car.Rotation
             update.UpdateTime = self.CurrentTime
-
             #if self.Debug == True:
             #    self.__Logger.warn("Normalized position: %s, Sumo position: %s, OpenSim Position: %s" %
             #                       (event.ObjectPosition,event.ObjectPosition.ScaleVector(ValueTypes.Vector3(38560.0,38560.0,100.0)),update.Position))
@@ -444,7 +409,6 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
                 vehicle.LastUpdate = update
                 self.__Logger.debug("Vehicle %s already in queue", vname)
                 continue
-
             # check to see if the change in position or velocity is signficant enough to
             # warrant sending an update, emphasize velocity changes because dead reckoning
             # will handle position updates reasonably if the velocity is consistent
@@ -465,20 +429,16 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
             vehicle.TweenUpdate = tween
             vehicle.LastUpdate = update
             vehicle.InUpdateQueue = True
+            insert_list.append(vname)
 
-            #if self.WorkQ.full() :
-            #    print "full queue at time step %d" % (self.CurrentStep)
-            # print "Queue size %d" % (self.WorkQ.qsize())
+        if insert_list:
+            self.WorkQ.put(insert_list)
 
-            self.WorkQ.put(vname)
-            self.__Logger.debug("Vehicle %s at %s, queue size: %s", car.Name, car.Position, self.WorkQ.qsize())
-
-            # print "Moved vehicle " + vname + " with id " + str(vehicle) + " to location " + str(update.Position)
         return True
 
     # -----------------------------------------------------------------
     # Returns True if the simulation can continue
-    # @instrument TODO
+    @timethis
     def update(self) :
         self.CurrentStep = self.frame.get_curstep()
         self.CurrentTime = self.frame.get_curtime()

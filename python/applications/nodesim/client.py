@@ -10,8 +10,10 @@ import logging.handlers
 import os
 import sys
 
+
 sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
 
+from common.instrument import SpacetimeInstruments as si
 from applications.nodesim.nodesim import NodeSimulation
 from applications.nodesim.testsim import NodeTestSimulation
 from spacetime_local.frame import frame
@@ -25,11 +27,13 @@ class Simulation(object):
         '''
         Constructor
         '''
-        framenode = frame(time_step=200)
+        framenode = frame(time_step=200, instrument=True)
         framenode.attach_app(NodeSimulation(framenode))
 
-        frametest = frame(time_step=200)
+        frametest = frame(time_step=200, instrument=True)
         frametest.attach_app(NodeTestSimulation(frametest))
+
+        si.setup_instruments(frame.framelist)
 
         framenode.run_async()
         frametest.run_async()

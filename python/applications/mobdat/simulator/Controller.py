@@ -52,7 +52,7 @@ from spacetime_local.frame import frame
 from applications.mobdat.common import LayoutSettings, WorldInfo
 from applications.mobdat.common.Utilities import AuthByUserName
 from applications.mobdat.prime import PrimeSimulator
-
+from common.instrument import SpacetimeInstruments as si
 import datetime
 from threading import Thread
 
@@ -87,6 +87,8 @@ def Controller(settings) :
     # world = None
 
     cnames = settings["General"].get("Connectors", ['sumo', 'opensim', 'social', 'stats'])
+    instrument = settings["General"].get("Instrument", False)
+    profiling = settings["General"].get("Profiling", False)
     store_type = settings["General"].get("Store", "SimpleStore")
     process = settings["General"].get("MultiProcessing", False)
     timer = settings["General"].get("Timer", None)
@@ -109,11 +111,16 @@ def Controller(settings) :
             logger.warn('skipping unknown simulation connector; %s' % (cname))
             continue
 
-        cframe = frame(time_step=200)
+        cframe = frame(time_step=200, instrument=instrument, profiling=profiling)
         connector = _SimulationControllers[cname](settings, world, laysettings, cname, cframe)
         cframe.attach_app(connector)
         connectors.append(cframe)
-        cframe.run_async()
+
+    if instrument:
+        si.setup_instruments(connectors)
+
+    for f in connectors:
+        f.run_async()
 
     frame.loop()
     print "closing down controller"

@@ -13,6 +13,7 @@ import time
 import signal
 import cmd
 import sys
+import os
 
 from .store import store
 from .IFrame import IFrame
@@ -21,6 +22,8 @@ from pcc.recursive_dictionary import RecursiveDictionary
 import logging
 from logging import NullHandler
 from requests.exceptions import HTTPError, ConnectionError
+from common.instrument import SpacetimeInstruments as si
+from common.instrument import timethis
 
 class SpacetimeConsole(cmd.Cmd):
     """Command console interpreter for frame."""
@@ -59,10 +62,11 @@ class SpacetimeConsole(cmd.Cmd):
 
 class frame(IFrame):
     framelist = set()
-    def __init__(self, address="http://127.0.0.1:12000/", time_step=500):
+    def __init__(self, address="http://127.0.0.1:12000/", time_step=500, instrument=False, profiling=False):
         frame.framelist.add(self)
         self.thread = None
         self.__app = None
+        self.__appname = ""
         self.__host_typemap = {}
         self.__typemap = {}
         self.__name2type = {}
@@ -79,14 +83,19 @@ class frame(IFrame):
         self.__observed_types_mod = set()
         self.__curtime = time.time()
         self.__curstep = 0
+        self.__start_time = time.strftime("%Y-%m-%d_%H-%M-%S")
+        self.__instrumented = instrument
+        self.__profiling = profiling
+        if instrument:
+            self._instruments = {}
 
     def __register_app(self, app):
-        self.logger = self.__setup_logger("spacetime@" + app.__class__.__name__)
+        self.logger = self.__setup_logger("spacetime@" + self.__appname)
         self.__host_typemap = {}
         for address, tpmap in self.__app.__declaration_map__.items():
             if address == "default":
                 address = self.__address
-            fulladdress = address + self.__app.__class__.__name__
+            fulladdress = address + self.__appname
             if fulladdress not in self.__host_typemap:
                 self.__host_typemap[fulladdress] = tpmap
             else:
@@ -154,6 +163,11 @@ class frame(IFrame):
         """
         return self.__time_step
 
+    def get_app(self):
+        """
+        Returns a reference to the application.
+        """
+        return self.__app
 
     def attach_app(self, app):
         """
@@ -166,6 +180,7 @@ class frame(IFrame):
         None
         """
         self.__app = app
+        self.__appname = app.__class__.__name__
 
     def run_async(self):
         """
@@ -214,6 +229,13 @@ class frame(IFrame):
         success = self.__register_app(self.__app)
         if success:
             try:
+                if self.__profiling:
+                    import cProfile
+                    if not os.path.exists('stats'):
+                        os.mkdir('stats')
+                    self.__profile = cProfile.Profile()
+                    self.__profile.enable()
+                    self.logger.info("starting profiler for %s", self.__appname)
                 self.__pull()
                 self.__app.initialize()
                 self.__push()
@@ -232,6 +254,9 @@ class frame(IFrame):
                     else:
                         self.logger.info("loop exceeded maximum time: %s ms", timespent)
 
+                    # Writes down total time spent in spacetime methods
+                    if self.__instrumented:
+                        si.record_instruments(timespent, self)
                 # One last time, because _shutdown may delete objects from the store
                 self.__pull()
                 self._shutdown()
@@ -241,6 +266,11 @@ class frame(IFrame):
                 self.logger.error("A connection error occurred: %s", cerr.message)
             except HTTPError as herr:
                 self.logger.error("A fatal error has occurred while communicating with the server: %s", herr.message)
+            finally:
+                if self.__profiling:
+                    self.__profile.disable()
+                    self.__profile.create_stats()
+                    self.__profile.dump_stats(os.path.join('stats', "%s_stats_%s.ps" % (self.__start_time, self.__appname)))
         else:
             self.logger.info("Could not register, exiting run loop...")
 
@@ -374,7 +404,7 @@ class frame(IFrame):
         else:
             self.logger.warn("Non-success code received from server: %s %s",
                                           resp.status_code, resp.reason)
-
+    @timethis
     def __process_pull_resp(self,resp):
         try:
             new, mod, deleted = resp["new"], resp["updated"], resp["deleted"]
@@ -401,6 +431,7 @@ class frame(IFrame):
             deleted_objs[typeObj] = objlist
         self.object_store.create_incoming_record(new_objs, mod_objs, deleted_objs)
 
+    @timethis
     def __pull(self):
         if self.__disconnected:
             return
@@ -428,6 +459,7 @@ class frame(IFrame):
             self.__disconnected = True
             self._stop()
 
+    @timethis
     def __push(self):
         if self.__disconnected:
             return
@@ -447,17 +479,18 @@ class frame(IFrame):
                 if tp.Class() in changes["deleted"]:
                     update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["deleted"].extend(changes["deleted"][tp.Class()])
 
-            try:
-                package = {"update_dict": json.dumps(update_dict)}
-                resp = requests.post(host + "/updated", json = package)
-            except TypeError:
-                self.logger.exception("error encoding json. Object: %s", update_dict)
-            except HTTPError as exc:
-                self.__handle_request_errors(resp, exc)
-            except ConnectionError:
-                self.logger.exception("Disconnected from host.")
-                self.__disconnected = True
-                self._stop()
+            if update_dict:
+                try:
+                    package = {"update_dict": json.dumps(update_dict)}
+                    resp = requests.post(host + "/updated", json = package)
+                except TypeError:
+                    self.logger.exception("error encoding json. Object: %s", update_dict)
+                except HTTPError as exc:
+                    self.__handle_request_errors(resp, exc)
+                except ConnectionError:
+                    self.logger.exception("Disconnected from host.")
+                    self.__disconnected = True
+                    self._stop()
 
         self.object_store.clear_changes()
 

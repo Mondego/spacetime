@@ -7,6 +7,7 @@ Created on Apr 19, 2016
 from common.recursive_dictionary import RecursiveDictionary
 
 import uuid
+primitives = set([float, int, str, unicode, type(None)])
 
 class _container(object):
     pass
@@ -14,6 +15,8 @@ class _container(object):
 def get_type(obj):
     # both iteratable/dictionary + object type is messed up. Won't work.
     try:
+        if len(primitives.intersection(set(type(obj).mro()))) > 0:
+            return "primitive"
         if hasattr(obj, "__dependent_type__"):
             return "dependent"
         if dict in type(obj).mro():
@@ -21,8 +24,6 @@ def get_type(obj):
         if hasattr(obj, "__iter__"):
             #print obj
             return "collection"
-        if len(set([float, int, str, unicode, type(None)]).intersection(set(type(obj).mro()))) > 0:
-            return "primitive"
         if hasattr(obj, "__dict__"):
             return "object"
     except TypeError, e:

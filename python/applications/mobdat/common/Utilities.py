@@ -68,7 +68,7 @@ def AuthByUserName(settings) :
         if not passwd :
             print "Please type the password for User {0} in Scene {1}".format(avname,sname)
             passwd = getpass.getpass()
-        rc = OpenSimRemoteControl.OpenSimRemoteControl(endpoint)
+        rc = OpenSimRemoteControl.OpenSimRemoteControl(endpoint, num_pools=100, maxsize=10)
         rc.DomainList = domains
         response = rc.AuthenticateAvatarByName(avname,passwd,lifespan)
         if not response['_Success'] :

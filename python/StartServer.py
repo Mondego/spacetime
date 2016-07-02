@@ -161,11 +161,14 @@ class SpacetimeConsole(cmd.Cmd):
 
 def shutdown():
     print "Shutting down ..."
+    global fs
+    fs.shutdown()
     sys.exit(0)
 
 if __name__== "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--port', type=int, default=12000, help='Port where the server will listen (default: 12000)')
+    parser.add_argument('-P', '--profile', action='store_true', help='Enable profiling on store server.')
     parser.add_argument('-d', '--debug', action='store_true', help='Debug on')
     parser.add_argument('-e', '--external', action='store_true', help='Make this server externally accessible')
     parser.add_argument('-w', '--watchdog', action='store_true', help='Starts the server with thes slack/github watchdog')
@@ -173,7 +176,7 @@ if __name__== "__main__":
 
     global fs
     fs = FrameServer(args.port, args.debug, args.external)
-    p = Parallel(target = fs.run)
+    p = Parallel(target = fs.run, args = (args.profile,))
     p.daemon = True
     p.start()
 

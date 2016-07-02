@@ -88,6 +88,7 @@ def Controller(settings) :
 
     cnames = settings["General"].get("Connectors", ['sumo', 'opensim', 'social', 'stats'])
     instrument = settings["General"].get("Instrument", False)
+    profiling = settings["General"].get("Profiling", False)
     store_type = settings["General"].get("Store", "SimpleStore")
     process = settings["General"].get("MultiProcessing", False)
     timer = settings["General"].get("Timer", None)
@@ -110,7 +111,7 @@ def Controller(settings) :
             logger.warn('skipping unknown simulation connector; %s' % (cname))
             continue
 
-        cframe = frame(time_step=200, instrument=True)
+        cframe = frame(time_step=200, instrument=instrument, profiling=profiling)
         connector = _SimulationControllers[cname](settings, world, laysettings, cname, cframe)
         cframe.attach_app(connector)
         connectors.append(cframe)

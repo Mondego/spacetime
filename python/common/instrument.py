@@ -1,7 +1,6 @@
 from functools import wraps
 from spacetime_local.IApplication import IApplication
 from spacetime_local.IFrame import IFrame
-from __builtin__ import staticmethod
 import platform
 import csv
 import datetime

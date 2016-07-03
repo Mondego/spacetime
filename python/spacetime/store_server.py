@@ -268,11 +268,19 @@ class FrameServer(object):
         self.api.add_resource(Register, '/<string:sim>')
         server = self
 
-    def run(self):
+    def run(self, profiling=False):
+        self.profiling = profiling
         FrameServer.start_timer()
         host = '0.0.0.0' if self.external else '127.0.0.1'
         logging.info("Binding to " + host)
-        self.app.run(host=host, port=self.port, debug=False, threaded=True)
+        if profiling:
+            import cProfile
+            if not os.path.exists('stats'):
+                os.mkdir('stats')
+            self.profile = cProfile.Profile()
+            self.profile.enable()
+            print "starting profiler"
+        self.app.run(host=host, port=self.port, debug=False, threaded=False)
 
     def reload_dms(self):
         from datamodel.all import DATAMODEL_TYPES
@@ -311,4 +319,9 @@ class FrameServer(object):
         del cls.app_gc_timers[sim]
 
     def shutdown(self):
+        if self.profiling:
+            strtime = time.strftime("%Y-%m-%d_%H-%M-%S")
+            self.profile.disable()
+            self.profile.create_stats()
+            self.profile.dump_stats(os.path.join('stats', "%s_frameserver.ps" % (strtime)))
         FrameServer.Shutdown = True

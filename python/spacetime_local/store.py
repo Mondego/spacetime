@@ -9,7 +9,7 @@ from __future__ import absolute_import
 from common.recursive_dictionary import RecursiveDictionary
 from pcc.attributes import spacetime_property
 from threading import currentThread
-from common.converter import create_jsondict, create_tracking_obj
+from common.converter import create_jsondict, create_tracking_obj, create_obj
 import logging
 
 spacetime_property.GLOBAL_TRACKER = True
@@ -122,10 +122,21 @@ class store(object):
 
     def update(self, tp, id, updatejson):
         try:
-            objjson = create_jsondict(self.get_one(tp, id))
-            objjson.rec_update(updatejson)
-            self.__objects[tp][id].__dict__.update(create_tracking_obj(tp, objjson, self.__objects, False, False).__dict__)
-            self.__objects[tp][id].__start_tracking__ = True
+            obj = self.__objects[tp][id]
+            for dim_name in updatejson:
+                if dim_name in tp.__dimensions_name__:
+                    # TODO: O(n) search: needs to be improved
+                    dimension = None
+                    for dim in tp.__dimensions__:
+                        if dim._name == dim_name:
+                            dimension = dim
+                    if not dimension:
+                        raise Exception("Could not find dimension with name %s" % dim_name)
+                    if hasattr(dimension._type, "__dependent_type__"):
+                        setattr(obj, dimension._name, create_tracking_obj(tp, updatejson, self.__objects, True))
+                    else:
+                        setattr(obj, dimension._name, create_obj(dimension._type, updatejson[dimension._name]))
+            obj.__start_tracking__ = True
             return self.__objects[tp][id]
         except:
             self.logger.debug("could not update %s: not found in store.", id)

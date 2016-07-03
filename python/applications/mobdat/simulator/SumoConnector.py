@@ -53,6 +53,7 @@ import traci
 
 import BaseConnector, EventHandler, EventTypes
 import traci.constants as tc
+from common.instrument import timethis
 
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -189,6 +190,7 @@ class SumoConnector(BaseConnector.BaseConnector, IApplication) :
             del self.cars[v]
 
     # -----------------------------------------------------------------
+    @timethis
     def HandleVehicleUpdates(self) :
         changelist = traci.vehicle.getSubscriptionResults()
         for v, info in changelist.iteritems() :

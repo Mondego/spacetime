@@ -14,11 +14,11 @@ import time
 import urllib2
 
 from flask import Flask, request
-from flask.helpers import make_response
 from flask_restful import Api, Resource, reqparse
 
 from datamodel.all import DATAMODEL_TYPES
-from store import *
+from store import dataframe
+import platform
 
 
 parser = reqparse.RequestParser()
@@ -47,7 +47,7 @@ def signal_handler(signal, frame):
     server.shutdown()
     sys.exit(0)
 
-signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)  # @UndefinedVariable
 
 class FlaskConfig(object):
     RESTFUL_JSON = {}
@@ -245,13 +245,15 @@ class FrameServer(object):
 
     # Garbage collection
     disconnect_timer = None
-    timeout = 30.0
+    timeout = 0
 
-    def __init__(self, port, debug, external):
+    def __init__(self, port, debug, external, timeout):
         global server
         SetupLoggers(debug)
         logging.info("Log level is " + str(logger.level))
         self.port = port
+        if timeout > 0:
+            FrameServer.timeout = float(timeout)
         self.external = external
         self.app = app
         self.api = api
@@ -270,16 +272,24 @@ class FrameServer(object):
 
     def run(self, profiling=False):
         self.profiling = profiling
-        FrameServer.start_timer()
+        if FrameServer.timeout > 0:
+            FrameServer.start_timer()
         host = '0.0.0.0' if self.external else '127.0.0.1'
         logging.info("Binding to " + host)
         if profiling:
-            import cProfile
-            if not os.path.exists('stats'):
-                os.mkdir('stats')
-            self.profile = cProfile.Profile()
-            self.profile.enable()
-            print "starting profiler"
+            try:
+                import cProfile  # @UnresolvedImport
+                if not os.path.exists('stats'):
+                    os.mkdir('stats')
+                self.profile = cProfile.Profile()
+                self.profile.enable()
+                print "starting profiler"
+            except:
+                self.profiling = False
+                if platform.system() == "Java":
+                    print "cProfile not available Jython."
+                else:
+                    print "failed to start profiler."
         self.app.run(host=host, port=self.port, debug=False, threaded=False)
 
     def reload_dms(self):

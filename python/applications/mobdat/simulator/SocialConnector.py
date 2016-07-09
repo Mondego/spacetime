@@ -37,6 +37,7 @@ This module defines the SocialConnector class. This class implements
 the social (people) aspects of the mobdat simulation.
 
 """
+from __future__ import absolute_import
 
 import os, sys
 import logging
@@ -48,7 +49,9 @@ from spacetime_local.IApplication import IApplication
 from common.converter import create_obj
 
 import heapq
-import BaseConnector, EventHandler, EventTypes, Traveler
+
+from .BaseConnector import BaseConnector
+from .Traveler import Traveler
 
 DEBUG = False
 
@@ -56,12 +59,12 @@ DEBUG = False
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 @Producer(MobdatVehicle, Person, BusinessNode, Road, ResidentialNode, SimulationNode)
 @Tracker(MobdatVehicle)
-class SocialConnector(BaseConnector.BaseConnector, IApplication):
+class SocialConnector(BaseConnector, IApplication):
 
     # -----------------------------------------------------------------
     def __init__(self, settings, world, netsettings, cname, frame) :
         #EventHandler.EventHandler.__init__(self, evrouter)
-        BaseConnector.BaseConnector.__init__(self, settings, world, netsettings)
+        BaseConnector.__init__(self, settings, world, netsettings)
         self.frame = frame
         self.__Logger = logging.getLogger(__name__)
 
@@ -112,7 +115,7 @@ class SocialConnector(BaseConnector.BaseConnector, IApplication):
                 person = self.World.FindNodeByName(name)
                 if count % 100 == 0 :
                     self.__Logger.warn('%d travelers created', count)
-                traveler = Traveler.Traveler(person, self)
+                traveler = Traveler(person, self)
                 self.Travelers[name] = traveler
                 count += 1
         else:
@@ -120,7 +123,7 @@ class SocialConnector(BaseConnector.BaseConnector, IApplication):
                 if count % 100 == 0 :
                     self.__Logger.warn('%d travelers created', count)
 
-                traveler = Traveler.Traveler(person, self)
+                traveler = Traveler(person, self)
                 self.Travelers[name] = traveler
 
                 count += 1

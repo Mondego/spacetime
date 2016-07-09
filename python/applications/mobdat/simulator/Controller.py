@@ -41,20 +41,15 @@ clock ticks.
 from __future__ import absolute_import
 
 import logging
-from multiprocessing import Process, Manager
-import os, sys
-import platform, time, threading, cmd
+import sys
 
-from applications.mobdat.simulator import EventRouter, EventTypes
-from applications.mobdat.simulator import SumoConnector, OpenSimConnector, SocialConnector, StatsConnector
+from applications.mobdat.simulator import SumoConnector, OpenSimConnector, SocialConnector
 from spacetime_local.frame import frame
 
 from applications.mobdat.common import LayoutSettings, WorldInfo
-from applications.mobdat.common.Utilities import AuthByUserName
 from applications.mobdat.prime import PrimeSimulator
 from common.instrument import SpacetimeInstruments as si
 import datetime
-from threading import Thread
 
 
 # -----------------------------------------------------------------

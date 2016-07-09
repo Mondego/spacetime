@@ -41,10 +41,10 @@ for the specified connectors (opensim, sumo or social)
 
 import os, sys
 import logging, logging.handlers, warnings
-import platform
+from common.util import get_os
 
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
-if platform.system() == 'Windows' or platform.system().startswith("CYGWIN"):
+if get_os().startswith('Windows'):
     if os.environ.get("SUMO_WINDOWS"):
         sys.path.append(os.path.join(os.environ.get("SUMO_WINDOWS"), "tools"))
     else:

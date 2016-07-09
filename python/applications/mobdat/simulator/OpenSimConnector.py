@@ -88,7 +88,10 @@ class OpenSimUpdateThread(threading.Thread) :
     def ProcessUpdatesLoop(self) :
         while True :
             updates = self.WorkQ.get(True)
-            self.ProcessUpdates(updates)
+            if updates:
+                self.ProcessUpdates(updates)
+            else:
+                break
 
     # -----------------------------------------------------------------
     def ProcessUpdates(self, vnames) :
@@ -262,6 +265,9 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
         self.AverageClockSkew = 0.0
 
         self.Clock = time.time
+
+        if self.frame.get_instrumented():
+            self.frame._instrument_headers.append('vehicles')
 
         ## this is an ugly hack because the cygwin and linux
         ## versions of time.clock seem seriously broken
@@ -448,13 +454,9 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
         self.HandleCreateObjectEvent()
         self.HandleDeleteObjectEvent()
         self.HandleObjectDynamicsEvent()
-        #self.HandleShutdownEvent(event)
 
-        # Send the event if we need to
-        if (self.CurrentStep % self.DumpCount) == 0 :
-            #event = EventTypes.OpenSimConnectorStatsEvent(self.CurrentStep, self.AverageClockSkew)
-            #self.PublishEvent(event)
-            pass
+        if self.frame.get_instrumented():
+            self.frame._instruments['vehicles'] = len(self.frame.get(MobdatVehicle))
 
 
     # -----------------------------------------------------------------
@@ -473,9 +475,6 @@ class OpenSimConnector(BaseConnector.BaseConnector, IApplication) :
             thread = OpenSimUpdateThread(self.WorkQ, self.Scenes, self, self.Vehicles2Sim, self.Binary)
             thread.start()
             self.UpdateThreads.append(thread)
-
-        # all set... time to get to work!
-        #self.HandleEvents()
 
     def shutdown(self):
         for name,sim in self.Scenes.items():

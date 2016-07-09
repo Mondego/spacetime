@@ -134,9 +134,9 @@ class frame(IFrame):
 
             jsonobj = json.dumps({"sim_typemap": jobj})
             try:
-                ignoreJavaSSL()
                 self.__sessions[host] = Session()
                 if platform.system() == 'Java':
+                    ignoreJavaSSL()
                     self.logger.info("Using custom HTTPAdapter for Jython")
                     self.__sessions[host].mount(host, MyJavaHTTPAdapter())
                     self.__sessions[host].verify=False

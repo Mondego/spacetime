@@ -24,6 +24,11 @@ from logging import NullHandler
 from requests.exceptions import HTTPError, ConnectionError
 from common.instrument import SpacetimeInstruments as si
 from common.instrument import timethis
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.poolmanager import PoolManager
+from requests.sessions import Session
+from common.javahttpadapter import MyJavaHTTPAdapter, ignoreJavaSSL
+import platform
 
 class SpacetimeConsole(cmd.Cmd):
     """Command console interpreter for frame."""
@@ -86,8 +91,10 @@ class frame(IFrame):
         self.__start_time = time.strftime("%Y-%m-%d_%H-%M-%S")
         self.__instrumented = instrument
         self.__profiling = profiling
+        self.__sessions = {}
         if instrument:
             self._instruments = {}
+            self._instrument_headers = []
 
     def __register_app(self, app):
         self.logger = self.__setup_logger("spacetime@" + self.__appname)
@@ -127,6 +134,12 @@ class frame(IFrame):
 
             jsonobj = json.dumps({"sim_typemap": jobj})
             try:
+                self.__sessions[host] = Session()
+                if platform.system() == 'Java':
+                    ignoreJavaSSL()
+                    self.logger.info("Using custom HTTPAdapter for Jython")
+                    self.__sessions[host].mount(host, MyJavaHTTPAdapter())
+                    self.__sessions[host].verify=False
                 resp = requests.put(host,
                              data = jsonobj,
                              headers = {'content-type': 'application/json'})
@@ -145,9 +158,15 @@ class frame(IFrame):
     def loop():
         SpacetimeConsole().cmdloop()
 
+    def get_instrumented(self):
+        """
+        Returns if frame is running instrumentation. (True/False)
+        """
+        return self.__instrumented
+
     def get_curtime(self):
         """
-        Returns the timestamp of the current step
+        Returns the timestamp of the current step.
         """
         return self.__curtime
 
@@ -230,12 +249,18 @@ class frame(IFrame):
         if success:
             try:
                 if self.__profiling:
-                    import cProfile
-                    if not os.path.exists('stats'):
-                        os.mkdir('stats')
-                    self.__profile = cProfile.Profile()
-                    self.__profile.enable()
-                    self.logger.info("starting profiler for %s", self.__appname)
+                    try:
+                        from cProfile import Profile  # @UnresolvedImport
+                        if not os.path.exists('stats'):
+                            os.mkdir('stats')
+                        self.__profile = Profile()
+                        self.__profile.enable()
+                        self.logger.info("starting profiler for %s", self.__appname)
+                    except:
+                        self.logger.error("Could not import cProfile (not supported in Jython).")
+                        self.__profile = None
+                        self.__profiling = None
+
                 self.__pull()
                 self.__app.initialize()
                 self.__push()
@@ -266,6 +291,9 @@ class frame(IFrame):
                 self.logger.error("A connection error occurred: %s", cerr.message)
             except HTTPError as herr:
                 self.logger.error("A fatal error has occurred while communicating with the server: %s", herr.message)
+            except:
+                self.logger.exception("An unknown error occurred.")
+                raise
             finally:
                 if self.__profiling:
                     self.__profile.disable()
@@ -443,7 +471,8 @@ class frame(IFrame):
                 type_dict["types_tracked"] = [tp.__realname__ for tp in list(self.__typemap["tracking"])]
                 type_dict["types_updated"] = [tp.__realname__
                      for tp in list(self.__typemap["getting"].union(self.__typemap["gettingsetting"]))]
-                resp  = requests.get(host + "/updated", data = {
+                #resp  = requests.get(host + "/updated", data = {
+                resp = self.__sessions[host].get(host + "/updated", data = {
                 "get_types":
                 json.dumps(type_dict)
                   })
@@ -482,7 +511,8 @@ class frame(IFrame):
             if update_dict:
                 try:
                     package = {"update_dict": json.dumps(update_dict)}
-                    resp = requests.post(host + "/updated", json = package)
+                    #resp = requests.post(host + "/updated", json = package)
+                    resp = self.__sessions[host].post(host + "/updated", json = package)
                 except TypeError:
                     self.logger.exception("error encoding json. Object: %s", update_dict)
                 except HTTPError as exc:

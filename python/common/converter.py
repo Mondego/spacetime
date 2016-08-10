@@ -7,6 +7,7 @@ Created on Apr 19, 2016
 from common.recursive_dictionary import RecursiveDictionary
 
 import uuid
+import json
 primitives = set([float, int, str, unicode, type(None)])
 
 class _container(object):
@@ -55,7 +56,7 @@ def create_jsondict(obj):
         elif tp_marker == "collection":
             return obj.__class__([create_jsondict(item) for item in obj])
         elif tp_marker == "object":
-            return RecursiveDictionary(obj.__dict__)
+            return RecursiveDictionary(dict(obj.__dict__))
 
 def create_tracking_obj(tp, objjson, universemap, start_track_ref, extra = True):
     obj = create_complex_obj(tp, objjson, universemap, extra)

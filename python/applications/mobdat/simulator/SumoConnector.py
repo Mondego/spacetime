@@ -38,6 +38,8 @@ and operations into and out of the sumo traffic simulator.
 
 """
 
+from __future__ import absolute_import
+
 import logging
 import math
 import os, sys
@@ -46,25 +48,25 @@ from spacetime_local.declarations import Producer, GetterSetter, Deleter
 from spacetime_local.IApplication import IApplication
 from datamodel.common.datamodel import Vector3, Quaternion
 
-import platform
 import subprocess
 from sumolib import checkBinary
 import traci
+from .BaseConnector import BaseConnector
 
-import BaseConnector, EventHandler, EventTypes
 import traci.constants as tc
 from common.instrument import timethis
+from common.util import get_os
 
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 @Producer(MobdatVehicle)
 @GetterSetter(MobdatVehicle)
 @Deleter(MobdatVehicle)
-class SumoConnector(BaseConnector.BaseConnector, IApplication) :
+class SumoConnector(BaseConnector, IApplication) :
 
     # -----------------------------------------------------------------
     def __init__(self, settings, world, netsettings, cname, frame) :
-        BaseConnector.BaseConnector.__init__(self, settings, world, netsettings)
+        BaseConnector.__init__(self, settings, world, netsettings)
         self.cars = {}
         self.__Logger = logging.getLogger(__name__)
         self.frame = frame
@@ -84,6 +86,8 @@ class SumoConnector(BaseConnector.BaseConnector, IApplication) :
         self.VelocityFudgeFactor = settings["SumoConnector"].get("VelocityFudgeFactor",0.90)
 
         self.AverageClockSkew = 0.0
+        if self.frame.get_instrumented():
+            self.frame._instrument_headers.append('vehicles')
         # self.LastStepTime = 0.0
 
         # for cf in settings["SumoConnector"].get("ExtensionFiles",[]) :
@@ -164,6 +168,7 @@ class SumoConnector(BaseConnector.BaseConnector, IApplication) :
         #        self.PublishEvent(event)
 
     # -----------------------------------------------------------------
+    @timethis
     def HandleDepartedVehicles(self) :
         dlist = traci.simulation.getDepartedIDList()
         for v in dlist :
@@ -180,6 +185,7 @@ class SumoConnector(BaseConnector.BaseConnector, IApplication) :
             #self.PublishEvent(event)
 
     # -----------------------------------------------------------------
+    @timethis
     def HandleArrivedVehicles(self) :
         alist = traci.simulation.getArrivedIDList()
         for v in alist :
@@ -207,6 +213,7 @@ class SumoConnector(BaseConnector.BaseConnector, IApplication) :
     #     traci.vehicle.rerouteTraveltime(str(event.ObjectIdentity))
 
     # -----------------------------------------------------------------
+    @timethis
     def NewVehicles(self):
         added = self.frame.get_new(MobdatVehicle)
         #self.__Logger.debug("Tick SUMO: New vehicles %s", added)
@@ -218,7 +225,7 @@ class SumoConnector(BaseConnector.BaseConnector, IApplication) :
 
     # -----------------------------------------------------------------
     # Returns True if the simulation can continue
-    # @instrument TODO:
+    @timethis
     def update(self):
         self.CurrentStep += 1
         self.CurrentTime = self.Clock()
@@ -231,11 +238,14 @@ class SumoConnector(BaseConnector.BaseConnector, IApplication) :
             self.NewVehicles()
             traci.simulationStep()
 
-            self.HandleInductionLoops()
-            self.HandleTrafficLights()
+            #self.HandleInductionLoops()
+            #self.HandleTrafficLights()
             self.HandleDepartedVehicles()
             self.HandleVehicleUpdates()
             self.HandleArrivedVehicles()
+
+            if self.frame.get_instrumented():
+                self.frame._instruments['vehicles'] = len(self.frame.get(MobdatVehicle))
 
             if (self.CurrentStep % int(5.0 / self.Interval)) == 0:
                 self.__Logger.info('[%s] number of vehicles in simulation: %s', self.CurrentStep, len(self.cars.keys()))
@@ -284,7 +294,7 @@ class SumoConnector(BaseConnector.BaseConnector, IApplication) :
 
     # -----------------------------------------------------------------
     def initialize(self) :
-        if platform.system() == 'Windows' or platform.system().startswith("CYGWIN"):
+        if get_os().startswith('Windows'):
             sumoBinary = checkBinary('sumo.exe')
         else:
             sumoBinary = checkBinary('sumo')

@@ -41,12 +41,11 @@ from __future__ import absolute_import
 import sys, os
 import logging, logging.handlers, warnings
 
-import OpenSimRemoteControl
-import getpass
-import platform
-
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "../..")))
-if platform.system() == 'Windows' or platform.system().startswith("CYGWIN"):
+
+from common.util import get_os
+
+if get_os().startswith('Windows'):
     if os.environ.get("SUMO_WINDOWS"):
         sys.path.append(os.path.join(os.environ.get("SUMO_WINDOWS"), "tools"))
     else:

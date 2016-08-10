@@ -4,8 +4,6 @@ Created on Apr 19, 2016
 @author: Rohan Achar
 '''
 
-from multiprocessing import Lock
-
 from flask import Flask, request
 from flask.helpers import make_response
 from flask_restful import Api, Resource, reqparse
@@ -441,33 +439,34 @@ class dataframe(object):
             self.__framelock.release()
 
     def gc(self, this_app, name2class):
-        mylock = self.__copylock[this_app]
-        self.pause()
-        try:
-            self.logger.warn("Application %s disconnected. Removing owned objects.",
-                         this_app)
+        if this_app in self.__copylock:
+            mylock = self.__copylock[this_app]
+            self.pause()
+            try:
+                self.logger.warn("Application %s disconnected. Removing owned objects.",
+                             this_app)
 
-            for strtp in self.__type_to_app.keys():
-                if this_app in self.__type_to_app[strtp]:
-                    self.__type_to_app[strtp].remove(this_app)
+                for strtp in self.__type_to_app.keys():
+                    if this_app in self.__type_to_app[strtp]:
+                        self.__type_to_app[strtp].remove(this_app)
 
-            other_apps = set()
+                other_apps = set()
 
-            # delete all owned objects, and inform other simulations of deleted objects
-            for strtp in self.__gc[this_app]:
-                if strtp in self.__base_store.get_base_types() and strtp in self.__type_to_app:
-                    other_apps = set(self.__type_to_app[strtp]).difference(set([this_app]))
-                    for app in other_apps:
-                        self.__cache.add_deleted(app, strtp, self.__gc[this_app][strtp])
-                        for oid in self.__gc[this_app][strtp]:
-                            self.__base_store.delete(name2class[strtp], oid, False)
-            del self.__copylock[this_app]
-            del self.__gc[this_app]
-            self.__apps.remove(this_app)
-            self.__cache.delete_app(this_app)
-        except:
-            raise
-        finally:
-            self.unpause()
-            mylock.release()
+                # delete all owned objects, and inform other simulations of deleted objects
+                for strtp in self.__gc[this_app]:
+                    if strtp in self.__base_store.get_base_types() and strtp in self.__type_to_app:
+                        other_apps = set(self.__type_to_app[strtp]).difference(set([this_app]))
+                        for app in other_apps:
+                            self.__cache.add_deleted(app, strtp, self.__gc[this_app][strtp])
+                            for oid in self.__gc[this_app][strtp]:
+                                self.__base_store.delete(name2class[strtp], oid, False)
+                del self.__copylock[this_app]
+                del self.__gc[this_app]
+                self.__apps.remove(this_app)
+                self.__cache.delete_app(this_app)
+            except:
+                raise
+            finally:
+                self.unpause()
+                mylock.release()
 

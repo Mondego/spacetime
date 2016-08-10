@@ -1,12 +1,12 @@
 from functools import wraps
 from spacetime_local.IApplication import IApplication
 from spacetime_local.IFrame import IFrame
-import platform
 import csv
 import datetime
 INSTRUMENT_HEADERS = {}
 import time
 import os
+from .util import get_os
 
 class ApplicationInstruments:
     def __init__(self, frame, filename=None):
@@ -19,9 +19,9 @@ class ApplicationInstruments:
             self.filename = os.path.join('stats', "%s_frame_%s.csv" % (strtime, self.appname))
         else:
             self.filename = filename
-        if platform.system() != "Windows":
+        if not get_os().startswith("Windows"):  # 'Windows CYGWIN' has symlink
             linkname = os.path.join('stats', "latest_%s" % self.appname)
-            if os.path.exists(linkname):
+            if os.path.lexists(linkname):
                 os.remove(linkname)
             os.symlink(os.path.abspath(self.filename), linkname) # @UndefinedVariable only in Linux!
         with open(self.filename, 'w', 0) as csvfile:
@@ -36,6 +36,8 @@ class ApplicationInstruments:
                 headers.extend(INSTRUMENT_HEADERS[self.frame.__module__])
             if self.frame.get_app().__module__ in INSTRUMENT_HEADERS:
                 headers.extend(INSTRUMENT_HEADERS[self.frame.get_app().__module__])
+            if hasattr(self.frame, '_instrument_headers'):
+                headers.extend(self.frame._instrument_headers)
 
             self.fieldnames = headers
             writer = csv.DictWriter(csvfile, delimiter=',', lineterminator='\n', fieldnames=self.fieldnames)

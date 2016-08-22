@@ -7,8 +7,6 @@ Created on Apr 19, 2016
 from common.recursive_dictionary import RecursiveDictionary
 
 import uuid
-import json
-primitives = set([float, int, str, unicode, type(None)])
 
 class _container(object):
     pass
@@ -16,8 +14,6 @@ class _container(object):
 def get_type(obj):
     # both iteratable/dictionary + object type is messed up. Won't work.
     try:
-        if len(primitives.intersection(set(type(obj).mro()))) > 0:
-            return "primitive"
         if hasattr(obj, "__dependent_type__"):
             return "dependent"
         if dict in type(obj).mro():
@@ -25,6 +21,8 @@ def get_type(obj):
         if hasattr(obj, "__iter__"):
             #print obj
             return "collection"
+        if len(set([float, int, str, unicode, type(None)]).intersection(set(type(obj).mro()))) > 0:
+            return "primitive"
         if hasattr(obj, "__dict__"):
             return "object"
     except TypeError, e:
@@ -56,7 +54,7 @@ def create_jsondict(obj):
         elif tp_marker == "collection":
             return obj.__class__([create_jsondict(item) for item in obj])
         elif tp_marker == "object":
-            return RecursiveDictionary(dict(obj.__dict__))
+            return RecursiveDictionary(obj.__dict__)
 
 def create_tracking_obj(tp, objjson, universemap, start_track_ref, extra = True):
     obj = create_complex_obj(tp, objjson, universemap, extra)
@@ -65,6 +63,7 @@ def create_tracking_obj(tp, objjson, universemap, start_track_ref, extra = True)
     return obj
 
 def create_complex_obj(tp, objjson, universemap, extra = True):
+    #print "In create_complex_object %s %s" %(str(tp.Class()), objjson)
     obj = _container()
     obj.__class__ = tp.Class()
     obj.__start_tracking__ = False
@@ -93,7 +92,7 @@ def create_obj(tp, objjson):
         category = get_type(objjson)
         if category == "primitive":
             return objjson
-        elif category == "collection":
+        elif category == "collection" or category == "dictionary": 
             return objjson
 
         obj = _container()
@@ -101,6 +100,6 @@ def create_obj(tp, objjson):
         obj.__class__ = tp
         return obj
     except:
-        print "Failed to create PCC object from JSON. Obj: %s\n json: %s" % (
-             str(objjson), str(tp.Class()))
+        print "Failed to create PCC object from JSON. Obj: %s\n tp: %s" % (
+             str(objjson), str(tp))
         raise

@@ -8,6 +8,9 @@ from common.recursive_dictionary import RecursiveDictionary
 
 import uuid
 
+primitives = set([float, int, str, unicode, type(None)])
+collections = set([list, tuple, set])
+
 class _container(object):
     pass
 
@@ -87,12 +90,34 @@ def create_complex_obj(tp, objjson, universemap, extra = True):
             setattr(obj, extra_attrib, objjson[extra_attrib])
     return obj
 
+def get_type_from_class(tp):
+    try:
+        if not hasattr(tp, "mro"):
+            return "old_school_class"
+        if hasattr(tp, "__dependent_type__"):
+            return "dependent"
+        if dict in tp.mro():
+            return "dictionary"
+        if len(collections.intersection(set(tp.mro()))) > 0:
+            return "collection"
+        if len(primitives.intersection(set(tp.mro()))) > 0:
+            return "primitive"
+        else:
+            return "object"
+    except TypeError, e:
+        return "unknown"
+    return "unknown"
+
 def create_obj(tp, objjson):
     try:
-        category = get_type(objjson)
+        category = get_type_from_class(tp)
         if category == "primitive":
             return objjson
         elif category == "collection" or category == "dictionary": 
+            return objjson
+
+        objcat = get_type(objjson)
+        if objcat != "dictionary":
             return objjson
 
         obj = _container()

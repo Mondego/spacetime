@@ -440,6 +440,9 @@ class frame(IFrame):
             self.logger.error("Error parsing tracked objects. Server response: %s", resp)
             return {}, {}, {}
         new_objs, mod_objs, deleted_objs = {}, {}, {}
+        pcc_new_keys = dict([(self.__name2type[tp], set(new[tp].keys())) for tp in new 
+                        if hasattr(self.__name2type[tp], "__dependent_type__") and self.__name2type[tp].__dependent_type__])
+        pcc_existing_keys = dict([(tp, set(self.object_store.get_ids(tp))) for tp, newkeys in pcc_new_keys.items()])
         for tp in new:
             typeObj = self.__name2type[tp]
             new_objs[typeObj] = self.object_store.frame_insert_all(typeObj, new[tp])
@@ -457,7 +460,7 @@ class frame(IFrame):
                     self.logger.warn("Could not delete object %s of type %s",
                                                         obj_id, typeObj.Class())
             deleted_objs[typeObj] = objlist
-        self.object_store.create_incoming_record(new_objs, mod_objs, deleted_objs)
+        self.object_store.create_incoming_record(new_objs, mod_objs, deleted_objs, pcc_new_keys, pcc_existing_keys)
 
     @timethis
     def __pull(self):

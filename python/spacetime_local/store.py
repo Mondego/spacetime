@@ -30,6 +30,9 @@ class store(object):
     def get(self, tp):
         return self.__objects[tp].values()
 
+    def get_ids(self, tp):
+        return self.__objects[tp].keys()
+
     def get_one(self, tp, id):
         if id in self.__objects[tp]:
             return self.__objects[tp][id]
@@ -104,7 +107,7 @@ class store(object):
         for tp, obj in self.__deleted:
             del self.__objects[tp][obj.__primarykey__]
         self.__deleted.clear()
-        self.__flush_derived_objs()
+        #self.__flush_derived_objs()
         self._changes["deleted"] = {}
 
     def get_changes(self):
@@ -155,13 +158,30 @@ class store(object):
         self.__incoming_mod = {}
         self.__incoming_del = {}
 
-    def create_incoming_record(self, new, mod, deleted):
+    def create_incoming_record(self, new, mod, deleted, pcc_new, pcc_old):
+        to_sort = []
+        print new, mod, deleted
         for tp in new:
-            self.__incoming_new.setdefault(tp, []).extend(new[tp])
+            if tp not in pcc_new:
+                self.__incoming_new.setdefault(tp, []).extend(new[tp])
         for tp in mod:
             self.__incoming_mod.setdefault(tp, []).extend(mod[tp])
         for tp in deleted:
             self.__incoming_del.setdefault(tp, []).extend(deleted[tp])
+        for tp in pcc_new:
+            pnew, pmod, pdeleted = [], [], []
+            for obj in new[tp]:
+                if obj.__primarykey__ in pcc_old[tp]:
+                    pmod.append(obj)
+                else:
+                    pnew.append(obj)
+            pdeleted = [self.__objects[tp][id] for id in pcc_old[tp].difference(pcc_new[tp])]
+            for id in pcc_old[tp].difference(pcc_new[tp]):
+                del self.__objects[tp][id]
+            self.__incoming_new.setdefault(tp, []).extend(pnew)
+            self.__incoming_mod.setdefault(tp, []).extend(pmod)
+            self.__incoming_del.setdefault(tp, []).extend(pdeleted)
+        return
 
     def get_new(self, tp):
         return self.__incoming_new[tp] if tp in self.__incoming_new else []

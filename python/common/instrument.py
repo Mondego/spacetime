@@ -9,7 +9,7 @@ import os
 from .util import get_os
 
 class ApplicationInstruments:
-    def __init__(self, frame, filename=None):
+    def __init__(self, frame, filename=None, options=None):
         self.appname = frame.get_app().__class__.__name__
         self.frame = frame
         strtime = time.strftime("%Y-%m-%d_%H-%M-%S")
@@ -25,9 +25,17 @@ class ApplicationInstruments:
                 os.remove(linkname)
             os.symlink(os.path.abspath(self.filename), linkname) # @UndefinedVariable only in Linux!
         with open(self.filename, 'w', 0) as csvfile:
-            csvfile.write("########\n")
-            csvfile.write("Options, Interval : %s\n" % frame.get_timestep())
-            csvfile.write("########\n\n")
+            if not options:
+                csvfile.write("########\n")
+                csvfile.write("Options, Interval : %s\n" % frame.get_timestep())
+                csvfile.write("########\n\n")
+            else:
+                opt_headers = options.keys()
+                csvfile.write("########\n")
+                csvfile.write("Interval,%s\n" % ",".join(opt_headers))
+                values = [options[h] for h in opt_headers]
+                csvfile.write("%s,%s\n" % (frame.get_timestep(),",".join(map(str, values))))
+                csvfile.write("########\n\n")
 
             # Base headers
             headers = ['time', 'update_delta']
@@ -47,10 +55,12 @@ class ApplicationInstruments:
 # static class
 class SpacetimeInstruments(object):
     @classmethod
-    def setup_instruments(cls, frame_list):
+    def setup_instruments(cls, frame_list, options=None, filenames=None):
         cls.instruments = {}
-        for frame in frame_list:
-            inst = ApplicationInstruments(frame)
+        if not filenames or len(filenames) != len(frame_list):
+            filenames = [None] * len(frame_list)
+        for frame, filename in zip(frame_list,filenames):
+            inst = ApplicationInstruments(frame, filename=filename, options=options)
             cls.instruments[inst.appname] = inst
 
     @classmethod

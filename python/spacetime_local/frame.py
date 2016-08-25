@@ -302,8 +302,15 @@ class frame(IFrame):
         else:
             self.logger.info("Could not register, exiting run loop...")
 
+    def app_done(self):
+        """
+        app_done
 
-    def get(self, tp, id=None):
+        Returns whether app has finished running or not
+        """
+        return self.__app.done
+
+    def get(self, tp, oid=None):
         """
         Retrieves objects from local data storage. If id is provided, returns
         the object identified by id. Otherwise, returns the list of all objects
@@ -311,18 +318,19 @@ class frame(IFrame):
 
         Arguments:
         tp : PCC set type being fetched
-        id : primary key of an individual object.
+        oid : primary key of an individual object.
 
         Exceptions:
         - ID does not exist in store
         - Application does not annotate that type
         """
         if tp in self.__observed_types:
-            if id:
-                return self.object_store.get_one(tp, id)
+            if oid:
+                return self.object_store.get_one(tp, oid)
             return self.object_store.get(tp)
         else:
-            raise Exception("Application does not annotate type %s" % (tp.Class()))
+            raise Exception("Application %s does not annotate type %s" % (self.__appname, tp.Class()))
+
 
     def add(self, obj):
         """
@@ -337,7 +345,7 @@ class frame(IFrame):
         if obj.__class__ in self.__typemap["producing"]:
             self.object_store.insert(obj)
         else:
-            raise Exception("Application is not a producer of type %s" % (obj.__class__.Class()))
+            raise Exception("Application %s is not a producer of type %s" % (self.__appname, obj.__class__.Class()))
 
     def delete(self, tp, obj):
         """
@@ -354,7 +362,7 @@ class frame(IFrame):
         if tp in self.__typemap["deleting"]:
             self.object_store.delete(tp, obj)
         else:
-            raise Exception("Application is not registered to delete %s" % (tp.Class()))
+            raise Exception("Application %s is not registered to delete %s" % (self.__appname, tp.Class()))
 
     def get_new(self, tp):
         """

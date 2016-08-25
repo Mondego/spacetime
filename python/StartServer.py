@@ -173,10 +173,10 @@ if __name__== "__main__":
     parser.add_argument('-e', '--external', action='store_true', help='Make this server externally accessible')
     parser.add_argument('-w', '--watchdog', action='store_true', help='Starts the server with thes slack/github watchdog')
     parser.add_argument('-t', '--timeout', type=int, default=0, help='Timeout in seconds for the server to consider a client disconnected.')
+    parser.add_argument('-c', '--clearempty', action='store_true', default=False, help='Clears the dataframes when all simulations leave.')
     args = parser.parse_args()
-
     global fs
-    fs = FrameServer(args.port, args.debug, args.external, args.timeout)
+    fs = FrameServer(args.port, args.debug, args.external, args.timeout, args.clearempty)
     p = Parallel(target = fs.run, args = (args.profile,))
     p.daemon = True
     p.start()

@@ -198,7 +198,7 @@ class dataframe(object):
         try:
             pcc_objects = pcc.create(pcctype, *universe, params = param_list)
         except TypeError, e:
-            logging.warn("Exception in __make_pcc: " + e.message)
+            logging.exception("Exception in __make_pcc: %s", e.message)
             return []
         return [self.__set_id_if_none(pcctype.Class(), create_jsondict(obj)) for obj in pcc_objects]
 
@@ -374,6 +374,7 @@ class dataframe(object):
                                               set(gettersetter)).union(
                                               set(setter))
             types_to_get = set()
+            types_extra = set()
             self.__base2derived
             for strtp in types_allowed:
                 types_to_get.add(strtp)

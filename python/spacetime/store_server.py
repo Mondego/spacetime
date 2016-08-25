@@ -247,7 +247,7 @@ class FrameServer(object):
     disconnect_timer = None
     timeout = 0
 
-    def __init__(self, port, debug, external, timeout):
+    def __init__(self, port, debug, external, timeout, clear_on_exit = False):
         global server
         SetupLoggers(debug)
         logging.info("Log level is " + str(logger.level))
@@ -255,6 +255,7 @@ class FrameServer(object):
         if timeout > 0:
             FrameServer.timeout = float(timeout)
         self.external = external
+        FrameServer.clear_on_exit = clear_on_exit
         self.app = app
         self.api = api
         FrameServer.app = app
@@ -327,6 +328,10 @@ class FrameServer(object):
     def disconnect(cls, sim):
         cls.Store.gc(sim, cls.name2class)
         del cls.app_gc_timers[sim]
+        if len(cls.app_gc_timers) == 0:
+            if cls.clear_on_exit:
+                logging.info("all simulations are gone, clearing dataframe")
+                FrameServer.Store.clear()
 
     def shutdown(self):
         if self.profiling:

@@ -11,15 +11,13 @@ import os
 import sys
 import argparse
 import importlib
-from common.instrument import SpacetimeInstruments as si
 import time
-from multiprocessing.process import Process
-from spacetime.store_server import FrameServer
-filepath = os.path.dirname(__file__)
-if filepath in sys.path:
+filepath = os.path.realpath(os.path.dirname(__file__))
+while filepath in sys.path:
     sys.path.remove(filepath)
 sys.path.append(os.path.realpath(os.path.join(filepath, "../")))
 
+from common.instrument import SpacetimeInstruments as si
 from spacetime_local.frame import frame
 
 class TestCase():

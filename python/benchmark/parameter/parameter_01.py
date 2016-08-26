@@ -3,7 +3,7 @@ Created on Aug 24, 2016
 
 @author: arthurvaladares
 '''
-from datamodel.benchmark.datamodel import BaseSet, Parameter
+from datamodel.benchmark.datamodel import BaseSet, ParameterHalf
 import random
 
 BM_PRODUCER = [BaseSet]
@@ -17,7 +17,7 @@ BT_PRODUCER = []
 BT_GETTER = []
 BT_SETTER = []
 BT_GETTERSETTER = []
-BT_TRACKER = [Parameter]
+BT_TRACKER = [ParameterHalf]
 BT_DELETER =[]
 
 builtin_dict = globals()['__builtins__']
@@ -36,7 +36,7 @@ builtin_dict['BT_TRACKER'] = BT_TRACKER
 builtin_dict['BT_DELETER'] = BT_DELETER
 
 def initialize(sim):
-    print "Benchmark test for Parameter"
+    print "Benchmark test for ParameterHalf"
     frame = sim.frame
     for i in xrange(sim.instances):
         frame.add(BaseSet(i))
@@ -48,4 +48,4 @@ def update(sim):
     print "[BENCHMARK STEP]: %s" % sim.curstep
 
 def update_test(sim):
-    print "[BENCHMARK TEST]: Step %s and Parameter count %s" % (sim.curstep, len(sim.frame.get(Parameter)))
+    print "[BENCHMARK TEST]: Step %s and ParameterHalf count %s" % (sim.curstep, len(sim.frame.get(ParameterHalf)))

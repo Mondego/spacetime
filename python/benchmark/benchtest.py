@@ -17,8 +17,6 @@ global BT_GETTERSETTER
 global BT_TRACKER
 global BT_DELETER
 
-print "BenchTest Tracker: ", BT_TRACKER[0].Class()
-
 @Producer(*BT_PRODUCER)
 @Getter(*BT_GETTER)
 @Setter(*BT_SETTER)

@@ -21,6 +21,8 @@ from common.instrument import SpacetimeInstruments as si
 #from spacetime_local.frame import frame
 from benchmark.bframe import BenchmarkFrame
 
+MODES = ["BASELINE", "DIFF_PUSH", "DIFF_PULL", "FULL"]
+
 class TestCase():
     def __init__(self, test_module, test_suite, test_name, instances, steps, testsims):
         self.test_module = test_module
@@ -54,6 +56,10 @@ class Simulation(object):
             testcases.append(TestCase(module, args.test.split('.')[0], args.test.split('.')[1], args.instances, args.steps, args.testsims))
             filename = ''
 
+        if args.mode and args.mode in MODES:
+            self.mode = args.mode
+        else:
+            self.mode = None
         for testcase in testcases:
             # Replace for argument based choice
             #import benchmark.subset.subset_01 as test_case
@@ -65,13 +71,15 @@ class Simulation(object):
             reload(bt)
 
             framebench = BenchmarkFrame(address=args.address, time_step=500, instrument=True, profiling=True)
-            framebench.set_benchmode("BASELINE")
+            if self.mode:
+                framebench.set_benchmode(self.mode)
             framebench.attach_app(bs.BenchmarkSimulation(framebench, testcase.instances, testcase.steps, testcase.test_module.initialize, testcase.test_module.update))
 
             test_options = "%sn %si %ss" % (testcase.test_name, testcase.instances, testcase.steps)
 
             frametest = BenchmarkFrame(address=args.address, time_step=500, instrument=True, profiling=True)
-            frametest.set_benchmode("BASELINE")
+            if self.mode:
+                frametest.set_benchmode(self.mode)
             frametest.attach_app(bt.BenchmarkTestSimulation(frametest, framebench, testcase.test_module.initialize_test, testcase.test_module.update_test))
             filenames = [os.path.join(dir_path, "%s %s %s.csv" % (filename, "benchmark", test_options)),
                          os.path.join(dir_path, "%s %s %s.csv" % (filename, "test", test_options))]
@@ -103,6 +111,7 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--test', default='subset.subset_01', help='Name of tests to be run')
     parser.add_argument('-a', '--address', default='http://127.0.0.1:12000')
     parser.add_argument('-tf', '--testfile', help='File contanining list of tests in the form of <test_suite> <test_name> <instances> <steps> <testsims>.')
+    parser.add_argument('-m', '--mode', default=None, help='Testbench mode, current options are: <BASELINE>, <DIFF_SENT>, <DIFF_RECEIVED>, <FULL>')
     #parser.add_argument('-r', '--remote', help='Remote frame server location, in the form of <user>@<server>:/<path>.')
     setupLoggers()
     args = parser.parse_args()

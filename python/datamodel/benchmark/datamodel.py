@@ -38,12 +38,77 @@ class BaseSet(object):
     def Number(self, value):
         self._Number = value
 
+    @dimension(list)
+    def List(self):
+        return self._List
+
+    @List.setter
+    def List(self, value):
+        self._List = value
+
+    @dimension(str)
+    def Property1(self):
+        return self._Property1
+
+    @Property1.setter
+    def Property1(self, value):
+        self._Property1 = value
+
+    @dimension(str)
+    def Property2(self):
+        return self._Property2
+
+    @Property2.setter
+    def Property2(self, value):
+        self._Property2 = value
+
+    @dimension(str)
+    def Property3(self):
+        return self._Property3
+
+    @Property3.setter
+    def Property3(self, value):
+        self._Property3 = value
+
+    @dimension(str)
+    def Property4(self):
+        return self._Property4
+
+    @Property4.setter
+    def Property4(self, value):
+        self._Property4 = value
+
+    @dimension(str)
+    def Property5(self):
+        return self._Property5
+
+    @Property5.setter
+    def Property5(self, value):
+        self._Property5 = value
+
+    @dimension(str)
+    def Property6(self):
+        return self._Property6
+
+    @Property6.setter
+    def Property6(self, value):
+        self._Property6 = value
+
     def __init__(self, num):
         self.ID = None
         self.Name = ""
         self.Number = num
+        self.List = [i for i in xrange(20)]
+        self.Set = set([i for i in xrange(20)])
+        self.Dictionary = { str(k) : k for k in xrange(20)}
+        self.Property1 = "Property 1"
+        self.Property2 = "Property 2"
+        self.Property3 = "Property 3"
+        self.Property4 = "Property 4"
+        self.Property5 = "Property 5"
 
-@projection(BaseSet, BaseSet.Name)
+
+@projection(BaseSet, BaseSet.ID, BaseSet.Name)
 class BaseSetProjection(object):
     @property
     def DecoratedName(self):

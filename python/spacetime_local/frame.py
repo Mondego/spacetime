@@ -95,6 +95,8 @@ class frame(IFrame):
         if instrument:
             self._instruments = {}
             self._instrument_headers = []
+            self._instrument_headers.append('bytes sent')
+            self._instrument_headers.append('bytes received')
 
     def __register_app(self, app):
         self.logger = self.__setup_logger("spacetime@" + self.__appname)
@@ -471,6 +473,7 @@ class frame(IFrame):
     def __pull(self):
         if self.__disconnected:
             return
+        self._instruments['bytes received'] = 0
         self.object_store.clear_incoming_record()
         updates = RecursiveDictionary()
         try:
@@ -486,6 +489,7 @@ class frame(IFrame):
                   })
                 try:
                     resp.raise_for_status()
+                    self._instruments['bytes received'] = len(resp.content)
                     updates.rec_update(resp.json())
                 except HTTPError as exc:
                     self.__handle_request_errors(resp, exc)
@@ -500,6 +504,7 @@ class frame(IFrame):
     def __push(self):
         if self.__disconnected:
             return
+        self._instruments['bytes sent'] = 0
         changes = self.object_store.get_changes()
         for host in self.__host_typemap:
             update_dict = {}
@@ -518,7 +523,9 @@ class frame(IFrame):
 
             if update_dict:
                 try:
-                    package = {"update_dict": json.dumps(update_dict)}
+                    jsonmsg = json.dumps(update_dict)
+                    self._instruments['bytes sent'] = sys.getsizeof(jsonmsg)
+                    package = {"update_dict": jsonmsg}
                     #resp = requests.post(host + "/updated", json = package)
                     resp = self.__sessions[host].post(host + "/updated", json = package)
                 except TypeError:

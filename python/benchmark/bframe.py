@@ -11,6 +11,8 @@ from common.instrument import timethis
 import common.instrument as inst
 import json
 from common.converter import create_jsondict
+from requests.models import Response
+import sys
 
 class BenchmarkFrame(frame):
     def __init__(self, *args, **kwargs):
@@ -18,6 +20,8 @@ class BenchmarkFrame(frame):
         super(BenchmarkFrame, self).__init__(*args, **kwargs)
         if hasattr(self, "_instruments"):
             inst.INSTRUMENT_HEADERS[BenchmarkFrame.__module__] = list(set(inst.INSTRUMENT_HEADERS[BenchmarkFrame.__module__]).union(set(inst.INSTRUMENT_HEADERS[frame.__module__])))  # @UndefinedVariable
+            #self._instrument_headers.append('bytes sent')
+            #self._instrument_headers.append('bytes received')
 
     def set_benchmode(self, mode):
         self.mode = mode
@@ -34,11 +38,13 @@ class BenchmarkFrame(frame):
                 if self.mode == "BASELINE":
                     for host in self._frame__host_typemap:
                         resp = self._frame__sessions[host].get("%s/dictupdate" % host, data = {
-                            "observed_types": json.dumps([t.__realname__ for t in self._frame__observed_types])}).json()
-                        for t in resp:
+                            "observed_types": json.dumps([t.__realname__ for t in self._frame__observed_types])})
+                        objs = resp.json()
+                        for t in objs:
                             typeObj = self._frame__name2type[t]
-                            self.object_store.frame_insert_all(typeObj, resp[t])
-
+                            self.object_store.frame_insert_all(typeObj, objs[t])
+                        self._instruments['bytes received'] = len(resp.content)
+                        pass
             except ConnectionError:
                 self.logger.exception("Disconnected from host.")
                 self._frame__disconnected = True
@@ -60,8 +66,11 @@ class BenchmarkFrame(frame):
                         for o in self.object_store.get(t):
                             insert_list[t.__realname__][str(o.__primarykey__)] = create_jsondict(o)
 
+                    json_msg = json.dumps(insert_list)
+                    self._instruments['bytes sent'] = sys.getsizeof(json_msg)
                     resp = self._frame__sessions[host].put("%s/dictupdate" % host, data = {
-                        "insert_list": json.dumps(insert_list)})
+                        "insert_list": json_msg})
+
             else:
                 changes = self.object_store.get_changes()
                 for host in self._frame__host_typemap:

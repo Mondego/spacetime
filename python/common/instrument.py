@@ -6,7 +6,10 @@ import datetime
 INSTRUMENT_HEADERS = {}
 import time
 import os
+import re
 from .util import get_os
+
+private = re.compile(r'(_frame__)(.)*')
 
 class ApplicationInstruments:
     def __init__(self, frame, filename=None, options=None):
@@ -48,7 +51,7 @@ class ApplicationInstruments:
                 headers.extend(self.frame._instrument_headers)
 
             self.fieldnames = headers
-            writer = csv.DictWriter(csvfile, delimiter=',', lineterminator='\n', fieldnames=self.fieldnames)
+            writer = csv.DictWriter(csvfile, delimiter=',', restval='-1', lineterminator='\n', fieldnames=self.fieldnames)
             writer.writeheader()
         self.start_time = datetime.datetime.now()
 
@@ -68,7 +71,7 @@ class SpacetimeInstruments(object):
         appname = frame.get_app().__class__.__name__
         inst = cls.instruments[appname]
         with open(inst.filename, 'a', 0) as csvfile:
-            writer = csv.DictWriter(csvfile, delimiter=',', lineterminator='\n', fieldnames=inst.fieldnames)
+            writer = csv.DictWriter(csvfile, delimiter=',', restval='-1', lineterminator='\n', fieldnames=inst.fieldnames)
             # picks up custom instruments
             d = frame._instruments
             # adds time and update delta
@@ -80,7 +83,10 @@ class SpacetimeInstruments(object):
 def timethis(f):
     if not f.__module__ in INSTRUMENT_HEADERS:
         INSTRUMENT_HEADERS[f.__module__] = []
-    INSTRUMENT_HEADERS[f.__module__].append(f.func_name)
+    fname = f.func_name
+    if private.match(f.func_name):
+        fname = fname.replace('_frame','')
+    INSTRUMENT_HEADERS[f.__module__].append(fname)
     @wraps(f)
     def instrument(*args, **kwds):
         obj = args[0]
@@ -92,8 +98,11 @@ def timethis(f):
         start = time.time()
         ret = f(*args, **kwds)
         end = time.time()
+        fname = f.__name__
+        if private.match(f.func_name):
+            fname = fname.replace('_frame','')
         if not hasattr(obj, '_instruments'):
             obj._instruments = {}
-        obj._instruments[f.__name__] = (end - start) * 1000
+        obj._instruments[fname] = (end - start) * 1000
         return ret
     return instrument

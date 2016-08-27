@@ -9,7 +9,7 @@ from datamodel.benchmark.datamodel import *
 from spacetime_local.IApplication import IApplication
 from spacetime_local.declarations import Producer, GetterSetter, Tracker, \
     Deleter, Setter, Getter
-from common.instrument import SpacetimeInstruments as si
+from common.instrument import SpacetimeInstruments as si, timethis
 global BT_PRODUCER
 global BT_GETTER
 global BT_SETTER
@@ -38,6 +38,7 @@ class BenchmarkTestSimulation(IApplication):
         if self.init_hook:
             self.init_hook(self)
 
+    @timethis
     def update(self):
         if self.update_hook:
             self.update_hook(self)

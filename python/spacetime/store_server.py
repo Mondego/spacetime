@@ -26,6 +26,7 @@ parser.add_argument('update_dict')
 parser.add_argument('insert_list')
 parser.add_argument('obj')
 parser.add_argument('get_types')
+parser.add_argument('observed_types')
 
 def handle_exceptions(f):
     @wraps(f)
@@ -91,7 +92,7 @@ class GetAllUpdatedTracked(Resource):
             for tp in set(all_touched_types_t).union(set(all_touched_types_u)):
                 if FrameServer.name2class[tp].__PCC_BASE_TYPE__:
                     FrameServer.Store.clear_buffer(sim, tp, tracked_only = tp in all_touched_types_t.difference(all_touched_types_u))
-                
+
         ret = {}
         ret["new"] = all_new
         ret["updated"] = all_updated
@@ -137,6 +138,33 @@ class GetTracked(Resource):
         return ret
 
 class GetPushType(Resource):
+    @handle_exceptions
+    def get(self, sim, t):
+        typeObj = FrameServer.name2class[t]
+        ret = FrameServer.Store.get(typeObj)
+        return ret
+
+    @handle_exceptions
+    def put(self, sim, t):
+        typeObj = FrameServer.name2class[t]
+        args = parser.parse_args()
+        data = args['insert_dict']
+        for oid in data:
+            FrameServer.Store.put(sim, typeObj, oid, data[oid])
+        return {}
+
+    @handle_exceptions
+    def post(self, sim, t):
+        typeObj = FrameServer.name2class[t]
+        args = parser.parse_args()
+        data = args["update_dict"]
+        update_dict = json.loads(data)
+        new, mod, deleted = update_dict["new"], update_dict["mod"], update_dict["deleted"]
+        FrameServer.Store.put_update(sim, typeObj, new, mod, deleted)
+
+        return {}
+
+class GetPushTypeUpdates(Resource):
     @handle_exceptions
     def get(self, sim, t):
         typeObj = FrameServer.name2class[t]
@@ -203,6 +231,29 @@ class Register(Resource):
     def delete(self, sim):
         FrameServer.disconnect(sim)
 
+class GetPutObjectDictionary(Resource):
+    @handle_exceptions
+    def get(self, sim):
+
+        args = parser.parse_args()
+        observed_types = json.loads(args["observed_types"])
+        ret = {}
+        for t in observed_types:
+            typeObj = FrameServer.name2class[t]
+            ret[t] = FrameServer.Store.get(typeObj)
+        return ret
+
+    @handle_exceptions
+    def put(self, sim):
+        args = parser.parse_args()
+        print "GetPutObjectDictionary PUT %s" % args
+        objects = json.loads(args["objects"])
+        for t in objects:
+            typeObj = FrameServer.name2class[t]
+            for oid in objects[t]:
+                FrameServer.Store.put(sim, typeObj, oid, objects[t][oid])
+
+
 def SetupLoggers(debug) :
     global logger
     if debug:
@@ -263,10 +314,12 @@ class FrameServer(object):
         self.DATAMODEL_TYPES = DATAMODEL_TYPES
         # Not currently used
         # self.api.add_resource(GetInsertDeleteObject, '/<string:sim>/<string:t>/<string:uid>')
+        self.api.add_resource(GetPushTypeUpdates, '/<string:sim>/updates/<string:t>')
         self.api.add_resource(GetPushType, '/<string:sim>/<string:t>')
         self.api.add_resource(GetUpdated, '/<string:sim>/updated/<string:t>')
         self.api.add_resource(GetTracked, '/<string:sim>/tracked/<string:t>')
         self.api.add_resource(GetAllUpdatedTracked, '/<string:sim>/updated')
+        self.api.add_resource(GetPutObjectDictionary, '/<string:sim>/dictupdate')
         #self.api.add_resource(GetAllTracked, '/<string:sim>/tracked')
         self.api.add_resource(Register, '/<string:sim>')
         server = self

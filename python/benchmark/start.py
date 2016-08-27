@@ -18,7 +18,8 @@ while filepath in sys.path:
 sys.path.append(os.path.realpath(os.path.join(filepath, "../")))
 
 from common.instrument import SpacetimeInstruments as si
-from spacetime_local.frame import frame
+#from spacetime_local.frame import frame
+from benchmark.bframe import BenchmarkFrame
 
 class TestCase():
     def __init__(self, test_module, test_suite, test_name, instances, steps, testsims):
@@ -63,12 +64,14 @@ class Simulation(object):
             reload(bs)
             reload(bt)
 
-            framebench = frame(address=args.address, time_step=500, instrument=True, profiling=True)
+            framebench = BenchmarkFrame(address=args.address, time_step=500, instrument=True, profiling=True)
+            framebench.set_benchmode("BASELINE")
             framebench.attach_app(bs.BenchmarkSimulation(framebench, testcase.instances, testcase.steps, testcase.test_module.initialize, testcase.test_module.update))
 
             test_options = "%sn %si %ss" % (testcase.test_name, testcase.instances, testcase.steps)
 
-            frametest = frame(address=args.address, time_step=500, instrument=True, profiling=True)
+            frametest = BenchmarkFrame(address=args.address, time_step=500, instrument=True, profiling=True)
+            frametest.set_benchmode("BASELINE")
             frametest.attach_app(bt.BenchmarkTestSimulation(frametest, framebench, testcase.test_module.initialize_test, testcase.test_module.update_test))
             filenames = [os.path.join(dir_path, "%s %s %s.csv" % (filename, "benchmark", test_options)),
                          os.path.join(dir_path, "%s %s %s.csv" % (filename, "test", test_options))]

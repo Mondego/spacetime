@@ -301,6 +301,8 @@ class dataframe(object):
             if tracked_only else
         self.__cache.reset_cache_for_type(app, tp))
 
+    def put(self, app, tp, oid, obj):
+        self.__base_store.put(tp, oid, obj)
 
     def put_update(self, app, tp, new, mod, deleted):
         if tp.__PCC_BASE_TYPE__:

@@ -1,9 +1,11 @@
 # <test_suite> <test_name> <instances> <steps> <testsims>[unsupported]
+set set_01 100 20 2
+#projection projection_01 100 20 2
 #subset subset_01 100 20 2
 #subset subset_02 100 20 2
 #join join_01 100 20 2
 #join join_02 100 20 2
 #parameter parameter_01 100 20 2
 #parameter parameter_02 100 20 2
-update new_01 30 20 2
-update update_01 100 20 2
+#update new_01 30 20 2
+#update update_01 100 20 2

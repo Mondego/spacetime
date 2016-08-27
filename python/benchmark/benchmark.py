@@ -9,6 +9,7 @@ from datamodel.benchmark.datamodel import *
 from spacetime_local.IApplication import IApplication
 from spacetime_local.declarations import Producer, GetterSetter, Tracker, \
     Deleter, Setter, Getter
+from common.instrument import timethis
 global BM_PRODUCER
 global BM_SETTER
 global BM_GETTER
@@ -24,9 +25,6 @@ global BM_DELETER
 @Deleter(*BM_DELETER)
 class BenchmarkSimulation(IApplication):
     def __init__(self, frame, instances, steps, init_hook, update_hook=None):
-        '''
-        Constructor
-        '''
         self.frame = frame
         self.done = False
         self.curstep = 0
@@ -39,6 +37,7 @@ class BenchmarkSimulation(IApplication):
     def initialize(self):
         self.init_hook(self)
 
+    @timethis
     def update(self):
         if self.update_hook:
             self.update_hook(self)

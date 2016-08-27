@@ -43,6 +43,13 @@ class BaseSet(object):
         self.Name = ""
         self.Number = num
 
+@projection(BaseSet, BaseSet.Name)
+class BaseSetProjection(object):
+    @property
+    def DecoratedName(self):
+        return "** " + self.Name + " **"
+
+
 @subset(BaseSet)
 class SubsetHalf(BaseSet.Class()):
     @staticmethod
@@ -90,9 +97,9 @@ class JoinHalf(object):
     def b2(self, value):
         self._b2 = value
 
-    def __init__(self, p, c):
-        self.car = c
-        self.pedestrian = p
+    def __init__(self, b1, b2):
+        self.b1 = b1
+        self.b2 = b2
 
     @staticmethod
     def __query__(b1s, b2s):
@@ -130,9 +137,9 @@ class JoinAll(object):
     def b2(self, value):
         self._b2 = value
 
-    def __init__(self, p, c):
-        self.car = c
-        self.pedestrian = p
+    def __init__(self, b1, b2):
+        self.b1 = b1
+        self.b2 = b2
 
     @staticmethod
     def __query__(b1s, b2s):

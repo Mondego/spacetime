@@ -234,7 +234,6 @@ class Register(Resource):
 class GetPutObjectDictionary(Resource):
     @handle_exceptions
     def get(self, sim):
-
         args = parser.parse_args()
         observed_types = json.loads(args["observed_types"])
         ret = {}
@@ -246,8 +245,7 @@ class GetPutObjectDictionary(Resource):
     @handle_exceptions
     def put(self, sim):
         args = parser.parse_args()
-        print "GetPutObjectDictionary PUT %s" % args
-        objects = json.loads(args["objects"])
+        objects = json.loads(args["insert_list"])
         for t in objects:
             typeObj = FrameServer.name2class[t]
             for oid in objects[t]:

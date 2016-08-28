@@ -249,7 +249,10 @@ class dataframe(object):
         if id:
             return self.__base_store.get(tp, id)
         else:
-            return self.__base_store.get_by_type(tp)
+            if not tp.__PCC_BASE_TYPE__:
+                return self.__calculate_pcc(tp, None)[tp.__realname__]
+            else:
+                return self.__base_store.get_by_type(tp)
 
     def get_ids(self, tp):
         return self.__base_store.get_ids(tp)

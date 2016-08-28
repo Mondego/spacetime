@@ -36,7 +36,7 @@ builtin_dict['BT_TRACKER'] = BT_TRACKER
 builtin_dict['BT_DELETER'] = BT_DELETER
 
 def initialize(sim):
-    print "Benchmark test for SubsetHalf"
+    print "Benchmark test for BaseSetProjection"
     frame = sim.frame
     for i in xrange(sim.instances):
         frame.add(BaseSet(i))

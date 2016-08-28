@@ -44,9 +44,10 @@ def initialize(sim):
 def initialize_test(sim):
     pass
 
-
 def update(sim):
     print "[BENCHMARK STEP]: %s" % sim.curstep
 
 def update_test(sim):
-    print "[BENCHMARK TEST]: Step %s and BaseSet count %s" % (sim.curstep, len(sim.frame.get(BaseSet)))
+    basesets = sim.frame.get(BaseSet)
+    print "[BENCHMARK TEST]: Step %s and BaseSet count %s" % (sim.curstep, len(basesets))
+

@@ -46,6 +46,22 @@ class BaseSet(object):
     def List(self, value):
         self._List = value
 
+    @dimension(dict)
+    def Dictionary(self):
+        return self._Dictionary
+
+    @Dictionary.setter
+    def Dictionary(self, value):
+        self._Dictionary = value
+
+    #@dimension(set)
+    #def Set(self):
+    #    return self._Set
+
+    #@Set.setter
+    #def Set(self, value):
+    #    self._Set = value
+
     @dimension(str)
     def Property1(self):
         return self._Property1
@@ -99,7 +115,7 @@ class BaseSet(object):
         self.Name = ""
         self.Number = num
         self.List = [i for i in xrange(20)]
-        self.Set = set([i for i in xrange(20)])
+        #self.Set = set([i for i in xrange(20)])
         self.Dictionary = { str(k) : k for k in xrange(20)}
         self.Property1 = "Property 1"
         self.Property2 = "Property 2"

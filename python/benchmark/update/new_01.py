@@ -41,7 +41,7 @@ builtin_dict['BT_TRACKER'] = BT_TRACKER
 builtin_dict['BT_DELETER'] = BT_DELETER
 
 def initialize(sim):
-    print "Benchmark test for Updates"
+    print "Benchmark test for New"
 
 def initialize_test(sim):
     pass

@@ -21,7 +21,12 @@ from common.instrument import SpacetimeInstruments as si
 #from spacetime_local.frame import frame
 from benchmark.bframe import BenchmarkFrame
 
-MODES = ["BASELINE", "DIFF_PUSH", "DIFF_PULL", "FULL"]
+# BASELINE : pulls and pushes all objects of interest at every tick
+# DIFF_PUSH : pushes only modified/new/deleted objects
+# DIFF_PUSHPULL : DIFF_PUSH + pulls only modified/new/deleted objects. (DIFF_PULL ONLY WORKS WITH DIFF_PUSH, so, they need to go together)
+# FULL : Current optimization state
+
+MODES = ["BASELINE", "DIFF_PUSH", "DIFF_PUSHPULL", "FULL"]
 
 class TestCase():
     def __init__(self, test_module, test_suite, test_name, instances, steps, testsims):
@@ -36,10 +41,16 @@ class TestCase():
 class Simulation(object):
     def __init__(self, args):
         testcases = []
+        if args.mode and args.mode in MODES:
+            self.mode = args.mode
+        else:
+            if args.mode:
+                print "# WARNING #: COULD NOT FIND MODE %s, DEFAULTING TO FULL" % args.mode
+            self.mode = "FULL"
         if not os.path.exists('stats'):
             os.mkdir('stats')
         strtime = time.strftime("%Y-%m-%d_%H-%M-%S")
-        dir_path = os.path.join('stats', strtime)
+        dir_path = os.path.join('stats', "%s %s" % (self.mode, strtime))
         os.mkdir(dir_path)
 
         if args.testfile:
@@ -47,19 +58,15 @@ class Simulation(object):
             with open(args.testfile) as f:
                 for line in f.readlines():
                     if not line.strip().startswith('#'):
-                        test_suite, test_name, instances, steps, testsims = line.split(' ')
+                        test_suite, test_name, instances, steps = line.split(' ')
                         module = importlib.import_module("benchmark.%s.%s" % (test_suite, test_name))
-                        testcases.append(TestCase(module, test_suite, test_name, int(instances), int(steps), int(testsims)))
+                        testcases.append(TestCase(module, test_suite, test_name, int(instances), int(steps), args.testsims))
 
         else:
             module = importlib.import_module("benchmark.%s" % args.test)
             testcases.append(TestCase(module, args.test.split('.')[0], args.test.split('.')[1], args.instances, args.steps, args.testsims))
             filename = ''
 
-        if args.mode and args.mode in MODES:
-            self.mode = args.mode
-        else:
-            self.mode = None
         for testcase in testcases:
             # Replace for argument based choice
             #import benchmark.subset.subset_01 as test_case
@@ -70,20 +77,30 @@ class Simulation(object):
             reload(bs)
             reload(bt)
 
-            framebench = BenchmarkFrame(address=args.address, time_step=500, instrument=True, profiling=True)
+            if hasattr(testcase.test_module, "TIMESTEP"):
+                ts = testcase.test_module.TIMESTEP
+            else:
+                ts = args.timestep
+
+            framebench = BenchmarkFrame(address=args.address, time_step=ts, instrument=True, profiling=True)
             if self.mode:
                 framebench.set_benchmode(self.mode)
             framebench.attach_app(bs.BenchmarkSimulation(framebench, testcase.instances, testcase.steps, testcase.test_module.initialize, testcase.test_module.update))
 
             test_options = "%sn %si %ss" % (testcase.test_name, testcase.instances, testcase.steps)
 
-            frametest = BenchmarkFrame(address=args.address, time_step=500, instrument=True, profiling=True)
+            frametest = BenchmarkFrame(address=args.address, time_step=ts, instrument=True, profiling=True)
             if self.mode:
                 frametest.set_benchmode(self.mode)
             frametest.attach_app(bt.BenchmarkTestSimulation(frametest, framebench, testcase.test_module.initialize_test, testcase.test_module.update_test))
-            filenames = [os.path.join(dir_path, "%s %s %s.csv" % (filename, "benchmark", test_options)),
-                         os.path.join(dir_path, "%s %s %s.csv" % (filename, "test", test_options))]
-            si.setup_instruments([framebench, frametest], filenames=filenames, options={'instances' : testcase.instances, 'steps': testcase.steps, 'type':'%s.%s' % (testcase.test_suite, testcase.test_name), 'sims':testcase.testsims})
+            filenames = [os.path.join(dir_path, "%s %s %s.csv" % (filename, "producer", test_options)),
+                         os.path.join(dir_path, "%s %s %s.csv" % (filename, "consumer", test_options))]
+            si.setup_instruments([framebench, frametest], filenames=filenames,
+                                 options={'instances' : testcase.instances,
+                                            'steps': testcase.steps,
+                                            'type':'%s.%s' % (testcase.test_suite, testcase.test_name),
+                                            'sims':testcase.testsims,
+                                            'mode':self.mode})
 
             frametest.run_async()
             framebench.run()
@@ -106,11 +123,12 @@ def setupLoggers():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--instances', type=int, default=1000, help='Number of object instances to be instantiated.')
-    parser.add_argument('-ts', '--testsims', type=int, default=1, help='Number of test simulations subscribing to types.')
+    parser.add_argument('-ts', '--testsims', type=int, default=1, help='Number of test simulations subscribing to types <UNSUPPORTED>.')
     parser.add_argument('-s', '--steps', type=int, default=100, help='Number of simulation steps.')
     parser.add_argument('-t', '--test', default='subset.subset_01', help='Name of tests to be run')
     parser.add_argument('-a', '--address', default='http://127.0.0.1:12000')
     parser.add_argument('-tf', '--testfile', help='File contanining list of tests in the form of <test_suite> <test_name> <instances> <steps> <testsims>.')
+    parser.add_argument('-tsp', '--timestep', type=int, default=500, help='Time interval for each simulation step. Default is 500.')
     parser.add_argument('-m', '--mode', default=None, help='Testbench mode, current options are: <BASELINE>, <DIFF_SENT>, <DIFF_RECEIVED>, <FULL>')
     #parser.add_argument('-r', '--remote', help='Remote frame server location, in the form of <user>@<server>:/<path>.')
     setupLoggers()

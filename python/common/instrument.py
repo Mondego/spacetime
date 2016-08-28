@@ -50,7 +50,7 @@ class ApplicationInstruments:
             if hasattr(self.frame, '_instrument_headers'):
                 headers.extend(self.frame._instrument_headers)
 
-            self.fieldnames = headers
+            self.fieldnames = list(set(headers))
             writer = csv.DictWriter(csvfile, delimiter=',', restval='-1', lineterminator='\n', fieldnames=self.fieldnames)
             writer.writeheader()
         self.start_time = datetime.datetime.now()

@@ -104,6 +104,8 @@ class Simulation(object):
 
             frametest.run_async()
             framebench.run()
+            while(not frametest.app_done()):
+                time.sleep(1)
 
             time.sleep(3)
             #frame.loop()

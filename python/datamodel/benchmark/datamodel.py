@@ -228,7 +228,7 @@ class JoinAll(object):
 
     @staticmethod
     def __predicate__(b1, b2):
-        if b1 == b2:
+        if b1.ID == b2.ID:
             return True
 
 @parameter(BaseSet)

@@ -342,7 +342,7 @@ class FrameServer(object):
                     print "cProfile not available Jython."
                 else:
                     print "failed to start profiler."
-        self.app.run(host=host, port=self.port, debug=False, threaded=False)
+        self.app.run(host=host, port=self.port, debug=False, threaded=True)
 
     def reload_dms(self):
         from datamodel.all import DATAMODEL_TYPES

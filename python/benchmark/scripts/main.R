@@ -16,8 +16,6 @@ for (d in runs) {
     all_files = list.files(d, full.names = TRUE)
     mode = unlist(strsplit(basename(d),"[ ]"))[1]
     for (f in all_files) {
-        print(f)
-        print(mode)
         fname = basename(f)
         no_ext = unlist(strsplit(fname, "[.]"))[1]
         options  = unlist(strsplit(no_ext, "[ ]"))
@@ -39,7 +37,7 @@ for (d in runs) {
         if (!is.element(mode, names(results[[testname]][[sim]][[instances]]))) {
             results[[testname]][[sim]][[instances]][[mode]] = list()
         }
-        if (!is.element(mode, mode2colors)) {
+        if (!is.element(mode, names(mode2colors))) {
             mode2colors[[mode]] = colors$queue[colors$new]
             colors$new = colors$new + 1
         }
@@ -60,7 +58,6 @@ for (tname in names(results)) {
                 graph$update_delta <- c(graph$update_delta, list(vals$table$update_delta))
                 graph$lgd_names <- c(graph$lgd_names, nmode)
                 graph$lgd_colors <- c(graph$lgd_colors, mode2colors[[nmode]])
-                print(graph)
             }
             generate_graph(graph$update_delta, graph$lgd_names, graph$lgd_colors, paste(result_dir,paste(sim,tname,ninst,".pdf"),sep="/"))
         }

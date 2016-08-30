@@ -13,6 +13,7 @@ import json
 from common.converter import create_jsondict
 from requests.models import Response
 import sys
+import time
 
 DIFF_PULL = set(["FULL", "DIFF_PUSHPULL"])
 DIFF_PUSH = set(["FULL", "DIFF_PUSH", "DIFF_PUSHPULL"])
@@ -38,11 +39,12 @@ class BenchmarkFrame(frame):
             if self._frame__disconnected:
                 return
             self.object_store.clear_incoming_record()
-            self.object_store.clear_all()
             try:
                 for host in self._frame__host_typemap:
                     typemap =  self._frame__host_typemap[host]
                     pull_types = typemap["getting"].union(typemap["gettingsetting"].union(typemap["tracking"]))
+                    for t in pull_types:
+                        self.object_store.clear_all(t)
                     resp = self._frame__sessions[host].get("%s/dictupdate" % host, data = {
                         "observed_types": json.dumps([t.__realname__ for t in pull_types])})
                     objs = resp.json()
@@ -50,7 +52,7 @@ class BenchmarkFrame(frame):
                         if objs[t]:
                             typeObj = self._frame__name2type[t]
                             self.object_store.frame_insert_all(typeObj, objs[t])
-                    self._instruments['bytes received'] = len(resp.content)
+                    self._instruments['bytes received'] += len(resp.content)
                     pass
             except ConnectionError:
                 self.logger.exception("Disconnected from host.")
@@ -72,8 +74,7 @@ class BenchmarkFrame(frame):
                     insert_list[t.__realname__] = {}
                     for o in self.object_store.get(t):
                         insert_list[t.__realname__][str(o.__primarykey__)] = create_jsondict(o)
-
                 json_msg = json.dumps(insert_list)
-                self._instruments['bytes sent'] = sys.getsizeof(json_msg)
+                self._instruments['bytes sent'] += sys.getsizeof(json_msg)
                 resp = self._frame__sessions[host].put("%s/dictupdate" % host, data = {
                     "insert_list": json_msg})

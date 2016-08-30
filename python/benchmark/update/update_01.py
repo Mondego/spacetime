@@ -8,7 +8,7 @@ Created on Aug 24, 2016
 
 @author: arthurvaladares
 '''
-from datamodel.benchmark.datamodel import BaseSet, SubsetHalf
+from datamodel.benchmark.datamodel import BaseSet
 import random
 
 BM_PRODUCER = [BaseSet]

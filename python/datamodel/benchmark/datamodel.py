@@ -13,6 +13,16 @@ from pcc import subset, join, parameter
 import random
 
 @pcc_set
+class NullSet(object):
+    @primarykey(str)
+    def ID(self):
+        return self._ID
+
+    @ID.setter
+    def ID(self, value):
+        self._ID = value
+
+@pcc_set
 class BaseSet(object):
     @primarykey(str)
     def ID(self):

@@ -107,7 +107,7 @@ class Simulation(object):
             while(not frametest.app_done()):
                 time.sleep(1)
 
-            time.sleep(3)
+            time.sleep(15)
             #frame.loop()
 
 def setupLoggers():

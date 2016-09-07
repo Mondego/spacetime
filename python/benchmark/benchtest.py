@@ -24,9 +24,9 @@ global BT_DELETER
 @Tracker(*BT_TRACKER)
 @Deleter(*BT_DELETER)
 class BenchmarkTestSimulation(IApplication):
-    def __init__(self, frame, benchframe, init_hook=None, update_hook=None):
+    def __init__(self, frame, event, init_hook=None, update_hook=None):
+        self.event = event
         self.frame = frame
-        self.benchframe = benchframe
         self.curstep = 0
         self.init_hook = init_hook
         self.update_hook = update_hook
@@ -42,7 +42,8 @@ class BenchmarkTestSimulation(IApplication):
     def update(self):
         if self.update_hook:
             self.update_hook(self)
-        if self.benchframe.app_done() == True:
+        if self.event.is_set() == True:
+            self.event.clear()
             self.done = True
         self.curstep += 1
 

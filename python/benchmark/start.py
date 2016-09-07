@@ -12,7 +12,7 @@ import sys
 import argparse
 import importlib
 import time
-import pickle
+
 from multiprocessing import Event, Process
 filepath = os.path.realpath(os.path.dirname(__file__))
 while filepath in sys.path:
@@ -84,7 +84,6 @@ class BenchSimulation(Process):
                 ts = args.timestep
 
             framebench = BenchmarkFrame(address=args.address, time_step=ts, instrument=True, profiling=True)
-            pickle.dumps(framebench)
             if self.mode:
                 framebench.set_benchmode(self.mode)
             framebench.attach_app(bs.BenchmarkSimulation(framebench, testcase.instances, testcase.steps, testcase.test_module.initialize, testcase.test_module.update))

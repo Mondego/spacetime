@@ -198,7 +198,7 @@ class dataframe(object):
         try:
             pcc_objects = pcc.create(pcctype, *universe, params = param_list)
         except TypeError, e:
-            logging.warn("Exception in __make_pcc: " + e.message)
+            logging.exception("Exception in __make_pcc: %s", e.message)
             return []
         return [self.__set_id_if_none(pcctype.Class(), create_jsondict(obj)) for obj in pcc_objects]
 
@@ -249,7 +249,10 @@ class dataframe(object):
         if id:
             return self.__base_store.get(tp, id)
         else:
-            return self.__base_store.get_by_type(tp)
+            if not tp.__PCC_BASE_TYPE__:
+                return self.__calculate_pcc(tp, None)[tp.__realname__]
+            else:
+                return self.__base_store.get_by_type(tp)
 
     def get_ids(self, tp):
         return self.__base_store.get_ids(tp)
@@ -301,6 +304,8 @@ class dataframe(object):
             if tracked_only else
         self.__cache.reset_cache_for_type(app, tp))
 
+    def put(self, app, tp, oid, obj):
+        self.__base_store.put(tp, oid, obj)
 
     def put_update(self, app, tp, new, mod, deleted):
         if tp.__PCC_BASE_TYPE__:
@@ -374,6 +379,7 @@ class dataframe(object):
                                               set(gettersetter)).union(
                                               set(setter))
             types_to_get = set()
+            types_extra = set()
             self.__base2derived
             for strtp in types_allowed:
                 types_to_get.add(strtp)

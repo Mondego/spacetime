@@ -91,11 +91,15 @@ class store(object):
             if not tp.__PCC_BASE_TYPE__:
                 self.__objects[tp] = RecursiveDictionary()
 
-    def clear_all(self):
+    def clear_all(self, t=None):
         self.clear_changes()
         self.clear_incoming_record()
-        for tp in self.__objects.keys():
-            self.__objects[tp] = RecursiveDictionary()
+        if not t:
+            for tp in self.__objects.keys():
+                self.__objects[tp] = RecursiveDictionary()
+        else:
+            self.__objects[t] = RecursiveDictionary()
+
 
     def clear_changes(self):
         self._changes["new"].clear()

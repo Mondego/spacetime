@@ -15,7 +15,7 @@ import cmd
 import sys
 import os
 
-from .store import store
+from pcc.dataframe import dataframe, DataframeModes
 from .IFrame import IFrame
 from pcc.recursive_dictionary import RecursiveDictionary
 
@@ -75,7 +75,8 @@ class frame(IFrame):
         self.__host_typemap = {}
         self.__typemap = {}
         self.__name2type = {}
-        self.object_store = store()
+        self.object_store = dataframe(mode = DataframeModes.Client)
+        self.object_store.start_recording = True
         if not address.endswith('/'):
             address += '/'
         self.__address = address
@@ -319,6 +320,7 @@ class frame(IFrame):
         """
         if tp in self.__observed_types:
             if id:
+                # Have to get this to work
                 return self.object_store.get_one(tp, id)
             return self.object_store.get(tp)
         else:
@@ -335,7 +337,7 @@ class frame(IFrame):
         - Application is not annotated as a producer
         """
         if obj.__class__ in self.__typemap["producing"]:
-            self.object_store.insert(obj)
+            self.object_store.append(obj.__class__, obj)
         else:
             raise Exception("Application is not a producer of type %s" % (obj.__class__.Class()))
 
@@ -432,56 +434,33 @@ class frame(IFrame):
         else:
             self.logger.warn("Non-success code received from server: %s %s",
                                           resp.status_code, resp.reason)
+    
     @timethis
     def __process_pull_resp(self,resp):
-        try:
-            new, mod, deleted = resp["new"], resp["updated"], resp["deleted"]
-        except KeyError:
-            self.logger.error("Error parsing tracked objects. Server response: %s", resp)
-            return {}, {}, {}
-        new_objs, mod_objs, deleted_objs = {}, {}, {}
-        for tp in new:
-            typeObj = self.__name2type[tp]
-            new_objs[typeObj] = self.object_store.frame_insert_all(typeObj, new[tp])
-        for tp in mod:
-            typeObj = self.__name2type[tp]
-            mod_objs[typeObj] = self.object_store.update_all(typeObj, mod[tp])
-        for tp in deleted:
-            typeObj = self.__name2type[tp]
-            objlist = []
-            for obj_id in deleted[tp]:
-                try:
-                    objlist.append(self.object_store.get_one(typeObj,obj_id))
-                    self.object_store.frame_delete_with_id(typeObj, obj_id)
-                except:
-                    self.logger.warn("Could not delete object %s of type %s",
-                                                        obj_id, typeObj.Class())
-            deleted_objs[typeObj] = objlist
-        self.object_store.create_incoming_record(new_objs, mod_objs, deleted_objs)
+        self.object_store.apply_all(resp)
 
     @timethis
     def __pull(self):
         if self.__disconnected:
             return
-        self.object_store.clear_incoming_record()
         updates = RecursiveDictionary()
         try:
             for host in self.__host_typemap:
                 type_dict = {}
-                type_dict["types_tracked"] = [tp.__realname__ for tp in list(self.__typemap["tracking"])]
-                type_dict["types_updated"] = [tp.__realname__
-                     for tp in list(self.__typemap["getting"].union(self.__typemap["gettingsetting"]))]
+                #type_dict["types_tracked"] = [tp.__realname__ for tp in list(self.__typemap["tracking"])]
+                #type_dict["types_updated"] = [tp.__realname__
+                #     for tp in list(self.__typemap["getting"].union(self.__typemap["gettingsetting"]))]
                 #resp  = requests.get(host + "/updated", data = {
-                resp = self.__sessions[host].get(host + "/updated", data = {
-                "get_types":
-                json.dumps(type_dict)
-                  })
+                resp = self.__sessions[host].get(host + "/updated", data = {})
+                #"get_types":
+                #json.dumps(type_dict)
+                #  })
                 try:
                     resp.raise_for_status()
                     updates.rec_update(resp.json())
                 except HTTPError as exc:
                     self.__handle_request_errors(resp, exc)
-
+            json.dump(updates, open("pull_" + self.get_app().__class__.__name__, "a") , sort_keys = True, separators = (',', ': '), indent = 4)
             self.__process_pull_resp(updates)
         except ConnectionError:
             self.logger.exception("Disconnected from host.")
@@ -492,37 +471,38 @@ class frame(IFrame):
     def __push(self):
         if self.__disconnected:
             return
-        changes = self.object_store.get_changes()
+        changes = self.object_store.get_record()
         for host in self.__host_typemap:
-            update_dict = {}
-            for tp in self.__host_typemap[host]["producing"]:
-                if tp.Class() in changes["new"]:
-                    update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["new"] = changes["new"][tp.Class()]
-            for tp in self.__host_typemap[host]["gettingsetting"]:
-                if tp.Class() in changes["mod"]:
-                    update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["mod"] = changes["mod"][tp.Class()]
-            for tp in self.__host_typemap[host]["setting"]:
-                if tp.Class() in changes["mod"]:
-                    update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["mod"] = changes["mod"][tp.Class()]
-            for tp in self.__host_typemap[host]["deleting"]:
-                if tp.Class() in changes["deleted"]:
-                    update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["deleted"].extend(changes["deleted"][tp.Class()])
+            #update_dict = {}
+            #for tp in self.__host_typemap[host]["producing"]:
+            #    if tp.Class() in changes["new"]:
+            #        update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["new"] = changes["new"][tp.Class()]
+            #for tp in self.__host_typemap[host]["gettingsetting"]:
+            #    if tp.Class() in changes["mod"]:
+            #        update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["mod"] = changes["mod"][tp.Class()]
+            #for tp in self.__host_typemap[host]["setting"]:
+            #    if tp.Class() in changes["mod"]:
+            #        update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["mod"] = changes["mod"][tp.Class()]
+            #for tp in self.__host_typemap[host]["deleting"]:
+            #    if tp.Class() in changes["deleted"]:
+            #        update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["deleted"].extend(changes["deleted"][tp.Class()])
 
-            if update_dict:
-                try:
-                    package = {"update_dict": json.dumps(update_dict)}
-                    #resp = requests.post(host + "/updated", json = package)
-                    resp = self.__sessions[host].post(host + "/updated", json = package)
-                except TypeError:
-                    self.logger.exception("error encoding json. Object: %s", update_dict)
-                except HTTPError as exc:
-                    self.__handle_request_errors(resp, exc)
-                except ConnectionError:
-                    self.logger.exception("Disconnected from host.")
-                    self.__disconnected = True
-                    self._stop()
+            #if update_dict:
+            try:
+                package = {"update_dict": json.dumps(changes)}
+                json.dump(changes, open("push_" + self.get_app().__class__.__name__, "a") , sort_keys = True, separators = (',', ': '), indent = 4)
+                #resp = requests.post(host + "/updated", json = package)
+                resp = self.__sessions[host].post(host + "/updated", json = package)
+            except TypeError:
+                self.logger.exception("error encoding json. Object: %s", update_dict)
+            except HTTPError as exc:
+                self.__handle_request_errors(resp, exc)
+            except ConnectionError:
+                self.logger.exception("Disconnected from host.")
+                self.__disconnected = True
+                self._stop()
 
-        self.object_store.clear_changes()
+        self.object_store.clear_record()
 
     def _shutdown(self):
         """

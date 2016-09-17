@@ -26,6 +26,7 @@ parser.add_argument('update_dict')
 parser.add_argument('insert_list')
 parser.add_argument('obj')
 parser.add_argument('get_types')
+parser.add_argument('observed_types')
 
 def handle_exceptions(f):
     @wraps(f)
@@ -88,6 +89,27 @@ class Register(Resource):
     def delete(self, sim):
         FrameServer.disconnect(sim)
 
+class GetPutObjectDictionary(Resource):
+    @handle_exceptions
+    def get(self, sim):
+        args = parser.parse_args()
+        observed_types = json.loads(args["observed_types"])
+        ret = {}
+        for t in observed_types:
+            typeObj = FrameServer.name2class[t]
+            ret[t] = FrameServer.Store.get(typeObj)
+        return ret
+
+    @handle_exceptions
+    def put(self, sim):
+        args = parser.parse_args()
+        objects = json.loads(args["insert_list"])
+        for t in objects:
+            typeObj = FrameServer.name2class[t]
+            for oid in objects[t]:
+                FrameServer.Store.put(sim, typeObj, oid, objects[t][oid])
+
+
 def SetupLoggers(debug) :
     global logger
     if debug:
@@ -133,7 +155,7 @@ class FrameServer(object):
     disconnect_timer = None
     timeout = 0
 
-    def __init__(self, port, debug, external, timeout):
+    def __init__(self, port, debug, external, timeout, clear_on_exit = False):
         global server
         SetupLoggers(debug)
         logging.info("Log level is " + str(logger.level))
@@ -141,6 +163,7 @@ class FrameServer(object):
         if timeout > 0:
             FrameServer.timeout = float(timeout)
         self.external = external
+        FrameServer.clear_on_exit = clear_on_exit
         self.app = app
         self.api = api
         FrameServer.app = app
@@ -171,7 +194,7 @@ class FrameServer(object):
                     print "cProfile not available Jython."
                 else:
                     print "failed to start profiler."
-        self.app.run(host=host, port=self.port, debug=False, threaded=False)
+        self.app.run(host=host, port=self.port, debug=False, threaded=True)
 
     def reload_dms(self):
         from datamodel.all import DATAMODEL_TYPES
@@ -209,6 +232,10 @@ class FrameServer(object):
     def disconnect(cls, sim):
         cls.Store.gc(sim)
         del cls.app_gc_timers[sim]
+        if len(cls.app_gc_timers) == 0:
+            if cls.clear_on_exit:
+                logging.info("all simulations are gone, clearing dataframe")
+                FrameServer.Store.clear()
 
     def shutdown(self):
         if self.profiling:

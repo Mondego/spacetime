@@ -17,9 +17,10 @@ class Producer(DataAgent):
         DataAgent.__init__(self, keywords)
 
     def __call__(self, actual_class):
-        if actual_class.__declaration_map__ == None:
-            actual_class.__declaration_map__ = {}
-        actual_class.__declaration_map__.setdefault(self.host, {})["producing"] = self.types
+        if self.types:
+            if actual_class.__declaration_map__ == None:
+                actual_class.__declaration_map__ = {}
+            actual_class.__declaration_map__.setdefault(self.host, {})["producing"] = self.types
         return actual_class
 
 class Tracker(DataAgent):
@@ -28,9 +29,10 @@ class Tracker(DataAgent):
         DataAgent.__init__(self, keywords)
 
     def __call__(self, actual_class):
-        if actual_class.__declaration_map__ == None:
-            actual_class.__declaration_map__ = {}
-        actual_class.__declaration_map__.setdefault(self.host, {})["tracking"] = self.types
+        if self.types:
+            if actual_class.__declaration_map__ == None:
+                actual_class.__declaration_map__ = {}
+            actual_class.__declaration_map__.setdefault(self.host, {})["tracking"] = self.types
         return actual_class
 
 class Getter(DataAgent):
@@ -39,9 +41,10 @@ class Getter(DataAgent):
         DataAgent.__init__(self, keywords)
 
     def __call__(self, actual_class):
-        if actual_class.__declaration_map__ == None:
-            actual_class.__declaration_map__ = {}
-        actual_class.__declaration_map__.setdefault(self.host, {})["getting"] = self.types
+        if self.types:
+            if actual_class.__declaration_map__ == None:
+                actual_class.__declaration_map__ = {}
+            actual_class.__declaration_map__.setdefault(self.host, {})["getting"] = self.types
         return actual_class
 
 class GetterSetter(DataAgent):
@@ -50,9 +53,10 @@ class GetterSetter(DataAgent):
         DataAgent.__init__(self, keywords)
 
     def __call__(self, actual_class):
-        if actual_class.__declaration_map__ == None:
-            actual_class.__declaration_map__ = {}
-        actual_class.__declaration_map__.setdefault(self.host, {})["gettingsetting"] = self.types
+        if self.types:
+            if actual_class.__declaration_map__ == None:
+                actual_class.__declaration_map__ = {}
+            actual_class.__declaration_map__.setdefault(self.host, {})["gettingsetting"] = self.types
         return actual_class
 
 class Deleter(DataAgent):
@@ -61,9 +65,10 @@ class Deleter(DataAgent):
         DataAgent.__init__(self, keywords)
 
     def __call__(self, actual_class):
-        if actual_class.__declaration_map__ == None:
-            actual_class.__declaration_map__ = {}
-        actual_class.__declaration_map__.setdefault(self.host, {})["deleting"] = self.types
+        if self.types:
+            if actual_class.__declaration_map__ == None:
+                actual_class.__declaration_map__ = {}
+            actual_class.__declaration_map__.setdefault(self.host, {})["deleting"] = self.types
         return actual_class
 
 class Setter(DataAgent):
@@ -72,7 +77,8 @@ class Setter(DataAgent):
         DataAgent.__init__(self, keywords)
 
     def __call__(self, actual_class):
-        if actual_class.__declaration_map__ == None:
-            actual_class.__declaration_map__ = {}
-        actual_class.__declaration_map__.setdefault(self.host, {})["setting"] = self.types
+        if self.types:
+            if actual_class.__declaration_map__ == None:
+                actual_class.__declaration_map__ = {}
+            actual_class.__declaration_map__.setdefault(self.host, {})["setting"] = self.types
         return actual_class

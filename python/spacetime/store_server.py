@@ -77,6 +77,24 @@ class GetAllUpdatedTracked(Resource):
         FrameServer.Store.update(sim, update_dict)
         return {}
 
+class GetPushTypeUpdates(Resource):
+    @handle_exceptions
+    def get(self, sim, t):
+        typeObj = FrameServer.name2class[t]
+        mod, new, deleted = FrameServer.Store.get_update(typeObj, sim, tracked_only = False)
+        ret = {}
+        ret["new"] = new
+    def put(self, sim, t, uid):
+        raise Exception("PUT operation for GetInsertDeleteObject not yet implemented")
+        # typeObj = FrameServer.name2class[t]
+        #typeObj = FrameServer.name2class[t]
+        #o = json.loads(request.form["obj"])
+        # FIX THIS OBJ
+        #FrameServer.Store.insert(obj, sim)
+ 
+    @handle_exceptions
+    def delete(self, sim, t, uid):
+        raise Exception("DELETE operation for GetInsertDeleteObject not yet implemented")
 
 class Register(Resource):
     @handle_exceptions
@@ -169,7 +187,9 @@ class FrameServer(object):
         FrameServer.app = app
         FrameServer.api = self.api
         self.DATAMODEL_TYPES = DATAMODEL_TYPES
-        # Not currently used
+        # Not currently 
+        self.api.add_resource(GetPutObjectDictionary, '/<string:sim>/dictupdate')
+        self.api.add_resource(GetPushTypeUpdates, '/<string:sim>/updates/<string:t>')
         self.api.add_resource(GetAllUpdatedTracked, '/<string:sim>/updated')
         self.api.add_resource(Register, '/<string:sim>')
         server = self

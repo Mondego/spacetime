@@ -328,9 +328,9 @@ class frame(IFrame):
         - Application does not annotate that type
         """
         if tp in self.__observed_types:
-            if id:
+            if oid:
                 # Have to get this to work
-                return self.object_store.get_one(tp, id)
+                return self.object_store.get_one(tp, oid)
             return self.object_store.get(tp)
         else:
             raise Exception("Application %s does not annotate type %s" % (self.__appname, tp.Class()))
@@ -453,7 +453,8 @@ class frame(IFrame):
     def __pull(self):
         if self.__disconnected:
             return
-        self._instruments['bytes received'] = 0
+        if self.__instrumented:
+            self._instruments['bytes received'] = 0
         updates = RecursiveDictionary()
         try:
             for host in self.__host_typemap:
@@ -468,11 +469,12 @@ class frame(IFrame):
                 #  })
                 try:
                     resp.raise_for_status()
-                    self._instruments['bytes received'] = len(resp.content)
+                    if self.__instrumented:
+                        self._instruments['bytes received'] = len(resp.content)
                     updates.rec_update(resp.json())
                 except HTTPError as exc:
                     self.__handle_request_errors(resp, exc)
-            json.dump(updates, open("pull_" + self.get_app().__class__.__name__, "a") , sort_keys = True, separators = (',', ': '), indent = 4)
+            #json.dump(updates, open("pull_" + self.get_app().__class__.__name__, "a") , sort_keys = True, separators = (',', ': '), indent = 4)
             self.__process_pull_resp(updates)
         except ConnectionError:
             self.logger.exception("Disconnected from host.")
@@ -483,7 +485,8 @@ class frame(IFrame):
     def __push(self):
         if self.__disconnected:
             return
-        self._instruments['bytes sent'] = 0
+        if self.__instrumented:
+            self._instruments['bytes sent'] = 0
         changes = self.object_store.get_record()
         for host in self.__host_typemap:
             #update_dict = {}
@@ -503,9 +506,10 @@ class frame(IFrame):
             #if update_dict:
             try:
                 jsonmsg = json.dumps(changes)
-                self._instruments['bytes sent'] = sys.getsizeof(jsonmsg)
+                if self.__instrumented:
+                    self._instruments['bytes sent'] = sys.getsizeof(jsonmsg)
                 package = {"update_dict": jsonmsg}
-                json.dump(changes, open("push_" + self.get_app().__class__.__name__, "a") , sort_keys = True, separators = (',', ': '), indent = 4)
+                #json.dump(changes, open("push_" + self.get_app().__class__.__name__, "a") , sort_keys = True, separators = (',', ': '), indent = 4)
                 #resp = requests.post(host + "/updated", json = package)
                 resp = self.__sessions[host].post(host + "/updated", json = package)
             except TypeError:

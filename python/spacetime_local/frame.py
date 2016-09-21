@@ -448,6 +448,7 @@ class frame(IFrame):
     @timethis
     def __process_pull_resp(self,resp):
         self.object_store.apply_all(resp)
+        self.object_store.clear_record()
 
     @timethis
     def __pull(self):
@@ -474,7 +475,7 @@ class frame(IFrame):
                     updates.rec_update(resp.json())
                 except HTTPError as exc:
                     self.__handle_request_errors(resp, exc)
-            #json.dump(updates, open("pull_" + self.get_app().__class__.__name__, "a") , sort_keys = True, separators = (',', ': '), indent = 4)
+            #json.dump(updates, open("pull_" + self.get_app().__class__.__name__ + ".json", "a") , sort_keys = True, separators = (',', ': '), indent = 4)
             self.__process_pull_resp(updates)
         except ConnectionError:
             self.logger.exception("Disconnected from host.")
@@ -509,7 +510,7 @@ class frame(IFrame):
                 if self.__instrumented:
                     self._instruments['bytes sent'] = sys.getsizeof(jsonmsg)
                 package = {"update_dict": jsonmsg}
-                #json.dump(changes, open("push_" + self.get_app().__class__.__name__, "a") , sort_keys = True, separators = (',', ': '), indent = 4)
+                #json.dump(changes, open("push_" + self.get_app().__class__.__name__ + ".json", "a") , sort_keys = True, separators = (',', ': '), indent = 4)
                 #resp = requests.post(host + "/updated", json = package)
                 resp = self.__sessions[host].post(host + "/updated", json = package)
             except TypeError:

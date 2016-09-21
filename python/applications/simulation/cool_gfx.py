@@ -43,7 +43,7 @@ class CarSprite(pygame.sprite.Sprite):
         if x != oldx or y != oldy:
             logger.debug("Moving car sprite from (%d, %d) -> (%d, %d)" % (oldx, oldy, x, y))
             self.rect.move_ip((x - oldx, y - oldy))
-            self.car_old_position = self.car_position
+            self.car_old_position_x, self.car_old_position_y = x, y
 
 class PedestrianSprites(pygame.sprite.Sprite):
     def __init__(self, ped):

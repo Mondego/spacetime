@@ -212,7 +212,7 @@ class Walker(Pedestrian.Class()):
       select p;
     """
 
-@parameter(ActiveCar, ParameterMode.Collection)
+@parameter(ActiveCar, mode = ParameterMode.Collection)
 @subset(Walker)
 class PedestrianInDanger(Pedestrian.Class()):
     def distance(self, p1, p2):

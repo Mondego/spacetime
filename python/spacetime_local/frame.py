@@ -511,6 +511,7 @@ class frame(IFrame):
                 self._stop()
 
         self.object_store.clear_record()
+        self.object_store.clear_buffer()
 
     def _shutdown(self):
         """

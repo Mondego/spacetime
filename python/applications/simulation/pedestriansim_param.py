@@ -50,7 +50,7 @@ class PedestrianSimulation(IApplication):
             except Exception:
                 logger.exception("Error: ")
 
-        endangereds = self.frame.get(PedestrianInDanger)
+        endangereds = self.frame.get_new(PedestrianInDanger)
         logger.debug("%s ************** PedestrianInDanger: %s", LOG_HEADER, len(endangereds))
         for pedestrian in endangereds:
             pedestrian.move()

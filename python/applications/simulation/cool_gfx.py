@@ -31,17 +31,19 @@ def load_image(fullname, colorkey=None):
 class CarSprite(pygame.sprite.Sprite):
     def __init__(self, car):
         self.car_position = car.Position
-        self.car_old_position = car.Position
+        self.car_old_position_x = car.Position.X
+        self.car_old_position_y = car.Position.Y
         pygame.sprite.Sprite.__init__(self)
         self.image, self.rect = load_image('applications/simulation/images/car-small.gif',-1)
         self.rect.move_ip((self.car_position.X, self.car_position.Y))
 
     def update(self):
-        oldx, oldy, oldz = self.car_old_position.X, self.car_old_position.Y, self.car_old_position.Z
+        oldx, oldy = self.car_old_position_x, self.car_old_position_y
         x, y, z = self.car_position.X, self.car_position.Y, self.car_position.Z
         if x != oldx or y != oldy:
+            logger.debug("Moving car sprite from (%d, %d) -> (%d, %d)" % (oldx, oldy, x, y))
             self.rect.move_ip((x - oldx, y - oldy))
-            self.car_old_position = self.car_position
+            self.car_old_position_x, self.car_old_position_y = x, y
 
 class PedestrianSprites(pygame.sprite.Sprite):
     def __init__(self, ped):
@@ -53,6 +55,7 @@ class PedestrianSprites(pygame.sprite.Sprite):
 
     def update(self):
         if self.ped_X != self.ped_oldX or self.ped_Y != self.ped_oldY:
+            logger.debug("Moving ped sprite from (%d, %d) -> (%d, %d)" % (self.ped_oldX, self.ped_oldY, self.ped_X, self.ped_Y))
             self.rect.move_ip((self.ped_X - self.ped_oldX, self.ped_Y - self.ped_oldY))
             self.ped_oldX, self.ped_oldY = self.ped_X, self.ped_Y
 

@@ -13,3 +13,4 @@ applications/ospuller/data/*.js
 *.pyc
 *.sln
 .vs
+.vscode/

@@ -7,7 +7,7 @@ from __future__ import absolute_import
 import logging
 from pcc.join import join
 from pcc.subset import subset
-from pcc.parameter import parameter
+from pcc.parameter import parameter, ParameterMode
 from pcc.projection import projection
 from pcc.set import pcc_set
 from pcc.attributes import dimension, primarykey
@@ -34,7 +34,7 @@ class Car(object):
     def ID(self, value):
         self._ID = value
 
-    _Position = Vector3(0, 0, 0)
+    _Position = Vector3(0,0,0)
     @dimension(Vector3)
     def Position(self):
         return self._Position
@@ -43,7 +43,7 @@ class Car(object):
     def Position(self, value):
         self._Position = value
 
-    _Velocity = Vector3(0, 0, 0)
+    _Velocity = Vector3(0,0,0)
     @dimension(Vector3)
     def Velocity(self):
         return self._Velocity
@@ -52,7 +52,7 @@ class Car(object):
     def Velocity(self, value):
         self._Velocity = value
 
-    _Color = Color.White
+    _Color = Color.White    
     @dimension(Color)
     def Color(self):
         return self._Color
@@ -76,6 +76,11 @@ class Car(object):
     @Width.setter
     def Width(self, value):
         self._Width = value
+
+    def __init__(self):
+        self.Velocity = Vector3(0,0,0)
+        self.Position = Vector3(0,0,0)
+        self.Color = Color.White
 
 @subset(Car)
 class InactiveCar(Car.Class()):
@@ -207,7 +212,7 @@ class Walker(Pedestrian.Class()):
       select p;
     """
 
-@parameter(ActiveCar)
+@parameter(ActiveCar, mode = ParameterMode.Collection)
 @subset(Walker)
 class PedestrianInDanger(Pedestrian.Class()):
     def distance(self, p1, p2):

@@ -15,7 +15,7 @@ import cmd
 import sys
 import os
 
-from .store import store
+from pcc.dataframe import dataframe, DataframeModes
 from .IFrame import IFrame
 from pcc.recursive_dictionary import RecursiveDictionary
 
@@ -28,6 +28,7 @@ from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.poolmanager import PoolManager
 from requests.sessions import Session
 from common.javahttpadapter import MyJavaHTTPAdapter, ignoreJavaSSL
+from common.modes import Modes
 import platform
 
 class SpacetimeConsole(cmd.Cmd):
@@ -75,7 +76,8 @@ class frame(IFrame):
         self.__host_typemap = {}
         self.__typemap = {}
         self.__name2type = {}
-        self.object_store = store()
+        self.object_store = dataframe(mode = DataframeModes.Client)
+        self.object_store.start_recording = True
         if not address.endswith('/'):
             address += '/'
         self.__address = address
@@ -92,6 +94,7 @@ class frame(IFrame):
         self.__instrumented = instrument
         self.__profiling = profiling
         self.__sessions = {}
+        self.__host_to_push_groupkey = {}
         if instrument:
             self._instruments = {}
             self._instrument_headers = []
@@ -114,25 +117,25 @@ class frame(IFrame):
         all_types = set()
         for host in self.__host_typemap:
             jobj = dict([(k, [tp.__realname__ for tp in v]) for k, v in self.__host_typemap[host].items()])
-            producing, getting, gettingsetting, deleting, setting, tracking = (self.__host_typemap[host].setdefault("producing", set()),
-                self.__host_typemap[host].setdefault("getting", set()),
-                self.__host_typemap[host].setdefault("gettingsetting", set()),
-                self.__host_typemap[host].setdefault("deleting", set()),
-                self.__host_typemap[host].setdefault("setting", set()),
-                self.__host_typemap[host].setdefault("tracking", set()))
-            self.__typemap.setdefault("producing", set()).update(producing)
-            self.__typemap.setdefault("getting", set()).update(getting)
-            self.__typemap.setdefault("gettingsetting", set()).update(gettingsetting)
-            self.__typemap.setdefault("deleting", set()).update(deleting)
-            self.__typemap.setdefault("setting", set()).update(setting)
-            self.__typemap.setdefault("tracking", set()).update(tracking)
-
+            producing, getting, gettingsetting, deleting, setting, tracking = (self.__host_typemap[host].setdefault(Modes.Producing, set()),
+                self.__host_typemap[host].setdefault(Modes.Getter, set()),
+                self.__host_typemap[host].setdefault(Modes.GetterSetter, set()),
+                self.__host_typemap[host].setdefault(Modes.Deleter, set()),
+                self.__host_typemap[host].setdefault(Modes.Setter, set()),
+                self.__host_typemap[host].setdefault(Modes.Tracker, set()))
+            self.__typemap.setdefault(Modes.Producing, set()).update(producing)
+            self.__typemap.setdefault(Modes.Getter, set()).update(getting)
+            self.__typemap.setdefault(Modes.GetterSetter, set()).update(gettingsetting)
+            self.__typemap.setdefault(Modes.Deleter, set()).update(deleting)
+            self.__typemap.setdefault(Modes.Setter, set()).update(setting)
+            self.__typemap.setdefault(Modes.Tracker, set()).update(tracking)
+            
             all_types_host = tracking.union(producing).union(getting).union(gettingsetting).union(deleting).union(setting)
             all_types.update(all_types_host)
             self.__observed_types.update(all_types_host)
-            self.__observed_types_new.update(self.__host_typemap[host]["tracking"].union(self.__host_typemap[host]["getting"]).union(self.__host_typemap[host]["gettingsetting"]))
+            self.__observed_types_new.update(self.__host_typemap[host][Modes.Tracker].union(self.__host_typemap[host][Modes.Getter]).union(self.__host_typemap[host][Modes.GetterSetter]))
 
-            self.__observed_types_mod.update(self.__host_typemap[host]["getting"].union(self.__host_typemap[host]["gettingsetting"]))
+            self.__observed_types_mod.update(self.__host_typemap[host][Modes.Getter].union(self.__host_typemap[host][Modes.GetterSetter]))
 
             jsonobj = json.dumps({"sim_typemap": jobj})
             try:
@@ -154,6 +157,13 @@ class frame(IFrame):
                 return False
         self.__name2type = dict([(tp.__realname__, tp) for tp in all_types])
         self.object_store.add_types(all_types)
+        for host in self.__host_typemap:
+            self.__host_to_push_groupkey[host] = set([self.object_store.member_to_group[tp.__realname__]
+                                                      for tp in self.__host_typemap[host][Modes.GetterSetter].union(
+                                                                self.__host_typemap[host][Modes.Setter]).union(
+                                                                self.__host_typemap[host][Modes.Producing]).union(
+                                                                self.__host_typemap[host][Modes.Deleter])    
+                                                     ])
         return True
 
     @staticmethod
@@ -328,6 +338,7 @@ class frame(IFrame):
         """
         if tp in self.__observed_types:
             if oid:
+                # Have to get this to work
                 return self.object_store.get_one(tp, oid)
             return self.object_store.get(tp)
         else:
@@ -344,8 +355,8 @@ class frame(IFrame):
         Exceptions:
         - Application is not annotated as a producer
         """
-        if obj.__class__ in self.__typemap["producing"]:
-            self.object_store.insert(obj)
+        if obj.__class__ in self.__typemap[Modes.Producing]:
+            self.object_store.append(obj.__class__, obj)
         else:
             raise Exception("Application %s is not a producer of type %s" % (self.__appname, obj.__class__.Class()))
 
@@ -361,7 +372,7 @@ class frame(IFrame):
         - Application is not annotated as a Deleter
         """
 
-        if tp in self.__typemap["deleting"]:
+        if tp in self.__typemap[Modes.Deleter]:
             self.object_store.delete(tp, obj)
         else:
             raise Exception("Application %s is not registered to delete %s" % (self.__appname, tp.Class()))
@@ -442,58 +453,32 @@ class frame(IFrame):
         else:
             self.logger.warn("Non-success code received from server: %s %s",
                                           resp.status_code, resp.reason)
+    
     @timethis
     def __process_pull_resp(self,resp):
-        try:
-            new, mod, deleted = resp["new"], resp["updated"], resp["deleted"]
-        except KeyError:
-            self.logger.error("Error parsing tracked objects. Server response: %s", resp)
-            return {}, {}, {}
-        new_objs, mod_objs, deleted_objs = {}, {}, {}
-        for tp in new:
-            typeObj = self.__name2type[tp]
-            new_objs[typeObj] = self.object_store.frame_insert_all(typeObj, new[tp])
-        for tp in mod:
-            typeObj = self.__name2type[tp]
-            mod_objs[typeObj] = self.object_store.update_all(typeObj, mod[tp])
-        for tp in deleted:
-            typeObj = self.__name2type[tp]
-            objlist = []
-            for obj_id in deleted[tp]:
-                try:
-                    objlist.append(self.object_store.get_one(typeObj,obj_id))
-                    self.object_store.frame_delete_with_id(typeObj, obj_id)
-                except:
-                    self.logger.warn("Could not delete object %s of type %s",
-                                                        obj_id, typeObj.Class())
-            deleted_objs[typeObj] = objlist
-        self.object_store.create_incoming_record(new_objs, mod_objs, deleted_objs)
+        self.object_store.apply_all(resp)
+        self.object_store.clear_record()
 
     @timethis
     def __pull(self):
         if self.__disconnected:
             return
-        self._instruments['bytes received'] = 0
-        self.object_store.clear_incoming_record()
+        if self.__instrumented:
+            self._instruments['bytes received'] = 0
         updates = RecursiveDictionary()
         try:
             for host in self.__host_typemap:
                 type_dict = {}
-                type_dict["types_tracked"] = [tp.__realname__ for tp in list(self.__typemap["tracking"])]
-                type_dict["types_updated"] = [tp.__realname__
-                     for tp in list(self.__typemap["getting"].union(self.__typemap["gettingsetting"]))]
-                #resp  = requests.get(host + "/updated", data = {
-                resp = self.__sessions[host].get(host + "/updated", data = {
-                "get_types":
-                json.dumps(type_dict)
-                  })
+                # Need to give mechanism to selectively ask for some changes. Very hard to implement in current dataframe scheme.
+                resp = self.__sessions[host].get(host + "/updated", data = {})
                 try:
                     resp.raise_for_status()
-                    self._instruments['bytes received'] = len(resp.content)
+                    if self.__instrumented:
+                        self._instruments['bytes received'] = len(resp.content)
                     updates.rec_update(resp.json())
                 except HTTPError as exc:
                     self.__handle_request_errors(resp, exc)
-
+            #json.dump(updates, open("pull_" + self.get_app().__class__.__name__ + ".json", "a") , sort_keys = True, separators = (',', ': '), indent = 4)
             self.__process_pull_resp(updates)
         except ConnectionError:
             self.logger.exception("Disconnected from host.")
@@ -504,40 +489,29 @@ class frame(IFrame):
     def __push(self):
         if self.__disconnected:
             return
-        self._instruments['bytes sent'] = 0
-        changes = self.object_store.get_changes()
+        if self.__instrumented:
+            self._instruments['bytes sent'] = 0
+        changes = self.object_store.get_record()
         for host in self.__host_typemap:
-            update_dict = {}
-            for tp in self.__host_typemap[host]["producing"]:
-                if tp.Class() in changes["new"]:
-                    update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["new"] = changes["new"][tp.Class()]
-            for tp in self.__host_typemap[host]["gettingsetting"]:
-                if tp.Class() in changes["mod"]:
-                    update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["mod"] = changes["mod"][tp.Class()]
-            for tp in self.__host_typemap[host]["setting"]:
-                if tp.Class() in changes["mod"]:
-                    update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["mod"] = changes["mod"][tp.Class()]
-            for tp in self.__host_typemap[host]["deleting"]:
-                if tp.Class() in changes["deleted"]:
-                    update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["deleted"].extend(changes["deleted"][tp.Class()])
-
-            if update_dict:
-                try:
-                    jsonmsg = json.dumps(update_dict)
+            try:
+                changes_for_host = dict([(k,v) for k, v in changes.items() if k in self.__host_to_push_groupkey[host]])
+                jsonmsg = json.dumps(changes_for_host)
+                if self.__instrumented:
                     self._instruments['bytes sent'] = sys.getsizeof(jsonmsg)
-                    package = {"update_dict": jsonmsg}
-                    #resp = requests.post(host + "/updated", json = package)
-                    resp = self.__sessions[host].post(host + "/updated", json = package)
-                except TypeError:
-                    self.logger.exception("error encoding json. Object: %s", update_dict)
-                except HTTPError as exc:
-                    self.__handle_request_errors(resp, exc)
-                except ConnectionError:
-                    self.logger.exception("Disconnected from host.")
-                    self.__disconnected = True
-                    self._stop()
+                package = {"update_dict": jsonmsg}
+                #json.dump(changes, open("push_" + self.get_app().__class__.__name__ + ".json", "a") , sort_keys = True, separators = (',', ': '), indent = 4)
+                resp = self.__sessions[host].post(host + "/updated", json = package)
+            except TypeError:
+                self.logger.exception("error encoding json. Object: %s", update_dict)
+            except HTTPError as exc:
+                self.__handle_request_errors(resp, exc)
+            except ConnectionError:
+                self.logger.exception("Disconnected from host.")
+                self.__disconnected = True
+                self._stop()
 
-        self.object_store.clear_changes()
+        self.object_store.clear_record()
+        self.object_store.clear_buffer()
 
     def _shutdown(self):
         """

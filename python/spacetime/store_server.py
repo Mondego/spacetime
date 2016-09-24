@@ -17,7 +17,7 @@ from flask import Flask, request
 from flask_restful import Api, Resource, reqparse
 
 from datamodel.all import DATAMODEL_TYPES
-from store import dataframe
+from store import dataframe_stores
 import platform
 
 
@@ -65,39 +65,7 @@ api = Api(app)
 class GetAllUpdatedTracked(Resource):
     @handle_exceptions
     def get(self, sim):
-        args = parser.parse_args()
-        types_tracked = json.loads(args["get_types"])["types_tracked"]
-        types_updated = json.loads(args["get_types"])["types_updated"]
-        (all_new, all_updated, all_deleted) = ({}, {}, {})
-        all_touched_types_t = set()
-        all_touched_types_u = set()
-        with FrameServer.Store.get_lock(sim):
-            only_tracked_types = set(types_tracked).difference(set(types_updated))
-            for tp in only_tracked_types:
-                typeObj = FrameServer.name2class[tp]
-                (new, updated, deleted, touched_types) = FrameServer.Store.get_update(typeObj, sim, tracked_only=True)
-                all_new.update(new)
-                all_updated.update(updated)
-                all_deleted.update(deleted)
-                all_touched_types_t.update(touched_types)
-
-            for tp in types_updated:
-                typeObj = FrameServer.name2class[tp]
-                (new, updated, deleted, touched_types) = FrameServer.Store.get_update(typeObj, sim)
-                all_new.update(new)
-                all_updated.update(updated)
-                all_deleted.update(deleted)
-                all_touched_types_u.update(touched_types)
-
-            for tp in set(all_touched_types_t).union(set(all_touched_types_u)):
-                if FrameServer.name2class[tp].__PCC_BASE_TYPE__:
-                    FrameServer.Store.clear_buffer(sim, tp, tracked_only = tp in all_touched_types_t.difference(all_touched_types_u))
-
-        ret = {}
-        ret["new"] = all_new
-        ret["updated"] = all_updated
-        ret["deleted"] = all_deleted
-        return ret
+        return FrameServer.Store.getupdates(sim)
 
     @handle_exceptions
     def post(self, sim):
@@ -106,62 +74,7 @@ class GetAllUpdatedTracked(Resource):
         # property_name : property_value } }
         data = args["update_dict"]
         update_dict = json.loads(data)
-        for strtp in update_dict.keys():
-            typeObj = FrameServer.name2class[strtp]
-            new, mod, deleted = update_dict[strtp]["new"], update_dict[strtp]["mod"], update_dict[strtp]["deleted"]
-            FrameServer.Store.put_update(sim, typeObj, new, mod, deleted)
-        return {}
-
-
-class GetUpdated(Resource):
-    @handle_exceptions
-    def get(self, sim, t):
-        typeObj = FrameServer.name2class[t]
-        (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim)
-        ret = {}
-        ret["new"] = new
-        ret["updated"] = updated
-        ret["deleted"] = deleted
-
-        return ret
-
-class GetTracked(Resource):
-    @handle_exceptions
-    def get(self, sim, t):
-        typeObj = FrameServer.name2class[t]
-        (new, updated, deleted) = FrameServer.Store.get_update(typeObj, sim, tracked_only=True)
-        ret = {}
-        ret["new"] = new
-        ret["updated"] = updated
-        ret["deleted"] = deleted
-
-        return ret
-
-class GetPushType(Resource):
-    @handle_exceptions
-    def get(self, sim, t):
-        typeObj = FrameServer.name2class[t]
-        ret = FrameServer.Store.get(typeObj)
-        return ret
-
-    @handle_exceptions
-    def put(self, sim, t):
-        typeObj = FrameServer.name2class[t]
-        args = parser.parse_args()
-        data = args['insert_dict']
-        for oid in data:
-            FrameServer.Store.put(sim, typeObj, oid, data[oid])
-        return {}
-
-    @handle_exceptions
-    def post(self, sim, t):
-        typeObj = FrameServer.name2class[t]
-        args = parser.parse_args()
-        data = args["update_dict"]
-        update_dict = json.loads(data)
-        new, mod, deleted = update_dict["new"], update_dict["mod"], update_dict["deleted"]
-        FrameServer.Store.put_update(sim, typeObj, new, mod, deleted)
-
+        FrameServer.Store.update(sim, update_dict)
         return {}
 
 class GetPushTypeUpdates(Resource):
@@ -171,43 +84,6 @@ class GetPushTypeUpdates(Resource):
         mod, new, deleted = FrameServer.Store.get_update(typeObj, sim, tracked_only = False)
         ret = {}
         ret["new"] = new
-        ret["updated"] = mod
-        ret["deleted"] = deleted
-
-        return ret
-
-    @handle_exceptions
-    def put(self, sim, t):
-        raise Exception("PUT operation for GetPushType not yet implemented")
-        #typeObj = FrameServer.name2class[t]
-        #list_objs = json.loads(request.form["insert_list"])
-        #for o in list_objs:
-        #    # FIX THIS OBJ
-        #    FrameServer.Store.insert(obj, sim)
-        #return {}
-
-    @handle_exceptions
-    def post(self, sim, t):
-        typeObj = FrameServer.name2class[t]
-        args = parser.parse_args()
-        # update dict is a dictionary of dictionaries: { primary_key : {
-        # property_name : property_value } }
-        data = args["update_dict"]
-        update_dict = json.loads(data)
-        new, mod, deleted = update_dict["new"], update_dict["mod"], update_dict["deleted"]
-        FrameServer.Store.put_update(sim, typeObj, new, mod, deleted)
-
-        return {}
-
-class GetInsertDeleteObject(Resource):
-    @handle_exceptions
-    def get(self, sim, t, uid):
-        raise Exception("GET operation for GetInsertDeleteObject not yet implemented")
-        #typeObj = FrameServer.name2class[t]
-        #obj = FrameServer.Store.get(typeObj, UUID(uid))
-        #return obj
-
-    @handle_exceptions
     def put(self, sim, t, uid):
         raise Exception("PUT operation for GetInsertDeleteObject not yet implemented")
         # typeObj = FrameServer.name2class[t]
@@ -215,7 +91,7 @@ class GetInsertDeleteObject(Resource):
         #o = json.loads(request.form["obj"])
         # FIX THIS OBJ
         #FrameServer.Store.insert(obj, sim)
-
+ 
     @handle_exceptions
     def delete(self, sim, t, uid):
         raise Exception("DELETE operation for GetInsertDeleteObject not yet implemented")
@@ -225,7 +101,7 @@ class Register(Resource):
     def put(self, sim):
         data = urllib2.unquote(request.data.replace("+", " "))
         typemap = json.loads(data)["sim_typemap"]
-        FrameServer.Store.register_app(sim, typemap, FrameServer.name2class, FrameServer.name2baseclasses)
+        FrameServer.Store.register_app(sim, typemap)
 
     @handle_exceptions
     def delete(self, sim):
@@ -286,9 +162,10 @@ class FrameServer(object):
     '''
     Store server for CADIS
     '''
-    Store = dataframe()
     name2class = dict([(tp.__realname__, tp) for tp in DATAMODEL_TYPES])
     name2baseclasses = dict([(tp.__realname__, tp.__pcc_bases__) for tp in DATAMODEL_TYPES])
+    
+    Store = dataframe_stores(name2class)
     Shutdown = False
     app_gc_timers = {}
 
@@ -310,15 +187,10 @@ class FrameServer(object):
         FrameServer.app = app
         FrameServer.api = self.api
         self.DATAMODEL_TYPES = DATAMODEL_TYPES
-        # Not currently used
-        # self.api.add_resource(GetInsertDeleteObject, '/<string:sim>/<string:t>/<string:uid>')
-        self.api.add_resource(GetPushTypeUpdates, '/<string:sim>/updates/<string:t>')
-        self.api.add_resource(GetPushType, '/<string:sim>/<string:t>')
-        self.api.add_resource(GetUpdated, '/<string:sim>/updated/<string:t>')
-        self.api.add_resource(GetTracked, '/<string:sim>/tracked/<string:t>')
-        self.api.add_resource(GetAllUpdatedTracked, '/<string:sim>/updated')
+        # Not currently 
         self.api.add_resource(GetPutObjectDictionary, '/<string:sim>/dictupdate')
-        #self.api.add_resource(GetAllTracked, '/<string:sim>/tracked')
+        self.api.add_resource(GetPushTypeUpdates, '/<string:sim>/updates/<string:t>')
+        self.api.add_resource(GetAllUpdatedTracked, '/<string:sim>/updated')
         self.api.add_resource(Register, '/<string:sim>')
         server = self
 
@@ -370,14 +242,15 @@ class FrameServer(object):
 
     @classmethod
     def check_disconnect(cls):
-        for sim in cls.app_gc_timers.keys():
-            if time.time() - cls.app_gc_timers[sim] > cls.timeout:
-                cls.disconnect(sim)
+        if not cls.Store.pause_servers:
+            for sim in cls.app_gc_timers.keys():
+                if time.time() - cls.app_gc_timers[sim] > cls.timeout:
+                    cls.disconnect(sim)
         cls.start_timer()
 
     @classmethod
     def disconnect(cls, sim):
-        cls.Store.gc(sim, cls.name2class)
+        cls.Store.gc(sim)
         del cls.app_gc_timers[sim]
         if len(cls.app_gc_timers) == 0:
             if cls.clear_on_exit:
@@ -391,3 +264,4 @@ class FrameServer(object):
             self.profile.create_stats()
             self.profile.dump_stats(os.path.join('stats', "%s_frameserver.ps" % (strtime)))
         FrameServer.Shutdown = True
+

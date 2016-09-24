@@ -42,8 +42,11 @@ class SpacetimeConsole(cmd.Cmd):
                 tp = fs.name2class[type_text]
                 if hasattr(tp, dim):
                     objs = fs.Store.get(tp)
-                    for obj in objs.values():
-                        v = obj[dim]
+                    for obj in objs:
+                        try:
+                            v = getattr(obj, dim)
+                        except Exception:
+                            continue
                         if str(v) == val:
                             for d in obj:
                                 print "%s: %s" % (d, obj[d])
@@ -66,7 +69,7 @@ class SpacetimeConsole(cmd.Cmd):
             if type_text in fs.name2class:
                 obj = {}
                 try:
-                    obj = fs.Store.get(fs.name2class[type_text], oid)
+                    obj = fs.Store.get_object_state(fs.name2class[type_text], oid)
                 except:
                     print "could not find object with id %s" % oid
                 for dim in obj:
@@ -86,7 +89,7 @@ class SpacetimeConsole(cmd.Cmd):
                 if len(tokens) == 2 and not text:
                     completions = [oid for oid in fs.Store.get_ids(fs.name2class[tokens[1]])]
                 elif len(tokens) == 3 and text:
-                    completions = [oid for oid in fs.Store.get(fs.name2class[tokens[1]]) if oid.startswith(text)]
+                    completions = [oid for oid in fs.Store.get_ids(fs.name2class[tokens[1]]) if oid.startswith(text)]
             else:
                 print "\n%s is not a valid type." % tokens[1]
         return completions

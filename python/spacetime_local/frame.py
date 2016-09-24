@@ -94,6 +94,7 @@ class frame(IFrame):
         self.__instrumented = instrument
         self.__profiling = profiling
         self.__sessions = {}
+        self.__host_to_push_groupkey = {}
         if instrument:
             self._instruments = {}
             self._instrument_headers = []
@@ -128,7 +129,7 @@ class frame(IFrame):
             self.__typemap.setdefault(Modes.Deleter, set()).update(deleting)
             self.__typemap.setdefault(Modes.Setter, set()).update(setting)
             self.__typemap.setdefault(Modes.Tracker, set()).update(tracking)
-
+            
             all_types_host = tracking.union(producing).union(getting).union(gettingsetting).union(deleting).union(setting)
             all_types.update(all_types_host)
             self.__observed_types.update(all_types_host)
@@ -156,6 +157,13 @@ class frame(IFrame):
                 return False
         self.__name2type = dict([(tp.__realname__, tp) for tp in all_types])
         self.object_store.add_types(all_types)
+        for host in self.__host_typemap:
+            self.__host_to_push_groupkey[host] = set([self.object_store.member_to_group[tp.__realname__]
+                                                      for tp in self.__host_typemap[host][Modes.GetterSetter].union(
+                                                                self.__host_typemap[host][Modes.Setter]).union(
+                                                                self.__host_typemap[host][Modes.Producing]).union(
+                                                                self.__host_typemap[host][Modes.Deleter])    
+                                                     ])
         return True
 
     @staticmethod
@@ -486,7 +494,8 @@ class frame(IFrame):
         changes = self.object_store.get_record()
         for host in self.__host_typemap:
             try:
-                jsonmsg = json.dumps(changes)
+                changes_for_host = dict([(k,v) for k, v in changes.items() if k in self.__host_to_push_groupkey[host]])
+                jsonmsg = json.dumps(changes_for_host)
                 if self.__instrumented:
                     self._instruments['bytes sent'] = sys.getsizeof(jsonmsg)
                 package = {"update_dict": jsonmsg}

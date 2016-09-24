@@ -28,6 +28,7 @@ from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.poolmanager import PoolManager
 from requests.sessions import Session
 from common.javahttpadapter import MyJavaHTTPAdapter, ignoreJavaSSL
+from common.modes import Modes
 import platform
 
 class SpacetimeConsole(cmd.Cmd):
@@ -115,25 +116,25 @@ class frame(IFrame):
         all_types = set()
         for host in self.__host_typemap:
             jobj = dict([(k, [tp.__realname__ for tp in v]) for k, v in self.__host_typemap[host].items()])
-            producing, getting, gettingsetting, deleting, setting, tracking = (self.__host_typemap[host].setdefault("producing", set()),
-                self.__host_typemap[host].setdefault("getting", set()),
-                self.__host_typemap[host].setdefault("gettingsetting", set()),
-                self.__host_typemap[host].setdefault("deleting", set()),
-                self.__host_typemap[host].setdefault("setting", set()),
-                self.__host_typemap[host].setdefault("tracking", set()))
-            self.__typemap.setdefault("producing", set()).update(producing)
-            self.__typemap.setdefault("getting", set()).update(getting)
-            self.__typemap.setdefault("gettingsetting", set()).update(gettingsetting)
-            self.__typemap.setdefault("deleting", set()).update(deleting)
-            self.__typemap.setdefault("setting", set()).update(setting)
-            self.__typemap.setdefault("tracking", set()).update(tracking)
+            producing, getting, gettingsetting, deleting, setting, tracking = (self.__host_typemap[host].setdefault(Modes.Producing, set()),
+                self.__host_typemap[host].setdefault(Modes.Getter, set()),
+                self.__host_typemap[host].setdefault(Modes.GetterSetter, set()),
+                self.__host_typemap[host].setdefault(Modes.Deleter, set()),
+                self.__host_typemap[host].setdefault(Modes.Setter, set()),
+                self.__host_typemap[host].setdefault(Modes.Tracker, set()))
+            self.__typemap.setdefault(Modes.Producing, set()).update(producing)
+            self.__typemap.setdefault(Modes.Getter, set()).update(getting)
+            self.__typemap.setdefault(Modes.GetterSetter, set()).update(gettingsetting)
+            self.__typemap.setdefault(Modes.Deleter, set()).update(deleting)
+            self.__typemap.setdefault(Modes.Setter, set()).update(setting)
+            self.__typemap.setdefault(Modes.Tracker, set()).update(tracking)
 
             all_types_host = tracking.union(producing).union(getting).union(gettingsetting).union(deleting).union(setting)
             all_types.update(all_types_host)
             self.__observed_types.update(all_types_host)
-            self.__observed_types_new.update(self.__host_typemap[host]["tracking"].union(self.__host_typemap[host]["getting"]).union(self.__host_typemap[host]["gettingsetting"]))
+            self.__observed_types_new.update(self.__host_typemap[host][Modes.Tracker].union(self.__host_typemap[host][Modes.Getter]).union(self.__host_typemap[host][Modes.GetterSetter]))
 
-            self.__observed_types_mod.update(self.__host_typemap[host]["getting"].union(self.__host_typemap[host]["gettingsetting"]))
+            self.__observed_types_mod.update(self.__host_typemap[host][Modes.Getter].union(self.__host_typemap[host][Modes.GetterSetter]))
 
             jsonobj = json.dumps({"sim_typemap": jobj})
             try:
@@ -346,7 +347,7 @@ class frame(IFrame):
         Exceptions:
         - Application is not annotated as a producer
         """
-        if obj.__class__ in self.__typemap["producing"]:
+        if obj.__class__ in self.__typemap[Modes.Producing]:
             self.object_store.append(obj.__class__, obj)
         else:
             raise Exception("Application %s is not a producer of type %s" % (self.__appname, obj.__class__.Class()))
@@ -363,7 +364,7 @@ class frame(IFrame):
         - Application is not annotated as a Deleter
         """
 
-        if tp in self.__typemap["deleting"]:
+        if tp in self.__typemap[Modes.Deleter]:
             self.object_store.delete(tp, obj)
         else:
             raise Exception("Application %s is not registered to delete %s" % (self.__appname, tp.Class()))
@@ -460,14 +461,8 @@ class frame(IFrame):
         try:
             for host in self.__host_typemap:
                 type_dict = {}
-                #type_dict["types_tracked"] = [tp.__realname__ for tp in list(self.__typemap["tracking"])]
-                #type_dict["types_updated"] = [tp.__realname__
-                #     for tp in list(self.__typemap["getting"].union(self.__typemap["gettingsetting"]))]
-                #resp  = requests.get(host + "/updated", data = {
+                # Need to give mechanism to selectively ask for some changes. Very hard to implement in current dataframe scheme.
                 resp = self.__sessions[host].get(host + "/updated", data = {})
-                #"get_types":
-                #json.dumps(type_dict)
-                #  })
                 try:
                     resp.raise_for_status()
                     if self.__instrumented:
@@ -490,28 +485,12 @@ class frame(IFrame):
             self._instruments['bytes sent'] = 0
         changes = self.object_store.get_record()
         for host in self.__host_typemap:
-            #update_dict = {}
-            #for tp in self.__host_typemap[host]["producing"]:
-            #    if tp.Class() in changes["new"]:
-            #        update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["new"] = changes["new"][tp.Class()]
-            #for tp in self.__host_typemap[host]["gettingsetting"]:
-            #    if tp.Class() in changes["mod"]:
-            #        update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["mod"] = changes["mod"][tp.Class()]
-            #for tp in self.__host_typemap[host]["setting"]:
-            #    if tp.Class() in changes["mod"]:
-            #        update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["mod"] = changes["mod"][tp.Class()]
-            #for tp in self.__host_typemap[host]["deleting"]:
-            #    if tp.Class() in changes["deleted"]:
-            #        update_dict.setdefault(tp.__realname__, {"new": {}, "mod": {}, "deleted": []})["deleted"].extend(changes["deleted"][tp.Class()])
-
-            #if update_dict:
             try:
                 jsonmsg = json.dumps(changes)
                 if self.__instrumented:
                     self._instruments['bytes sent'] = sys.getsizeof(jsonmsg)
                 package = {"update_dict": jsonmsg}
                 #json.dump(changes, open("push_" + self.get_app().__class__.__name__ + ".json", "a") , sort_keys = True, separators = (',', ': '), indent = 4)
-                #resp = requests.post(host + "/updated", json = package)
                 resp = self.__sessions[host].post(host + "/updated", json = package)
             except TypeError:
                 self.logger.exception("error encoding json. Object: %s", update_dict)

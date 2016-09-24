@@ -8,16 +8,7 @@ from time import sleep
 from pcc.recursive_dictionary import RecursiveDictionary
 from datamodel.all import DATAMODEL_TYPES
 from pcc.dataframe import dataframe, DataframeModes
-
-class Modes(object):
-    Producing = "producing"
-    Tracker = "tracking"
-    Getter = "getting"
-    GetterSetter = "gettingsetting"
-    Setter = "setting"
-    Deleter = "deleting"
-    Taker = "taking"
-    TakerSetter = "takingsetting"
+from common.modes import Modes
 
 
 FETCHING_MODES = set([Modes.Getter, 
@@ -115,5 +106,5 @@ class dataframe_stores(object):
     def gc(self, sim):
         # For now not clearing contents
         self.delete_app(sim)
-        pass
+        
 

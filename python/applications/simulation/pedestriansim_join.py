@@ -54,10 +54,6 @@ class PedestrianSimulation(IApplication):
         endangereds = self.frame.get(CarAndPedestrianNearby)
         logger.debug("%s ************** PedestrianInDanger: %s", LOG_HEADER, len(endangereds))
         for car_ped in endangereds:
-            print "WHEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE"
-            print "WHEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE"
-            print "WHEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE"
-            print "WHEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE"
             car_ped.move()
         for pedestrian in self.frame.get(Walker):
             pedestrian.move()

@@ -9,6 +9,7 @@ from pcc.recursive_dictionary import RecursiveDictionary
 from datamodel.all import DATAMODEL_TYPES
 from pcc.dataframe import dataframe, DataframeModes
 from common.modes import Modes
+from common.converter import create_jsondict, create_complex_obj
 
 
 FETCHING_MODES = set([Modes.Getter, 
@@ -108,3 +109,8 @@ class dataframe_stores(object):
         self.delete_app(sim)
         
 
+    def get(self, tp):
+        return [create_jsondict(o) for o in self.master_dataframe.get(tp)]
+
+    def put(self, tp, objs):
+        self.master_dataframe.extend(tp, [create_complex_obj(tp, obj, self.master_dataframe.object_map) for obj in objs.values()])

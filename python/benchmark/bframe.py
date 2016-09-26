@@ -10,7 +10,7 @@ from requests.exceptions import HTTPError, ConnectionError
 from common.instrument import timethis
 import common.instrument as inst
 import json
-from common.converter import create_jsondict
+from common.converter import create_jsondict, create_complex_obj
 from requests.models import Response
 import sys
 import time
@@ -38,20 +38,22 @@ class BenchmarkFrame(frame):
             self._instruments['bytes received'] = 0
             if self._frame__disconnected:
                 return
-            self.object_store.clear_incoming_record()
+            self.object_store.clear_buffer()
             try:
                 for host in self._frame__host_typemap:
                     typemap =  self._frame__host_typemap[host]
                     pull_types = typemap["getting"].union(typemap["gettingsetting"].union(typemap["tracking"]))
                     for t in pull_types:
-                        self.object_store.clear_all(t)
+                        if t.__realname__ in self.object_store.object_map:
+                            self.object_store.object_map[t.__realname__].clear()
                     resp = self._frame__sessions[host].get("%s/dictupdate" % host, data = {
                         "observed_types": json.dumps([t.__realname__ for t in pull_types])})
                     objs = resp.json()
                     for t in objs:
                         if objs[t]:
                             typeObj = self._frame__name2type[t]
-                            self.object_store.frame_insert_all(typeObj, objs[t])
+                            real_objs = [create_complex_obj(typeObj, obj, self.object_store.object_map) for obj in objs[t]]
+                            self.object_store.extend(typeObj, real_objs)
                     self._instruments['bytes received'] += len(resp.content)
                     pass
             except ConnectionError:

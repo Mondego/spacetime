@@ -124,8 +124,7 @@ class GetPutObjectDictionary(Resource):
         objects = json.loads(args["insert_list"])
         for t in objects:
             typeObj = FrameServer.name2class[t]
-            for oid in objects[t]:
-                FrameServer.Store.put(sim, typeObj, oid, objects[t][oid])
+            FrameServer.Store.put(typeObj, objects[t])
 
 
 def SetupLoggers(debug) :

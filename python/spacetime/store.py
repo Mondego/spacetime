@@ -21,6 +21,13 @@ PUSHING_MODES = set([Modes.Deleter,
                      Modes.Setter,
                      Modes.TakerSetter,
                      Modes.Producing])
+ALL_MODES = set([Modes.Deleter,
+                 Modes.GetterSetter,
+                 Modes.Setter,
+                 Modes.TakerSetter,
+                 Modes.Producing,
+                 Modes.Tracker,
+                 Modes.Getter])
 
 class dataframe_stores(object):
     def __init__(self, name2class):
@@ -60,6 +67,12 @@ class dataframe_stores(object):
         df.add_types(real_types_to_track, tracking = True)
         self.master_dataframe.add_types(real_types_to_track, tracking = True)
         self.add_new_dataframe(app, df)
+        # Add all types to master.
+        types_to_add_to_master = set()
+        for mode in ALL_MODES:
+            types_to_add_to_master.update(set(type_map.setdefault(mode, set())))
+        self.master_dataframe.add_types([self.name2class[tpstr] for tpstr in types_to_add_to_master])
+
 
     def disconnect(self, app):
         self.__pause()
@@ -113,4 +126,20 @@ class dataframe_stores(object):
         return [create_jsondict(o) for o in self.master_dataframe.get(tp)]
 
     def put(self, tp, objs):
-        self.master_dataframe.extend(tp, [create_complex_obj(tp, obj, self.master_dataframe.object_map) for obj in objs.values()])
+        real_objs = [create_complex_obj(tp, obj, self.master_dataframe.object_map) for obj in objs.values()]
+        tpname = tp.__realname__
+        gkey =  self.master_dataframe.member_to_group[tpname]
+        if gkey == tpname:
+            self.master_dataframe.extend(tp, real_objs)
+        else:
+            for obj in real_objs:
+                oid = obj.__primarykey__
+                if oid in self.master_dataframe.object_map[gkey]:
+                    # do this only if the object is already there.
+                    # cannot add an object if it is a subset (or any other pcc type) type if it doesnt exist.
+                    for dim in obj.__dimensions__:
+                        # setting attribute to the original object, so that changes cascade
+                        setattr(self.master_dataframe.object_map[gkey][oid], dim._name, getattr(obj, dim._name))
+        
+
+

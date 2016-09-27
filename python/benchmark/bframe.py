@@ -12,6 +12,7 @@ import common.instrument as inst
 import json
 from common.converter import create_jsondict, create_complex_obj
 from requests.models import Response
+from pcc.recursive_dictionary import RecursiveDictionary
 import sys
 import time
 
@@ -53,7 +54,18 @@ class BenchmarkFrame(frame):
                         if objs[t]:
                             typeObj = self._frame__name2type[t]
                             real_objs = [create_complex_obj(typeObj, obj, self.object_store.object_map) for obj in objs[t]]
-                            self.object_store.extend(typeObj, real_objs)
+                            if t == self.object_store.member_to_group[t]:
+                                # if it is a group key. Can use the default API to put the objs.
+                                self.object_store.extend(typeObj, real_objs)
+                            else:
+                                gkey = self.object_store.member_to_group[t]
+                                current_state_map = self.object_store.current_state.setdefault(gkey, RecursiveDictionary())
+                                object_map = self.object_store.object_map.setdefault(t, RecursiveDictionary())
+                                for obj in real_objs:
+                                    oid = obj.__primarykey__
+                                    current_state_map.setdefault(oid, RecursiveDictionary()).rec_update(obj.__dict__)
+                                    obj.__dict__ = current_state_map[oid]
+                                    object_map[oid] = obj
                     self._instruments['bytes received'] += len(resp.content)
                     pass
             except ConnectionError:

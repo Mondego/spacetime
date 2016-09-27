@@ -45,6 +45,7 @@ class BenchSimulation(Process):
         self.args = args
         self.event = ev
         self.dir_path = dir_path
+        self.daemon = True
 
     def run(self):
         testcases = []
@@ -112,6 +113,7 @@ class TestSimulation(Process):
         self.args = args
         self.event = ev
         self.dir_path = dir_path
+        self.daemon = True
 
     def run(self):
         testcases = []

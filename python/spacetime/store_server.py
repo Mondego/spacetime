@@ -13,7 +13,7 @@ from threading import Timer
 import time
 import urllib2
 
-from flask import Flask, request
+from flask import Flask, request, Response, make_response
 from flask_restful import Api, Resource, reqparse
 
 from datamodel.all import DATAMODEL_TYPES
@@ -65,16 +65,18 @@ api = Api(app)
 class GetAllUpdatedTracked(Resource):
     @handle_exceptions
     def get(self, sim):
-        return FrameServer.Store.getupdates(sim)
+        response = make_response(FrameServer.Store.getupdates(sim))
+        response.headers["content-type"] = "application/octet-stream"
+        return response
 
     @handle_exceptions
     def post(self, sim):
         args = parser.parse_args()
         # update dict is a dictionary of dictionaries: { primary_key : {
         # property_name : property_value } }
-        data = args["update_dict"]
-        update_dict = json.loads(data)
-        FrameServer.Store.update(sim, update_dict)
+        #data = args["update_dict"]
+        data = request.data
+        FrameServer.Store.update(sim, data)
         return {}
 
 class GetPushTypeUpdates(Resource):

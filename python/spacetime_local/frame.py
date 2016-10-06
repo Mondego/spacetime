@@ -29,6 +29,7 @@ from requests.packages.urllib3.poolmanager import PoolManager
 from requests.sessions import Session
 from common.javahttpadapter import MyJavaHTTPAdapter, ignoreJavaSSL
 from common.modes import Modes
+from pcc.dataframe_changes_pb2 import DataframeChanges
 import platform
 
 class SpacetimeConsole(cmd.Cmd):
@@ -455,7 +456,7 @@ class frame(IFrame):
                                           resp.status_code, resp.reason)
     
     @timethis
-    def __process_pull_resp(self,resp):
+    def __process_pull_resp(self, resp):
         self.object_store.apply_all(resp)
         self.object_store.clear_record()
 
@@ -465,7 +466,7 @@ class frame(IFrame):
             return
         if self.__instrumented:
             self._instruments['bytes received'] = 0
-        updates = RecursiveDictionary()
+        updates = DataframeChanges()
         try:
             for host in self.__host_typemap:
                 type_dict = {}
@@ -475,7 +476,10 @@ class frame(IFrame):
                     resp.raise_for_status()
                     if self.__instrumented:
                         self._instruments['bytes received'] = len(resp.content)
-                    updates.rec_update(resp.json())
+                    data = resp.content
+                    dataframe_change = DataframeChanges()
+                    dataframe_change.ParseFromString(data)
+                    updates.MergeFrom(dataframe_change)
                 except HTTPError as exc:
                     self.__handle_request_errors(resp, exc)
             #json.dump(updates, open("pull_" + self.get_app().__class__.__name__ + ".json", "a") , sort_keys = True, separators = (',', ': '), indent = 4)
@@ -494,13 +498,16 @@ class frame(IFrame):
         changes = self.object_store.get_record()
         for host in self.__host_typemap:
             try:
-                changes_for_host = dict([(k,v) for k, v in changes.items() if k in self.__host_to_push_groupkey[host]])
-                jsonmsg = json.dumps(changes_for_host)
+                changes_for_host = DataframeChanges()
+                changes_for_host.group_changes.extend([
+                    gc 
+                    for gc in changes.group_changes 
+                    if gc.group_key in self.__host_to_push_groupkey[host]])
+                protomsg = changes_for_host.SerializeToString()
+                #update_dict = {"update_dict": protomsg}
                 if self.__instrumented:
-                    self._instruments['bytes sent'] = sys.getsizeof(jsonmsg)
-                package = {"update_dict": jsonmsg}
-                #json.dump(changes, open("push_" + self.get_app().__class__.__name__ + ".json", "a") , sort_keys = True, separators = (',', ': '), indent = 4)
-                resp = self.__sessions[host].post(host + "/updated", json = package)
+                    self._instruments['bytes sent'] = sys.getsizeof(protomsg)
+                resp = self.__sessions[host].post(host + "/updated", data = protomsg)
             except TypeError:
                 self.logger.exception("error encoding json. Object: %s", update_dict)
             except HTTPError as exc:

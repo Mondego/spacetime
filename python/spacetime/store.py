@@ -6,6 +6,7 @@ Created on Apr 19, 2016
 import json
 from time import sleep
 from pcc.recursive_dictionary import RecursiveDictionary
+from pcc.dataframe_changes_pb2 import DataframeChanges
 from datamodel.all import DATAMODEL_TYPES
 from pcc.dataframe import dataframe, DataframeModes
 from common.modes import Modes
@@ -86,16 +87,18 @@ class dataframe_stores(object):
     def update(self, app, changes):
         #print json.dumps(changes, sort_keys = True, separators = (',', ': '), indent = 4) 
         self.__pause()
+        dfc = DataframeChanges()
+        dfc.ParseFromString(changes)
         if app in self.app_to_df:
-            self.master_dataframe.apply_all(changes, except_df = self.app_to_df[app])
+            self.master_dataframe.apply_all(dfc, except_df = self.app_to_df[app])
 
     def getupdates(self, app):
         self.__pause()
-        final_updates = {}
+        final_updates = DataframeChanges()
         if app in self.app_to_df:
             final_updates = self.app_to_df[app].get_record()
             self.app_to_df[app].clear_record()
-        return final_updates
+        return final_updates.SerializeToString()
 
     def get_app_list(self):
         return self.app_to_df.keys()

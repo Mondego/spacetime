@@ -29,7 +29,7 @@ from requests.packages.urllib3.poolmanager import PoolManager
 from requests.sessions import Session
 from common.javahttpadapter import MyJavaHTTPAdapter, ignoreJavaSSL
 from common.modes import Modes
-from pcc.dataframe_changes_pb2 import DataframeChanges
+from pcc.dataframe_changes_json import DataframeChanges
 import platform
 
 class SpacetimeConsole(cmd.Cmd):
@@ -477,9 +477,10 @@ class frame(IFrame):
                     if self.__instrumented:
                         self._instruments['bytes received'] = len(resp.content)
                     data = resp.content
+                    #print data
                     dataframe_change = DataframeChanges()
                     dataframe_change.ParseFromString(data)
-                    updates.MergeFrom(dataframe_change)
+                    updates.CopyFrom(dataframe_change)
                 except HTTPError as exc:
                     self.__handle_request_errors(resp, exc)
             #json.dump(updates, open("pull_" + self.get_app().__class__.__name__ + ".json", "a") , sort_keys = True, separators = (',', ': '), indent = 4)
@@ -499,15 +500,17 @@ class frame(IFrame):
         for host in self.__host_typemap:
             try:
                 changes_for_host = DataframeChanges()
-                changes_for_host.group_changes.extend([
-                    gc 
-                    for gc in changes.group_changes 
-                    if gc.group_key in self.__host_to_push_groupkey[host]])
-                protomsg = changes_for_host.SerializeToString()
+                changes_for_host["gc"] = RecursiveDictionary([
+                    (gck, gc) 
+                    for gck, gc in changes["gc"].items() 
+                    if gck in self.__host_to_push_groupkey[host]])
+                if "types" in changes:
+                    changes_for_host["types"] = changes["types"]
+                dictmsg = changes_for_host.SerializeToString()
                 #update_dict = {"update_dict": protomsg}
                 if self.__instrumented:
-                    self._instruments['bytes sent'] = sys.getsizeof(protomsg)
-                resp = self.__sessions[host].post(host + "/updated", data = protomsg)
+                    self._instruments['bytes sent'] = sys.getsizeof(dictmsg)
+                resp = self.__sessions[host].post(host + "/updated", data = dictmsg)
             except TypeError:
                 self.logger.exception("error encoding json. Object: %s", update_dict)
             except HTTPError as exc:

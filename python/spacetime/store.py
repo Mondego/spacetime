@@ -6,7 +6,7 @@ Created on Apr 19, 2016
 import json
 from time import sleep
 from pcc.recursive_dictionary import RecursiveDictionary
-from pcc.dataframe_changes_pb2 import DataframeChanges
+from pcc.dataframe_changes_json import DataframeChanges
 from datamodel.all import DATAMODEL_TYPES
 from pcc.dataframe import dataframe, DataframeModes
 from common.modes import Modes

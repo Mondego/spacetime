@@ -65,16 +65,14 @@ api = Api(app)
 class GetAllUpdatedTracked(Resource):
     @handle_exceptions
     def get(self, sim):
-        response = make_response(FrameServer.Store.getupdates(sim))
-        response.headers["content-type"] = "application/octet-stream"
+        x = FrameServer.Store.getupdates(sim)
+        response = make_response(x)
+        response.headers["content-type"] = "application/json"
         return response
 
     @handle_exceptions
     def post(self, sim):
         args = parser.parse_args()
-        # update dict is a dictionary of dictionaries: { primary_key : {
-        # property_name : property_value } }
-        #data = args["update_dict"]
         data = request.data
         FrameServer.Store.update(sim, data)
         return {}

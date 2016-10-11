@@ -29,7 +29,7 @@ class Simulation(object):
         '''
         Constructor
         '''
-        frame_car = frame(time_step = 1000)
+        frame_car = frame(time_step = 1000, wire_format = 'bson')
         frame_car.attach_app(TrafficSimulation(frame_car))
 
         frame_ped = frame(time_step = 1000)

@@ -6,7 +6,7 @@ Created on Apr 19, 2016
 import json
 from time import sleep
 from pcc.recursive_dictionary import RecursiveDictionary
-from pcc.dataframe_changes_json import DataframeChanges
+from common.wire_formats import FORMATS
 from datamodel.all import DATAMODEL_TYPES
 from pcc.dataframe import dataframe, DataframeModes
 from common.modes import Modes
@@ -36,6 +36,8 @@ class dataframe_stores(object):
         self.app_to_df = {}
         self.name2class = name2class
         self.pause_servers = False
+        self.app_wire_format = {}
+
 
     def __pause(self):
         while self.pause_servers:
@@ -50,7 +52,7 @@ class dataframe_stores(object):
         self.__pause()
         del self.app_to_df[app]
 
-    def register_app(self, app, type_map):
+    def register_app(self, app, type_map, wire_format = "json"):
         self.__pause()
         df = dataframe(mode=DataframeModes.ApplicationCache)
         df.start_recording = True
@@ -73,6 +75,7 @@ class dataframe_stores(object):
         for mode in ALL_MODES:
             types_to_add_to_master.update(set(type_map.setdefault(mode, set())))
         self.master_dataframe.add_types([self.name2class[tpstr] for tpstr in types_to_add_to_master])
+        self.app_wire_format[app] = wire_format
 
 
     def disconnect(self, app):
@@ -87,18 +90,20 @@ class dataframe_stores(object):
     def update(self, app, changes):
         #print json.dumps(changes, sort_keys = True, separators = (',', ': '), indent = 4) 
         self.__pause()
-        dfc = DataframeChanges()
+        dfc_type, content_type = FORMATS[self.app_wire_format[app]]
+        dfc = dfc_type()
         dfc.ParseFromString(changes)
         if app in self.app_to_df:
             self.master_dataframe.apply_all(dfc, except_df = self.app_to_df[app])
 
     def getupdates(self, app):
         self.__pause()
-        final_updates = DataframeChanges()
+        dfc_type, content_type = FORMATS[self.app_wire_format[app]]
+        final_updates = dfc_type()
         if app in self.app_to_df:
-            final_updates = self.app_to_df[app].get_record()
+            final_updates = dfc_type(self.app_to_df[app].get_record())
             self.app_to_df[app].clear_record()
-        return final_updates.SerializeToString()
+        return final_updates.SerializeToString(), content_type
 
     def get_app_list(self):
         return self.app_to_df.keys()

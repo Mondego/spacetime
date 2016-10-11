@@ -9,6 +9,7 @@ from abc import ABCMeta, abstractmethod
 class IApplication(object):
     __metaclass__ = ABCMeta
     __declaration_map__ = None
+    __special_wire_format__ = None
 
     @property
     def done(self):

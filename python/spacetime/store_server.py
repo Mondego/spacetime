@@ -65,9 +65,9 @@ api = Api(app)
 class GetAllUpdatedTracked(Resource):
     @handle_exceptions
     def get(self, sim):
-        x = FrameServer.Store.getupdates(sim)
-        response = make_response(x)
-        response.headers["content-type"] = "application/json"
+        data, content_type = FrameServer.Store.getupdates(sim)
+        response = make_response(data)
+        response.headers["content-type"] = content_type
         return response
 
     @handle_exceptions
@@ -100,8 +100,11 @@ class Register(Resource):
     @handle_exceptions
     def put(self, sim):
         data = urllib2.unquote(request.data.replace("+", " "))
-        typemap = json.loads(data)["sim_typemap"]
-        FrameServer.Store.register_app(sim, typemap)
+        json_dict = json.loads(data)
+        typemap = json_dict["sim_typemap"]
+        wire_format = json_dict["wire_format"] if "wire_format" in json_dict else "json"
+
+        FrameServer.Store.register_app(sim, typemap, wire_format = wire_format)
 
     @handle_exceptions
     def delete(self, sim):

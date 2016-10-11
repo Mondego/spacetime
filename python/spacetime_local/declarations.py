@@ -12,6 +12,20 @@ class DataAgent(object):
             self.host = (keywords['host'] + ("/" if keywords['host'][-1] != "/" else ""))
         else:
             self.host = "default"
+        if 'wire_format' in keywords:
+            self.__special_wire_format__ = keywords['wire_format']
+        else:
+            self.__special_wire_format__ = "default"
+
+    def __call__(self, actual_class):
+        if actual_class.__special_wire_format__ == None:
+            actual_class.__special_wire_format__ = {}
+            
+        if self.__special_wire_format__ != "default":
+            actual_class.__special_wire_format__[self.host] = self.__special_wire_format__
+        return actual_class
+
+        
 
 class Producer(DataAgent):
     def __init__(self, *types, **keywords):
@@ -23,7 +37,7 @@ class Producer(DataAgent):
             if actual_class.__declaration_map__ == None:
                 actual_class.__declaration_map__ = {}
             actual_class.__declaration_map__.setdefault(self.host, {})[Modes.Producing] = self.types
-        return actual_class
+        return DataAgent.__call__(self, actual_class)
 
 class Tracker(DataAgent):
     def __init__(self, *types, **keywords):
@@ -35,7 +49,7 @@ class Tracker(DataAgent):
             if actual_class.__declaration_map__ == None:
                 actual_class.__declaration_map__ = {}
             actual_class.__declaration_map__.setdefault(self.host, {})[Modes.Tracker] = self.types
-        return actual_class
+        return DataAgent.__call__(self, actual_class)
 
 class Getter(DataAgent):
     def __init__(self, *types, **keywords):
@@ -47,7 +61,7 @@ class Getter(DataAgent):
             if actual_class.__declaration_map__ == None:
                 actual_class.__declaration_map__ = {}
             actual_class.__declaration_map__.setdefault(self.host, {})[Modes.Getter] = self.types
-        return actual_class
+        return DataAgent.__call__(self, actual_class)
 
 class GetterSetter(DataAgent):
     def __init__(self, *types, **keywords):
@@ -59,7 +73,7 @@ class GetterSetter(DataAgent):
             if actual_class.__declaration_map__ == None:
                 actual_class.__declaration_map__ = {}
             actual_class.__declaration_map__.setdefault(self.host, {})[Modes.GetterSetter] = self.types
-        return actual_class
+        return DataAgent.__call__(self, actual_class)
 
 class Deleter(DataAgent):
     def __init__(self, *types, **keywords):
@@ -71,7 +85,7 @@ class Deleter(DataAgent):
             if actual_class.__declaration_map__ == None:
                 actual_class.__declaration_map__ = {}
             actual_class.__declaration_map__.setdefault(self.host, {})[Modes.Deleter] = self.types
-        return actual_class
+        return DataAgent.__call__(self, actual_class)
 
 class Setter(DataAgent):
     def __init__(self, *types, **keywords):
@@ -83,4 +97,4 @@ class Setter(DataAgent):
             if actual_class.__declaration_map__ == None:
                 actual_class.__declaration_map__ = {}
             actual_class.__declaration_map__.setdefault(self.host, {})[Modes.Setter] = self.types
-        return actual_class
+        return DataAgent.__call__(self, actual_class)

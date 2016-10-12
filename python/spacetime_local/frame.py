@@ -70,7 +70,7 @@ class SpacetimeConsole(cmd.Cmd):
 
 class frame(IFrame):
     framelist = set()
-    def __init__(self, address="http://127.0.0.1:12000/", time_step=500, instrument=False, profiling=False, wire_format="json"):
+    def __init__(self, address="http://127.0.0.1:12000/", time_step=500, instrument=False, profiling=False, wire_format="cbor"):
         frame.framelist.add(self)
         self.thread = None
         self.__app = None

@@ -29,7 +29,8 @@ from requests.packages.urllib3.poolmanager import PoolManager
 from requests.sessions import Session
 from common.javahttpadapter import MyJavaHTTPAdapter, ignoreJavaSSL
 from common.modes import Modes
-from pcc.dataframe_changes_pb2 import DataframeChanges
+from pcc.IDataframeChanges import DataframeChanges_Base
+from common.wire_formats import FORMATS
 import platform
 
 class SpacetimeConsole(cmd.Cmd):
@@ -69,12 +70,13 @@ class SpacetimeConsole(cmd.Cmd):
 
 class frame(IFrame):
     framelist = set()
-    def __init__(self, address="http://127.0.0.1:12000/", time_step=500, instrument=False, profiling=False):
+    def __init__(self, address="http://127.0.0.1:12000/", time_step=500, instrument=False, profiling=False, wire_format="json"):
         frame.framelist.add(self)
         self.thread = None
         self.__app = None
         self.__appname = ""
         self.__host_typemap = {}
+        self.__host_wire_format = {}
         self.__typemap = {}
         self.__name2type = {}
         self.object_store = dataframe(mode = DataframeModes.Client)
@@ -82,6 +84,7 @@ class frame(IFrame):
         if not address.endswith('/'):
             address += '/'
         self.__address = address
+        self.__default_wire_format = wire_format
         self.__time_step = (float(time_step) / 1000)
         self.__new = {}
         self.__mod = {}
@@ -115,8 +118,17 @@ class frame(IFrame):
                 for declaration in tpmap:
                     self.__host_typemap[fulladdress].setdefault(declaration, set()).update(set(tpmap[declaration]))
 
+        self.__default_wire_format = (self.__app.__special_wire_format__["default"] 
+                                      if "default" in self.__app.__special_wire_format__ else 
+                                      self.__default_wire_format)
+        for host in self.__host_typemap:
+            self.__host_wire_format[host] = (
+                self.__app.__special_wire_format__[host] 
+                if host in self.__app.__special_wire_format__ else 
+                self.__default_wire_format) 
         all_types = set()
         for host in self.__host_typemap:
+            wire_format = self.__host_wire_format[host]
             jobj = dict([(k, [tp.__realname__ for tp in v]) for k, v in self.__host_typemap[host].items()])
             producing, getting, gettingsetting, deleting, setting, tracking = (self.__host_typemap[host].setdefault(Modes.Producing, set()),
                 self.__host_typemap[host].setdefault(Modes.Getter, set()),
@@ -138,7 +150,7 @@ class frame(IFrame):
 
             self.__observed_types_mod.update(self.__host_typemap[host][Modes.Getter].union(self.__host_typemap[host][Modes.GetterSetter]))
 
-            jsonobj = json.dumps({"sim_typemap": jobj})
+            jsonobj = json.dumps({"sim_typemap": jobj, "wire_format": wire_format})
             try:
                 self.__sessions[host] = Session()
                 if platform.system() == 'Java':
@@ -165,6 +177,7 @@ class frame(IFrame):
                                                                 self.__host_typemap[host][Modes.Producing]).union(
                                                                 self.__host_typemap[host][Modes.Deleter])    
                                                      ])
+        
         return True
 
     @staticmethod
@@ -466,7 +479,7 @@ class frame(IFrame):
             return
         if self.__instrumented:
             self._instruments['bytes received'] = 0
-        updates = DataframeChanges()
+        updates = DataframeChanges_Base()
         try:
             for host in self.__host_typemap:
                 type_dict = {}
@@ -477,9 +490,11 @@ class frame(IFrame):
                     if self.__instrumented:
                         self._instruments['bytes received'] = len(resp.content)
                     data = resp.content
-                    dataframe_change = DataframeChanges()
+                    #print data
+                    DF_CLS, content_type = FORMATS[self.__host_wire_format[host]]
+                    dataframe_change = DF_CLS()
                     dataframe_change.ParseFromString(data)
-                    updates.MergeFrom(dataframe_change)
+                    updates.CopyFrom(dataframe_change)
                 except HTTPError as exc:
                     self.__handle_request_errors(resp, exc)
             #json.dump(updates, open("pull_" + self.get_app().__class__.__name__ + ".json", "a") , sort_keys = True, separators = (',', ': '), indent = 4)
@@ -498,18 +513,24 @@ class frame(IFrame):
         changes = self.object_store.get_record()
         for host in self.__host_typemap:
             try:
-                changes_for_host = DataframeChanges()
-                changes_for_host.group_changes.extend([
-                    gc 
-                    for gc in changes.group_changes 
-                    if gc.group_key in self.__host_to_push_groupkey[host]])
-                protomsg = changes_for_host.SerializeToString()
+                DF_CLS, content_type = FORMATS[self.__host_wire_format[host]]
+                changes_for_host = DF_CLS()
+                changes_for_host["gc"] = RecursiveDictionary([
+                    (gck, gc) 
+                    for gck, gc in changes["gc"].items() 
+                    if gck in self.__host_to_push_groupkey[host]])
+                if "types" in changes:
+                    changes_for_host["types"] = changes["types"]
+                dictmsg = changes_for_host.SerializeToString()
+                #print self.__app.__class__.__name__, dictmsg
                 #update_dict = {"update_dict": protomsg}
                 if self.__instrumented:
-                    self._instruments['bytes sent'] = sys.getsizeof(protomsg)
-                resp = self.__sessions[host].post(host + "/updated", data = protomsg)
+                    self._instruments['bytes sent'] = sys.getsizeof(dictmsg)
+                resp = self.__sessions[host].post(host + "/updated", 
+                                                  data = dictmsg, 
+                                                  headers = {'content-type': content_type})
             except TypeError:
-                self.logger.exception("error encoding json. Object: %s", update_dict)
+                self.logger.exception("error encoding obj. Object: %s", changes_for_host)
             except HTTPError as exc:
                 self.__handle_request_errors(resp, exc)
             except ConnectionError:

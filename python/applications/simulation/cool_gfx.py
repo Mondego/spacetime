@@ -59,7 +59,7 @@ class PedestrianSprites(pygame.sprite.Sprite):
             self.rect.move_ip((self.ped_X - self.ped_oldX, self.ped_Y - self.ped_oldY))
             self.ped_oldX, self.ped_oldY = self.ped_X, self.ped_Y
 
-@Getter(ActiveCar, Walker)
+@Getter(ActiveCar, Walker, wire_format='bson')
 class GFXSimulation(IApplication):
     '''
     classdocs

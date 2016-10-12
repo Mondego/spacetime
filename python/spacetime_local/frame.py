@@ -29,7 +29,7 @@ from requests.packages.urllib3.poolmanager import PoolManager
 from requests.sessions import Session
 from common.javahttpadapter import MyJavaHTTPAdapter, ignoreJavaSSL
 from common.modes import Modes
-from pcc.IDataframeChanges import DataframeChanges_Base
+from pcc.dataframe_changes.IDataframeChanges import DataframeChanges_Base
 from common.wire_formats import FORMATS
 import platform
 
@@ -522,7 +522,7 @@ class frame(IFrame):
                 if "types" in changes:
                     changes_for_host["types"] = changes["types"]
                 dictmsg = changes_for_host.SerializeToString()
-                #print self.__app.__class__.__name__, dictmsg
+                print self.__app.__class__.__name__, len(dictmsg)
                 #update_dict = {"update_dict": protomsg}
                 if self.__instrumented:
                     self._instruments['bytes sent'] = sys.getsizeof(dictmsg)

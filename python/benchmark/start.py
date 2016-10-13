@@ -84,7 +84,7 @@ class BenchSimulation(Process):
             else:
                 ts = args.timestep
 
-            framebench = BenchmarkFrame(address=args.address, time_step=ts, instrument=True, profiling=True)
+            framebench = BenchmarkFrame(address=args.address, time_step=ts, instrument=True, profiling=True, wire_format="json")
             if self.mode:
                 framebench.set_benchmode(self.mode)
             framebench.attach_app(bs.BenchmarkSimulation(framebench, testcase.instances, testcase.steps, testcase.test_module.initialize, testcase.test_module.update))
@@ -151,7 +151,7 @@ class TestSimulation(Process):
                 ts = args.timestep
 
             test_options = "%sn %si %ss" % (testcase.test_name, testcase.instances, testcase.steps)
-            frametest = BenchmarkFrame(address=args.address, time_step=ts, instrument=True, profiling=True)
+            frametest = BenchmarkFrame(address=args.address, time_step=ts, instrument=True, profiling=True, wire_format="json")
             if self.mode:
                 frametest.set_benchmode(self.mode)
             frametest.attach_app(bt.BenchmarkTestSimulation(frametest, self.event, testcase.test_module.initialize_test, testcase.test_module.update_test))

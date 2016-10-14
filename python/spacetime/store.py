@@ -110,9 +110,7 @@ class dataframe_stores(object):
 
     def clear(self, tp = None):
         if not tp:
-            self.master_dataframe.object_map.clear()
-            self.master_dataframe.current_state.clear()
-            self.master_dataframe.clear_all()
+            self.__init__(self.name2class)
         else:
             if tp in self.master_dataframe.object_map:
                 del self.master_dataframe.object_map[tp]

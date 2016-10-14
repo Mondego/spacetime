@@ -12,9 +12,11 @@ import sys
 from threading import Timer
 import time
 import urllib2
+import zlib
 
 from flask import Flask, request, Response, make_response
 from flask_restful import Api, Resource, reqparse
+#from flask_compress import Compress
 
 from datamodel.all import DATAMODEL_TYPES
 from store import dataframe_stores
@@ -61,6 +63,7 @@ app = Flask(__name__)
 app.config.from_object(FlaskConfig)
 FlaskConfig.init_app(app)
 api = Api(app)
+#Compress(app)
 
 class GetAllUpdatedTracked(Resource):
     @handle_exceptions
@@ -74,6 +77,8 @@ class GetAllUpdatedTracked(Resource):
     def post(self, sim):
         args = parser.parse_args()
         data = request.data
+        if "content-encoding" in request.headers and request.headers["content-encoding"] == "gzip":
+            data = zlib.decompress(data)
         FrameServer.Store.update(sim, data)
         return {}
 

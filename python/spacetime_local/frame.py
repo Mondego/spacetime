@@ -14,6 +14,7 @@ import signal
 import cmd
 import sys
 import os
+import zlib
 
 from pcc.dataframe import dataframe, DataframeModes
 from .IFrame import IFrame
@@ -70,7 +71,7 @@ class SpacetimeConsole(cmd.Cmd):
 
 class frame(IFrame):
     framelist = set()
-    def __init__(self, address="http://127.0.0.1:12000/", time_step=500, instrument=False, profiling=False, wire_format="cbor"):
+    def __init__(self, address="http://127.0.0.1:12000/", time_step=500, instrument=False, profiling=False, wire_format="cbor", compress=False):
         frame.framelist.add(self)
         self.thread = None
         self.__app = None
@@ -85,6 +86,7 @@ class frame(IFrame):
             address += '/'
         self.__address = address
         self.__default_wire_format = wire_format
+        self.__compress = compress
         self.__time_step = (float(time_step) / 1000)
         self.__new = {}
         self.__mod = {}
@@ -522,13 +524,16 @@ class frame(IFrame):
                 if "types" in changes:
                     changes_for_host["types"] = changes["types"]
                 dictmsg = changes_for_host.SerializeToString()
-                print self.__app.__class__.__name__, len(dictmsg)
                 #update_dict = {"update_dict": protomsg}
                 if self.__instrumented:
                     self._instruments['bytes sent'] = sys.getsizeof(dictmsg)
+                headers = {'content-type': content_type}
+                if self.__compress:
+                    headers['content-encoding'] = 'gzip'
+                    dictmsg = zlib.compress(dictmsg)
                 resp = self.__sessions[host].post(host + "/updated", 
                                                   data = dictmsg, 
-                                                  headers = {'content-type': content_type})
+                                                  headers = headers)
             except TypeError:
                 self.logger.exception("error encoding obj. Object: %s", changes_for_host)
             except HTTPError as exc:

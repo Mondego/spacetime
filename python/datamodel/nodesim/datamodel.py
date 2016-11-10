@@ -232,7 +232,7 @@ class Node(object):
         self.WP = None
 
 @pcc_set
-class BusinessNode(Node.Class()):
+class BusinessNode(Node):
     '''
     Description
 
@@ -253,7 +253,7 @@ class BusinessNode(Node.Class()):
         self._BusinessType = value
 
 @pcc_set
-class ResidentialNode(Node.Class()):
+class ResidentialNode(Node):
     '''
     Description
 

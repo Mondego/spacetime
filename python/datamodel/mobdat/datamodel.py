@@ -141,7 +141,7 @@ class Road(object):
         self._Type = value
 
 @pcc_set
-class BusinessNode(SimulationNode.Class()):
+class BusinessNode(SimulationNode):
     @dimension(int)
     def CustomersPerNode(self):
         return self._CustomersPerNode
@@ -188,10 +188,10 @@ class BusinessNode(SimulationNode.Class()):
         self.PreferredBusinessTypes = 0
         self.PeakEmployeeCount = 0
         self.PeakCustomerCount = 0
-        super(BusinessNode.Class(), self).__init__()
+        super(BusinessNode, self).__init__()
 
 @pcc_set
-class ResidentialNode(SimulationNode.Class()):
+class ResidentialNode(SimulationNode):
     @dimension(int)
     def ResidentsPerNode(self):
         return self._ResidentsPerNode
@@ -220,7 +220,7 @@ class ResidentialNode(SimulationNode.Class()):
         self.ResidentsPerNode = 0
         self.ResidentCount = 0
         self.ResidenceList = []
-        super(ResidentialNode.Class(), self).__init__()
+        super(ResidentialNode, self).__init__()
 
 class JobDescription(object):
     def __init__(self, salary = 0, flexhours = False, schedule = None):
@@ -404,7 +404,7 @@ class MobdatVehicle(object):
         self.Type = ""
 
 @subset(MobdatVehicle)
-class MovingVehicle(MobdatVehicle.Class()):
+class MovingVehicle(MobdatVehicle):
     @staticmethod
     def __query__(vehicles):  # @DontTrace
         return [c for c in vehicles if MovingVehicle.__predicate__(c)]
@@ -414,7 +414,7 @@ class MovingVehicle(MobdatVehicle.Class()):
         return v.Velocity != Vector3(0,0,0) or v.Position != (0,0,0)
 
 @pcc_set
-class PrimeNode(BusinessNode.Class()):
+class PrimeNode(BusinessNode):
     @dimension(list)
     def Customers(self):
         return self._Customers
@@ -425,11 +425,11 @@ class PrimeNode(BusinessNode.Class()):
 
     def __init__(self):
         self.Customers = []
-        super(PrimeNode.Class(), self).__init__()
+        super(PrimeNode, self).__init__()
 
 @parameter(Person)
 @subset(BusinessNode)
-class EmptyBusiness(BusinessNode.Class()):
+class EmptyBusiness(BusinessNode):
     @staticmethod
     def query(bns, ppl):
         return [b for b in bns if EmptyBusiness.__predicate__(b, ppl)]

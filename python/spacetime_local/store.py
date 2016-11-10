@@ -35,7 +35,7 @@ class store(object):
             return self.__objects[tp][id]
         else:
             raise Exception("Could not find object %s of type %s" % (
-                                                        id, tp.Class()))
+                                                        id, tp))
 
     def frame_insert(self, tp, id, objjson):
         obj = create_tracking_obj(tp, objjson, self.__objects, False, False)
@@ -53,7 +53,7 @@ class store(object):
 
     def insert(self, obj):
         objjson = create_jsondict(obj)
-        self._changes["new"].setdefault(obj.Class(), RecursiveDictionary()).setdefault(obj.__primarykey__, RecursiveDictionary()).rec_update(objjson)
+        self._changes["new"].setdefault(obj, RecursiveDictionary()).setdefault(obj.__primarykey__, RecursiveDictionary()).rec_update(objjson)
         self.__objects.setdefault(obj.__class__, RecursiveDictionary())[obj.__primarykey__] = obj
         if hasattr(obj.__class__, "__pcc_projection__") and obj.__class__.__pcc_projection__:
             class _dummy(object):
@@ -65,7 +65,7 @@ class store(object):
                     setattr(new_obj, dimension._name, getattr(obj, dimension._name))
             self.__objects.setdefault(new_obj.__class__, RecursiveDictionary()).setdefault(new_obj.__primarykey__, []).append(new_obj)
         if (hasattr(obj, "__dependent_type__")):
-            obj.__class__ = obj.Class()
+            obj.__class__ = obj
         obj.__start_tracking__ = True
 
     def insert_all(self, objs):

@@ -358,7 +358,7 @@ class frame(IFrame):
                 return self.object_store.get_one(tp, oid)
             return self.object_store.get(tp)
         else:
-            raise Exception("Application %s does not annotate type %s" % (self.__appname, tp.Class()))
+            raise Exception("Application %s does not annotate type %s" % (self.__appname, tp))
 
 
     def add(self, obj):
@@ -374,7 +374,7 @@ class frame(IFrame):
         if obj.__class__ in self.__typemap[Modes.Producing]:
             self.object_store.append(obj.__class__, obj)
         else:
-            raise Exception("Application %s is not a producer of type %s" % (self.__appname, obj.__class__.Class()))
+            raise Exception("Application %s is not a producer of type %s" % (self.__appname, obj.__class__))
 
     def delete(self, tp, obj):
         """
@@ -391,7 +391,7 @@ class frame(IFrame):
         if tp in self.__typemap[Modes.Deleter]:
             self.object_store.delete(tp, obj)
         else:
-            raise Exception("Application %s is not registered to delete %s" % (self.__appname, tp.Class()))
+            raise Exception("Application %s is not registered to delete %s" % (self.__appname, tp))
 
     def get_new(self, tp):
         """
@@ -413,7 +413,7 @@ class frame(IFrame):
         else:
             self.logger.warn(("Checking for new objects of type %s, but not "
                 "a Getter, GetterSetter, or Tracker of type. Empty list "
-                "always returned"),tp.Class())
+                "always returned"),tp)
             return []
 
     def get_mod(self, tp):
@@ -436,7 +436,7 @@ class frame(IFrame):
         else:
             self.logger.warn(("Checking for modifications in objects of type "
                 "%s, but not a Getter or GetterSetter of type. "
-                "Empty list always returned"),tp.Class())
+                "Empty list always returned"),tp)
             return []
 
     def get_deleted(self, tp):
@@ -459,7 +459,7 @@ class frame(IFrame):
         else:
             self.logger.warn(("Checking for deleted objects of type %s, but "
                 "not a Getter, GetterSetter, or Tracker of type. Empty list "
-                "always returned"),tp.Class())
+                "always returned"),tp)
             return []
 
     def __handle_request_errors(self, resp, exc):
@@ -513,6 +513,8 @@ class frame(IFrame):
         if self.__instrumented:
             self._instruments['bytes sent'] = 0
         changes = self.object_store.get_record()
+        #json.dump(changes, open("push_" + self.get_app().__class__.__name__ + ".json", "a") , sort_keys = True, separators = (',', ': '), indent = 4)
+            
         for host in self.__host_typemap:
             try:
                 DF_CLS, content_type = FORMATS[self.__host_wire_format[host]]

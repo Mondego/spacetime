@@ -127,7 +127,7 @@ class SpacetimeConsole(cmd.Cmd):
         """
         if line == "sets":
             for t in fs.DATAMODEL_TYPES:
-                print "{0:60s}{1:s}".format(t.__realname__, t.Class().__module__)
+                print "{0:60s}{1:s}".format(t.__realname__, t.__module__)
         elif line == "apps":
             all_apps = fs.Store.get_app_list()
             for app in all_apps:

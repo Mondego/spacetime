@@ -83,7 +83,7 @@ class Car(object):
         self.Color = Color.White
 
 @subset(Car)
-class InactiveCar(Car.Class()):
+class InactiveCar(Car):
     @staticmethod
     def __query__(cars):
         return [c for c in cars if InactiveCar.__predicate__(c)]
@@ -97,7 +97,7 @@ class InactiveCar(Car.Class()):
         self.Velocity = Vector3(self.SPEED, 0, 0)
 
 @subset(Car)
-class ActiveCar(Car.Class()):
+class ActiveCar(Car):
     @staticmethod
     def __query__(cars):  # @DontTrace
         return [c for c in cars if ActiveCar.__predicate__(c)]
@@ -181,7 +181,7 @@ class Pedestrian(object):
 
 
 @subset(Pedestrian)
-class StoppedPedestrian(Pedestrian.Class()):
+class StoppedPedestrian(Pedestrian):
     @staticmethod
     def __query__(peds):
         return [p for p in peds if StoppedPedestrian.__predicate__(p)]
@@ -197,7 +197,7 @@ class StoppedPedestrian(Pedestrian.Class()):
 
 
 @subset(Pedestrian)
-class Walker(Pedestrian.Class()):
+class Walker(Pedestrian):
     @staticmethod
     def __query__(peds):
         return [p for p in peds if Walker.__predicate__(p)]
@@ -214,15 +214,11 @@ class Walker(Pedestrian.Class()):
 
 @parameter(ActiveCar, mode = ParameterMode.Collection)
 @subset(Walker)
-class PedestrianInDanger(Pedestrian.Class()):
+class PedestrianInDanger(Pedestrian):
     def distance(self, p1, p2):
         return abs(self.p1.X - self.p2.X);
         #return Math.Sqrt(Math.Pow(Math.Abs(p1.X -p2.X), 2) +
         #  Math.Pow(Math.Abs(p1.Y -p2.Y), 2));
-
-    @staticmethod
-    def __query__(peds, cars):
-        return [p for p in peds if PedestrianInDanger.__predicate__(p, cars)]
 
     @staticmethod
     def __predicate__(p, cars):
@@ -265,10 +261,6 @@ class CarAndPedestrianNearby(object):
     def __init__(self, p, c):
         self.car = c
         self.pedestrian = p
-
-    @staticmethod
-    def __query__(peds, cars):
-        return [(p, c) for p in peds for c in cars if CarAndPedestrianNearby.__predicate__(p, c)]
 
     @staticmethod
     def __predicate__(p, c):

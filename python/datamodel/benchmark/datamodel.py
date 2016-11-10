@@ -142,7 +142,7 @@ class BaseSetProjection(object):
 
 
 @subset(BaseSet)
-class SubsetHalf(BaseSet.Class()):
+class SubsetHalf(BaseSet):
     @staticmethod
     def __query__(base):
         return [o for o in base if SubsetHalf.__predicate__(o)]
@@ -152,7 +152,7 @@ class SubsetHalf(BaseSet.Class()):
         return o.Number % 2 == 0
 
 @subset(BaseSet)
-class SubsetAll(BaseSet.Class()):
+class SubsetAll(BaseSet):
     @staticmethod
     def __query__(base):
         return [o for o in base if SubsetAll.__predicate__(o)]
@@ -243,7 +243,7 @@ class JoinAll(object):
 
 @parameter(BaseSet)
 @subset(BaseSet)
-class ParameterHalf(BaseSet.Class()):
+class ParameterHalf(BaseSet):
     @staticmethod
     def __query__(b1s, b2s):
         return [b1 for b1 in b1s if ParameterHalf.__predicate__(b1, b2s)]
@@ -254,7 +254,7 @@ class ParameterHalf(BaseSet.Class()):
 
 @parameter(BaseSet)
 @subset(BaseSet)
-class ParameterAll(BaseSet.Class()):
+class ParameterAll(BaseSet):
     @staticmethod
     def __query__(b1s, b2s):
         return [b1 for b1 in b1s if ParameterAll.__predicate__(b1, b2s)]

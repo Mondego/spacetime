@@ -63,9 +63,9 @@ def create_tracking_obj(tp, objjson, universemap, start_track_ref, extra = True)
     return obj
 
 def create_complex_obj(tp, objjson, universemap, extra = True):
-    #print "In create_complex_object %s %s" %(str(tp.Class()), objjson)
+    #print "In create_complex_object %s %s" %(str(tp), objjson)
     obj = _container()
-    obj.__class__ = tp.Class()
+    obj.__class__ = tp
     obj.__start_tracking__ = False
     if not objjson:
         return objjson

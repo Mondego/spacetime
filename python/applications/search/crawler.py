@@ -1,9 +1,11 @@
 import logging
-from datamodel.search.datamodel import Link, OneUnProcessedLink
+from datamodel.search.datamodel import Link, OneUnProcessedGroup, JustLink
 from spacetime_local.IApplication import IApplication
-from spacetime_local.declarations import Producer, GetterSetter
+from spacetime_local.declarations import Producer, GetterSetter, Getter
 from lxml import html,etree
 import re
+from time import time
+from Robot import Robot
 try:
     # For python 2
     from urlparse import urlparse, parse_qs
@@ -11,50 +13,61 @@ except ImportError:
     # For python 3
     from urllib.parse import urlparse, parse_qs
 
+
 logger = logging.getLogger(__name__)
 LOG_HEADER = "[CRAWLER]"
 
 
 @Producer(Link)
-@GetterSetter(OneUnProcessedLink)
+@Getter(JustLink)
+@GetterSetter(OneUnProcessedGroup)
 class CrawlerFrame(IApplication):
 
     def __init__(self, frame):
         self.frame = frame
+        self.robot_manager = Robot()
+        self.UserAgentString = "Mondego Spacetime Test Crawler"
 
     def initialize(self):
-        self.frame.add(Link("http://www.ics.uci.edu"))
+        self.starttime = time()
+        self.count = 0
+        l = Link("http://www.ics.uci.edu")
+        print l.full_url
+        self.frame.add(l)
 
     def update(self):
         outputLinks = []
-        for l in self.frame.get_new(OneUnProcessedLink):
-            if not l.isprocessed:
-                l.isprocessed = True
-            rawData = l.download("Mondego Spacetime crawler Test")
-            if not rawData:
-                print ("Error downloading " + l.full_url)
-                continue
-            try:
-                htmlParse = html.document_fromstring(rawData)
-                htmlParse.make_links_absolute(l.full_url)
-            except etree.ParserError:
-                print("ParserError: Could not extract the links from the url")
-                continue
-            except etree.XMLSyntaxError:
-                print("XMLError: Could not extract the links from the url")
-                continue
+        for g in self.frame.get(OneUnProcessedGroup):
+            rawDatas = g.download(self.UserAgentString)
+            self.count += 1
+            for url, rawData in rawDatas:
+                if not rawData:
+                    print ("Error downloading " + url)
+                    continue
+                try:
+                    htmlParse = html.document_fromstring(rawData)
+                    htmlParse.make_links_absolute(url)
+                except etree.ParserError:
+                    print("ParserError: Could not extract the links from the url")
+                    continue
+                except etree.XMLSyntaxError:
+                    print("XMLError: Could not extract the links from the url")
+                    continue
     
-            for element, attribute, link, pos in htmlParse.iterlinks():
-                outputLinks.append(link)
-        for l in outputLinks:
-            if self.is_valid(l):
-                lObj = Link(l)
-                if self.frame.get(Link, lObj.url) == None:
-                    self.frame.add(lObj)
+                for element, attribute, link, pos in htmlParse.iterlinks():
+                    if link != url:
+                        outputLinks.append(link)
+            for l in outputLinks:
+                if self.is_valid(l):
+                    lObj = Link(l)
+                    if self.frame.get(JustLink, lObj.url) == None:
+                        self.frame.add(lObj)
 
     def is_valid(self, url):
         parsed = urlparse(url)
         if parsed.scheme not in set(["http", "https"]):
+            return False
+        if not self.robot_manager.Allowed(url, self.UserAgentString):
             return False
         try:
             return ".ics.uci.edu" in parsed.hostname \
@@ -68,6 +81,7 @@ class CrawlerFrame(IApplication):
             print ("TypeError for ", parsed)
 
     def shutdown(self):
+        print "downloaded ", self.count, " in ", time() - self.starttime, " seconds."
         pass
 
 def ExtractNextLinks(self, url, rawData, outputLinks):

@@ -152,7 +152,7 @@ class frame(IFrame):
 
             self.__observed_types_mod.update(self.__host_typemap[host][Modes.Getter].union(self.__host_typemap[host][Modes.GetterSetter]))
 
-            jsonobj = json.dumps({"sim_typemap": jobj, "wire_format": wire_format})
+            jsonobj = json.dumps({"sim_typemap": jobj, "wire_format": wire_format, "app_id": self.__app.app_id})
             try:
                 self.__sessions[host] = Session()
                 if platform.system() == 'Java':
@@ -227,7 +227,7 @@ class frame(IFrame):
         None
         """
         self.__app = app
-        self.__appname = app.__class__.__name__
+        self.__appname = app.__class__.__name__  + "_" + self.__app.app_id
 
     def run_async(self):
         """

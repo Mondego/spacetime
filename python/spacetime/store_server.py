@@ -108,7 +108,7 @@ class Register(Resource):
         json_dict = json.loads(data)
         typemap = json_dict["sim_typemap"]
         wire_format = json_dict["wire_format"] if "wire_format" in json_dict else "json"
-
+        app_id = json_dict["app_id"]
         FrameServer.Store.register_app(sim, typemap, wire_format = wire_format)
 
     @handle_exceptions

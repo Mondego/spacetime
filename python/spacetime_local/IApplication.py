@@ -5,11 +5,24 @@ Created on Apr 19, 2016
 '''
 
 from abc import ABCMeta, abstractmethod
+import re
 
 class IApplication(object):
     __metaclass__ = ABCMeta
     __declaration_map__ = None
     __special_wire_format__ = None
+    
+    @property
+    def app_id(self):
+        try:
+            return self.__app_id
+        except AttributeError:
+            import uuid
+            self.__app_id = str(uuid.uuid4())
+            return self.__app_id
+    @app_id.setter
+    def app_id(self, v): 
+        self.__app_id = re.sub(r"\s+", "_", v, flags = re.DOTALL | re.UNICODE)
 
     @property
     def done(self):

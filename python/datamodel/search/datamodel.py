@@ -36,6 +36,12 @@ class Link(object):
     def underprocess(self, value): self._up = value
 
     @dimension(bool)
+    def grouped(self): return self._gpd
+
+    @grouped.setter
+    def grouped(self, value): self._gpd = value
+
+    @dimension(bool)
     def isprocessed(self): return self._isp
 
     @isprocessed.setter
@@ -73,7 +79,8 @@ class Link(object):
         self.domain = pd.hostname
         self.underprocess = False
         self.isprocessed = False    
-        self.raw_content = None    
+        self.raw_content = None  
+        self.grouped = False  
 
     def __ProcessUrlData(self, raw_content):
         self.raw_content = raw_content
@@ -135,7 +142,12 @@ class UnProcessedLink(Link):
 @subset(UnProcessedLink)
 class DistinctDomainUnprocessedLink(Link):
     @staticmethod
-    def __predicate__(l): return l.isprocessed == False
+    def __post_process__(l):
+        l.grouped = True
+        return l
+
+    @staticmethod
+    def __predicate__(l): return (l.isprocessed == False and l.grouped == False)
 
     @property
     def __distinct__(self): return self.domain
@@ -172,10 +184,14 @@ class DownloadLinkGroup(object):
 @subset(DownloadLinkGroup)
 class OneUnProcessedGroup(object):
     @staticmethod
+    def __post_process__(lg):
+        lg.underprocess = True
+        return lg
+
+    @staticmethod
     def __query__(upls):
         for upl in upls:
             if OneUnProcessedGroup.__predicate__(upl):
-                upl.underprocess = True
                 return [upl]
         return []
 

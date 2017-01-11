@@ -355,7 +355,7 @@ class frame(IFrame):
         if tp in self.__observed_types:
             if oid:
                 # Have to get this to work
-                return self.object_store.get_one(tp, oid)
+                return self.object_store.get(tp, oid)
             return self.object_store.get(tp)
         else:
             raise Exception("Application %s does not annotate type %s" % (self.__appname, tp))

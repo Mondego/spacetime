@@ -39,6 +39,7 @@ class CrawlerFrame(IApplication):
     def update(self):
         outputLinks = []
         for g in self.frame.get(OneUnProcessedGroup):
+            print "Got a Group"
             rawDatas = g.download(self.UserAgentString)
             self.count += 1
             for url, rawData in rawDatas:

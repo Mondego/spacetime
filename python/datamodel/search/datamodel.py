@@ -200,7 +200,8 @@ class OneUnProcessedGroup(object):
         return not upl.underprocess 
 
     def download(self, UserAgentString, timeout = 2, MaxPageSize = 1048576, MaxRetryDownloadOnFail = 5, retry_count = 0):
-        return [(l.full_url, 
+        try:
+            return [(l.full_url, 
                  l.download(
                     UserAgentString,
                     timeout,
@@ -208,3 +209,6 @@ class OneUnProcessedGroup(object):
                     MaxRetryDownloadOnFail,
                     retry_count)
                  ) for l in self.link_group]
+        except AttributeError:
+            pass
+

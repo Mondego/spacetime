@@ -39,5 +39,4 @@ class Robot:
         try:
             return self.RuleDict[roboturl].can_fetch(UserAgentString, url)
         except KeyError:
-            print ("Keyerror: " + url)
             return True

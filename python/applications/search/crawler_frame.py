@@ -19,7 +19,6 @@ LOG_HEADER = "[CRAWLER]"
 
 
 @Producer(Link)
-@Getter(JustLink)
 @GetterSetter(OneUnProcessedGroup)
 class CrawlerFrame(IApplication):
 
@@ -62,8 +61,7 @@ class CrawlerFrame(IApplication):
             for l in outputLinks:
                 if self.is_valid(l):
                     lObj = Link(l)
-                    if self.frame.get(JustLink, lObj.url) == None:
-                        self.frame.add(lObj)
+                    self.frame.add(lObj)
 
     def is_valid(self, url):
         parsed = urlparse(url)

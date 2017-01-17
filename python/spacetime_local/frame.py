@@ -500,7 +500,7 @@ class frame(IFrame):
                     updates.CopyFrom(dataframe_change)
                 except HTTPError as exc:
                     self.__handle_request_errors(resp, exc)
-            json.dump(updates, open("pull_" + self.__appname + ".json", "a") , sort_keys = True, separators = (',', ': '), indent = 4)
+            #json.dump(updates, open("pull_" + self.__appname + ".json", "a") , sort_keys = True, separators = (',', ': '), indent = 4)
             self.__process_pull_resp(updates)
         except ConnectionError:
             self.logger.exception("Disconnected from host.")
@@ -514,7 +514,7 @@ class frame(IFrame):
         if self.__instrumented:
             self._instruments['bytes sent'] = 0
         changes = self.object_store.get_record()
-        json.dump(changes, open("push_" + self.__appname + ".json", "a") , sort_keys = True, separators = (',', ': '), indent = 4)
+        #json.dump(changes, open("push_" + self.__appname + ".json", "a") , sort_keys = True, separators = (',', ': '), indent = 4)
             
         for host in self.__host_typemap:
             try:

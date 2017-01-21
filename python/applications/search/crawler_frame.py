@@ -2,7 +2,6 @@ import logging
 from datamodel.search.datamodel import ProducedLink, OneUnProcessedGroup, robot_manager
 from spacetime_local.IApplication import IApplication
 from spacetime_local.declarations import Producer, GetterSetter, Getter
-from lxml import html,etree
 import re
 from time import time
 
@@ -51,31 +50,30 @@ def process_url_group(group, useragentstr):
     rawDatas = group.download(useragentstr, is_valid)
     return extract_next_links(rawDatas)
     
+#######################################################################################
+'''
+STUB FUNCTIONS TO BE FILLED OUT BY THE STUDENT.
+'''
 def extract_next_links(rawDatas):
-    outputLinks = []
-    for url, rawData in rawDatas:
-        if not rawData:
-            try:
-                print ("Error downloading " + url)
-            except Exception:
-                continue
-            continue
-        try:
-            htmlParse = html.document_fromstring(rawData)
-            htmlParse.make_links_absolute(url)
-        except etree.ParserError:
-            print("ParserError: Could not extract the links from the url")
-            continue
-        except etree.XMLSyntaxError:
-            print("XMLError: Could not extract the links from the url")
-            continue
-    
-        for element, attribute, link, pos in htmlParse.iterlinks():
-            if link != url:
-                outputLinks.append(link)
+    outputLinks = list()
+    '''
+    rawDatas is a list of tuples -> [(url1, raw_content1), (url2, raw_content2), ....]
+    the return of this function should be a list of urls in their absolute form
+    Validation of link via is_valid function is done later (see line 42).
+    It is not required to remove duplicates that have already been downloaded. 
+    The frontier takes care of that.
+
+    Suggested library: lxml
+    '''
     return outputLinks
 
 def is_valid(url):
+    '''
+    Function returns True or False based on whether the url has to be downloaded or not.
+    Robot rules and duplication rules are checked separately.
+
+    This is a great place to filter out crawler traps.
+    '''
     parsed = urlparse(url)
     if parsed.scheme not in set(["http", "https"]):
         return False

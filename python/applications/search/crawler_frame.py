@@ -86,6 +86,18 @@ def extract_next_links(rawDatas):
 
     Suggested library: lxml
     '''
+    for tuple in rawDatas:
+        dom = lxml.html.fromstring(tuple[1])
+        for link in dom.xpath('//a/@href'):  # select the url in href for all a tags(links)
+            extracted_link = urljoin(tuple[0], link)
+            if not extracted_link.startswith('http'):
+                url = re.search('\'(.+?)\'', extracted_link)
+                if url:
+                    found = url.group(1)
+                    outputLinks.append(found)
+            else:
+                outputLinks.append(extracted_link)
+    print outputLinks
     return outputLinks
 
 def is_valid(url):

@@ -213,7 +213,7 @@ class Link(object):
         self.isprocessed = True
         self.downloaded_by = useragentstring
         url = self.full_url
-        if self.raw_content != None and self.http_code < 500:
+        if self.raw_content != None and int(self.http_code) < 500:
             print ("Downloading " + url + " from cache.")
             return UrlResponse(self, url, self.raw_content, "", self.http_code, self.http_headers, self.is_redirected, self.final_url), True
         else:

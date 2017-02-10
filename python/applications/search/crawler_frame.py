@@ -74,7 +74,7 @@ def save_count(urls):
 def process_url_group(group, useragentstr):
     rawDatas, successfull_urls = group.download(useragentstr, is_valid)
     save_count(successfull_urls)
-    return extract_next_links(rawDatas), rawDatas
+    return extract_next_links(rawDatas)
     
 #######################################################################################
 '''
@@ -85,14 +85,16 @@ def extract_next_links(rawDatas):
     '''
     rawDatas is a list of objs -> [raw_content_obj1, raw_content_obj2, ....]
     Each obj is of type UrlResponse  declared at L28-42 datamodel/search/datamodel.py
-    the return of this function should be a list of urls in their absolute form
+    The Return of this function should be a list of urls in their absolute form along
+    with the rawDatas (in which you flag which url is bad)
+
     Validation of link via is_valid function is done later (see line 42).
     It is not required to remove duplicates that have already been downloaded. 
     The frontier takes care of that.
 
     Suggested library: lxml
     '''
-    return outputLinks
+    return outputLinks, rawDatas
 
 def is_valid(url):
     '''

@@ -19,3 +19,5 @@
 *.js
 python/applications/mobdat/networks/fullnet/net/*
 python/stats
+python/spacetime.egg-info
+python/build

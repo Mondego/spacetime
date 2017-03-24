@@ -29,13 +29,13 @@ def load_all_sets(reload_modules=False):
 
     for module in module_list:
         for _, name, _ in pkgutil.iter_modules(module.__path__):
-            try:
-                mod = importlib.import_module(module.__name__ + '.' + name)
-                datamodel_list.append(mod)
-                if reload_modules:
-                    reload(mod)
-            except:
-                print "Failed to load module %s.%s" % (module.__name__, name)
+            #try:
+            mod = importlib.import_module(module.__name__ + '.' + name)
+            datamodel_list.append(mod)
+            if reload_modules:
+                reload(mod)
+            #except:
+            #    print "Failed to load module %s.%s" % (module.__name__, name)
 
     for module in datamodel_list:
         for name, cls in inspect.getmembers(module, inspect.isclass):

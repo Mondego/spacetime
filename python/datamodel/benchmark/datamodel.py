@@ -144,19 +144,11 @@ class BaseSetProjection(object):
 @subset(BaseSet)
 class SubsetHalf(BaseSet):
     @staticmethod
-    def __query__(base):
-        return [o for o in base if SubsetHalf.__predicate__(o)]
-
-    @staticmethod
     def __predicate__(o):
         return o.Number % 2 == 0
 
 @subset(BaseSet)
 class SubsetAll(BaseSet):
-    @staticmethod
-    def __query__(base):
-        return [o for o in base if SubsetAll.__predicate__(o)]
-
     @staticmethod
     def __predicate__(o):
         return True
@@ -192,9 +184,9 @@ class JoinHalf(object):
         self.b1 = b1
         self.b2 = b2
 
-    @staticmethod
-    def __query__(b1s, b2s):
-        return [(b1, b2) for b1 in b1s for b2 in b2s if JoinHalf.__predicate__(b1, b2)]
+    def __init__(self, b1, b2):
+        self.b1 = b1
+        self.b2 = b2
 
     @staticmethod
     def __predicate__(b1, b2):
@@ -232,9 +224,9 @@ class JoinAll(object):
         self.b1 = b1
         self.b2 = b2
 
-    @staticmethod
-    def __query__(b1s, b2s):
-        return [(b1, b2) for b1 in b1s for b2 in b2s if JoinAll.__predicate__(b1, b2)]
+    def __init__(self, b1, b2):
+        self.b1 = b1
+        self.b2 = b2
 
     @staticmethod
     def __predicate__(b1, b2):
@@ -245,20 +237,12 @@ class JoinAll(object):
 @subset(BaseSet)
 class ParameterHalf(BaseSet):
     @staticmethod
-    def __query__(b1s, b2s):
-        return [b1 for b1 in b1s if ParameterHalf.__predicate__(b1, b2s)]
-
-    @staticmethod
     def __predicate__(b1, b2s):
         return b1.Number % 2 == 0
 
 @parameter(BaseSet)
 @subset(BaseSet)
 class ParameterAll(BaseSet):
-    @staticmethod
-    def __query__(b1s, b2s):
-        return [b1 for b1 in b1s if ParameterAll.__predicate__(b1, b2s)]
-
     @staticmethod
     def __predicate__(b1, b2s):
         return True

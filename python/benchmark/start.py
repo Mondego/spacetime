@@ -14,6 +14,7 @@ import importlib
 import time
 
 from multiprocessing import Event, Process
+from threading import Thread
 filepath = os.path.realpath(os.path.dirname(__file__))
 while filepath in sys.path:
     sys.path.remove(filepath)
@@ -204,7 +205,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--steps', type=int, default=100, help='Number of simulation steps.')
     parser.add_argument('-t', '--test', default='subset.subset_01', help='Name of tests to be run')
     parser.add_argument('-a', '--address', default='http://127.0.0.1:12000')
-    parser.add_argument('-tf', '--testfile', help='File contanining list of tests in the form of <test_suite> <test_name> <instances> <steps> <testsims>.')
+    parser.add_argument('-tf', '--testfile', default='benchmark/testlist.txt', help='File contanining list of tests in the form of <test_suite> <test_name> <instances> <steps> <testsims>.')
     parser.add_argument('-tsp', '--timestep', type=int, default=500, help='Time interval for each simulation step. Default is 500.')
     parser.add_argument('-m', '--mode', default=None, help='Testbench mode, current options are: <BASELINE>, <DIFF_SENT>, <DIFF_RECEIVED>, <FULL>')
     #parser.add_argument('-r', '--remote', help='Remote frame server location, in the form of <user>@<server>:/<path>.')

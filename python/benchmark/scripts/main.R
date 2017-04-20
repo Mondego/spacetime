@@ -1,6 +1,9 @@
-statsdir = Sys.getenv("SPACETIME_STATS")
-wd = Sys.getenv("SPACETIME_SCRIPTS")
-result_dir = Sys.getenv("SPACETIME_RESULTS")
+#statsdir = Sys.getenv("SPACETIME_STATS")
+#wd = Sys.getenv("SPACETIME_SCRIPTS")
+#result_dir = Sys.getenv("SPACETIME_RESULTS")
+statsdir = "../../stats"
+wd = "."
+result_dir = "../../results"
 
 setwd(wd)
 

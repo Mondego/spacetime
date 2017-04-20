@@ -6,8 +6,8 @@ Created on Aug 24, 2016
 import logging
 
 from datamodel.benchmark.datamodel import *
-from spacetime_local.IApplication import IApplication
-from spacetime_local.declarations import Producer, GetterSetter, Tracker, \
+from spacetime.client.IApplication import IApplication
+from spacetime.client.declarations import Producer, GetterSetter, Tracker, \
     Deleter, Setter, Getter
 from common.instrument import SpacetimeInstruments as si, timethis
 global BT_PRODUCER

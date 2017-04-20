@@ -4,7 +4,7 @@ Created on Aug 26, 2016
 @author: Arthur Valadares
 '''
 from __future__ import absolute_import
-from spacetime_local.frame import frame
+from spacetime.client.frame import frame
 
 from requests.exceptions import HTTPError, ConnectionError
 from common.instrument import timethis

@@ -94,11 +94,14 @@ def merge_object_delta(dtpname, old_change, new_change):
 
     return {"types": type_change, "dims": dim_change}
 
-def make_objs(dtype, oids):
-    objs = list()
-    for oid in oids:
-        obj = _container()
-        obj.__class__ = dtype
-        obj.__r_oid__ = oid
-        objs.append(obj)
-    return objs
+def make_obj(dtype, oid):
+    obj = _container()
+    obj.__class__ = dtype
+    obj.__r_oid__ = oid
+    return obj
+
+def get_deleted(data):
+    return [
+        (dtpname, oid)
+        for dtpname in data for oid in data[dtpname]
+        if data[dtpname][oid]["types"][dtpname] == Event.Delete]

@@ -35,7 +35,6 @@ class Dataframe(object):
         if self.socket_connector.has_parent_connection:
             self.pull()
 
-       
     # Suppport Functions
 
     def _create_package(self, appname, diff, start_version):

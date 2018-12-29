@@ -94,6 +94,29 @@ class TestDataframe(unittest.TestCase):
         self.assertEqual(c.ypos, 0)
         self.assertEqual(c.oid, 0)
 
+    def test_basic_delete(self):
+        df = Dataframe("TEST", [Car])
+        c = Car(0)
+        df.checkout()
+        df.add_one(Car, c)
+        c.xvel = 1
+        self.assertFalse("xvel" in c.__dict__)
+        self.assertFalse("yvel" in c.__dict__)
+        self.assertFalse("xpos" in c.__dict__)
+        self.assertFalse("ypos" in c.__dict__)
+        self.assertFalse("oid" in c.__dict__)
+        self.assertTrue(hasattr(c, "__r_df__"))
+        self.assertEqual(df.local_heap, c.__r_df__)
+        self.assertEqual(c.xvel, 1)
+        self.assertEqual(c.yvel, 0)
+        self.assertEqual(c.xpos, 0)
+        self.assertEqual(c.ypos, 0)
+        self.assertEqual(c.oid, 0)
+        df.commit()
+        df.delete_one(Car, c)
+        df.commit()
+        self.assertListEqual(list(), df.read_all(Car))
+
     def test_push1(self):
         df1 = Dataframe("TEST1", [Car])
         df2 = Dataframe("TEST2", [Car], details=df1.details)

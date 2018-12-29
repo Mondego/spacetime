@@ -77,7 +77,8 @@ class Diff(dict):
         if is_staged:
             del self[dtpname][oid]
         if in_prev:
-            self[dtpname][oid] = {"types": {dtpname: Event.Delete}}
+            self.setdefault(dtpname, dict())[oid] = {
+                "types": {dtpname: Event.Delete}}
 
 
 def extract(dtype, obj):

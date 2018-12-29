@@ -83,7 +83,8 @@ class FullStateVersionManager(object):
             if oid in conflict_tp_change:
                 # Merge oid change.
                 obj_merge, obj_conf_merge = self.ot_on_obj(
-                    dtpname, start, new_tp_change[oid], conflict_tp_change[oid])
+                    dtpname, oid,
+                    start, new_tp_change[oid], conflict_tp_change[oid])
                 tp_merge[oid] = obj_merge
                 tp_conf_merge[oid] = obj_conf_merge
             else:
@@ -96,7 +97,7 @@ class FullStateVersionManager(object):
                 tp_merge[oid] = conflict_tp_change[oid]
         return tp_merge, tp_conf_merge
 
-    def ot_on_obj(self, dtpname, start, new_obj_change, conf_obj_change):
+    def ot_on_obj(self, dtpname, oid, start, new_obj_change, conf_obj_change):
         dtype = self.type_map[dtpname]
         obj_merge = dict()
         obj_conf_merge = dict()
@@ -109,7 +110,7 @@ class FullStateVersionManager(object):
             # Resolve that.
             if dtype.__r_meta__.merge is not None:
                 obj_merge, obj_conf_merge = self.resolve_with_custom_merge(
-                    dtype, 
+                    dtype, oid,
                     None,  # original
                     self.make_temp_obj(
                         start, dtype, oid, with_change=new_obj_change),  # new
@@ -151,7 +152,7 @@ class FullStateVersionManager(object):
             # resolve between two different modifications.
             if dtype.__r_meta__.merge is not None:
                 obj_merge, obj_conf_merge = self.resolve_with_custom_merge(
-                    dtype, 
+                    dtype, oid,
                     self.make_temp_obj(start, dtype, oid),  # original
                     self.make_temp_obj(
                         start, dtype, oid, with_change=new_obj_change),  # new
@@ -170,7 +171,7 @@ class FullStateVersionManager(object):
             # and another app deleting the object.
             if dtype.__r_meta__.merge is not None:
                 obj_merge, obj_conf_merge = self.resolve_with_custom_merge(
-                    dtype, 
+                    dtype, oid,
                     self.make_temp_obj(start, dtype, oid),  # original
                     self.make_temp_obj(
                         start, dtype, oid, with_change=new_obj_change),  # new
@@ -192,7 +193,7 @@ class FullStateVersionManager(object):
             # and another app deleting the object.
             if dtype.__r_meta__.merge is not None:
                 obj_merge, obj_conf_merge = self.resolve_with_custom_merge(
-                    dtype, 
+                    dtype, oid,
                     self.make_temp_obj(start, dtype, oid),  # original
                     None,  # new
                     self.make_temp_obj(
@@ -210,18 +211,19 @@ class FullStateVersionManager(object):
         return obj_merge, obj_conf_merge
 
     def resolve_with_custom_merge(
-            self, dtype, original, new, conflicting,
+            self, dtype, oid, original, new, conflicting,
             new_obj_change, conf_obj_changes):
         obj = dtype.__r_meta__.merge(original, new, conflicting)  # conflicting
         dtpname = dtype.__r_meta__.name
         if obj:
-            changes = {"dims": dtype.__r_table__.store_as_temp[oid]}
+            changes = {
+                "dims": dtype.__r_table__.store_as_temp[oid], "types": dict()}
             changes["types"][dtpname] = (
-                Event.Modification if original is None else Event.New)
+                Event.Modification if original is not None else Event.New)
             
             del dtype.__r_table__.store_as_temp[oid]
             return (self.dim_diff(new_obj_change, changes),
-                    self.dim_diff(conf_obj_change, changes))
+                    self.dim_diff(conf_obj_changes, changes))
         else:
             # Object was deleted.
             return (
@@ -229,18 +231,33 @@ class FullStateVersionManager(object):
                 {"types": {dtpname: Event.Delete}})
 
     def make_temp_obj(self, version, dtype, oid, with_change=dict()):
-        obj = _container()
+        obj = utils._container()
         obj.__class__ = dtype
         obj.__r_oid__ = oid
-        dtype.__r_table__.object_table[oid] = {
+        obj.__r_temp__ = {
             dimname: (
                 with_change["dims"][dimname]
                 if "dims" in with_change and dimname in with_change["dims"] else
-                self.read_dimension(version, dtype, oid, dimname))
+                self.read_dimension_at(version, dtype, oid, dimname))
             for dimname in dtype.__r_meta__.dimmap}
         
         dtype.__r_table__.store_as_temp[oid] = dict()
         return obj
+
+    def read_dimension_at(self, version, dtype, oid, dimname):
+        dtpname = dtype.__r_meta__.name
+        for change in self.version_graph[version::-1]:
+            if dtpname in change and oid in change[dtpname]:
+                if ("dims" in change[dtpname][oid]
+                        and dimname in change[dtpname][oid]["dims"]):
+                    return change[dtpname][oid]["dims"][dimname]
+                if ("types" in change[dtpname][oid]
+                        and dtpname in change[dtpname][oid]["types"]
+                        and change[dtpname][oid]["types"][dtpname] == Event.Delete):
+                    # Object has been deleted before this version,
+                    # and has not been added.
+                    # Do not return a value.
+                    break
 
     def dim_diff(self, original, new):
         # return dims that are in new but not in/different in the original.

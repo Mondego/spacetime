@@ -72,7 +72,7 @@ class Dataframe(object):
 
     # Fork and Join
 
-    def fork(self):
+    def checkout(self):
         data, versions = self.versioned_heap.retrieve_data(
             self.appname,
             self.local_heap.version)
@@ -83,7 +83,7 @@ class Dataframe(object):
                     self.versioned_heap.data_sent_confirmed(
                         self.appname, versions[1])
 
-    def join(self):
+    def commit(self):
         data, versions = self.local_heap.retreive_data()
         with self.write_lock:
             succ = self.versioned_heap.receive_data(
@@ -92,11 +92,11 @@ class Dataframe(object):
             self.local_heap.data_sent_confirmed()
 
     def sync(self):
-        self.join()
+        self.commit()
         if self.socket_connector.has_parent_connection:
             self.push()
             self.pull()
-        self.fork()
+        self.checkout()
         return True
 
     # Push and Pull

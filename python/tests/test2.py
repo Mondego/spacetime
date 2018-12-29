@@ -2,7 +2,7 @@ from multiprocessing import Process, Event as MPEvent, Queue
 import unittest
 import time
 
-from rtypes import pcc_set, primarykey, dimension
+from rtypes import pcc_set, primarykey, dimension, merge
 from rtypes.utils.enums import Datatype
 
 from spacetime import Dataframe
@@ -17,8 +17,8 @@ class Car(object):
     ypos = dimension(int)
 
     def move(self):
-        xpos += xvel
-        ypos += yvel
+        self.xpos += self.xvel
+        self.ypos += self.yvel
 
     def details(self):
         return self.oid, self.xvel, self.yvel, self.xpos, self.ypos
@@ -78,7 +78,7 @@ class TestDataframe(unittest.TestCase):
     def test_basic(self):
         df = Dataframe("TEST", [Car])
         c = Car(0)
-        df.fork()
+        df.checkout()
         df.add_one(Car, c)
         c.xvel = 1
         self.assertFalse("xvel" in c.__dict__)
@@ -101,7 +101,7 @@ class TestDataframe(unittest.TestCase):
         appname2 = df2.appname
         c = Car(0)
         
-        df2.fork()
+        df2.checkout()
         df2.add_one(Car, c)
         c.xvel = 1
         df2.sync()
@@ -156,20 +156,38 @@ class TestDataframe(unittest.TestCase):
        serv_proc.join()
        client_proc.join()
 
+    def test_parallel_df_merge_with_func(self):
+       server_to_client_q = Queue()
+       client_to_server_q = Queue()
+       server_ready = MPEvent()
+       client_ready = MPEvent()
+       serv_proc = Process(
+           target=server_df3,
+           args=(server_to_client_q, client_to_server_q, server_ready, client_ready))
+       serv_proc.daemon = True
+       serv_proc.start()
+       client_proc = Process(
+           target=client_df3,
+           args=(client_to_server_q, server_to_client_q, server_ready, client_ready))
+       client_proc.daemon = True
+       client_proc.start()
+       serv_proc.join()
+       client_proc.join()
+
 def server_df1(send_q, recv_q, server_ready, client_ready):
     df = Dataframe("SERVER_TEST", [Car])
     send_q.put(df.details)
     client_name = recv_q.get()
     # The server goes first.
 
-    df.fork()
+    df.checkout()
     #Add car to server
     c = Car(0)
     df.add_one(Car, c)
     # Modify the car value.
     c.xvel = 1
     # Push record into server.
-    df.join()
+    df.commit()
     # Setting point C1
     server_ready.set()
     # Client 
@@ -178,16 +196,16 @@ def server_df1(send_q, recv_q, server_ready, client_ready):
     client_ready.wait()
     client_ready.clear()
     # modify the object.
-    df.fork()
+    df.checkout()
     c.yvel = 1
-    df.join()
+    df.commit()
     # Setting point C2
     server_ready.set()
     # Waiting at point S2
     client_ready.wait()
     client_ready.clear()
 
-    df.fork()
+    df.checkout()
     assert ("xvel" not in c.__dict__)
     assert ("yvel" not in c.__dict__)
     assert ("xpos" not in c.__dict__)
@@ -209,10 +227,10 @@ def server_df1(send_q, recv_q, server_ready, client_ready):
     assert (c2.xpos is 0)
     assert (c2.ypos is 0)
     assert (c2.oid is 1)
-    df.join()
+    df.commit()
 
     # Going for delete.
-    df.fork()
+    df.checkout()
     c3 = Car(2)
     df.add_one(Car, c3)
     c4 = df.read_one(Car, 2)
@@ -242,7 +260,7 @@ def server_df1(send_q, recv_q, server_ready, client_ready):
     
     df.delete_one(Car, c3)
     assert (df.read_one(Car, 2) is None)
-    df.join()
+    df.commit()
     assert (df.local_heap.membership == {
         Car.__r_meta__.name: set([0])
     })
@@ -262,7 +280,7 @@ def client_df1(send_q, recv_q, server_ready, client_ready):
 
     # Pull from the server.
     df.pull()
-    df.fork()
+    df.checkout()
     cars = df.read_all(Car)
     assert (1 == len(cars))
     c = cars[0]
@@ -276,14 +294,14 @@ def client_df1(send_q, recv_q, server_ready, client_ready):
     assert (c.xpos is 0)
     assert (c.ypos is 0)
     assert (c.oid is 0)
-    df.join()
+    df.commit()
     # Setting point S1
     client_ready.set()
     # Waiting at point C2
     server_ready.wait()
     server_ready.clear()
     df.pull()
-    df.fork()
+    df.checkout()
     cars = df.read_all(Car)
     assert (1 == len(cars))
     c = cars[0]
@@ -297,13 +315,13 @@ def client_df1(send_q, recv_q, server_ready, client_ready):
     assert (c.xpos is 0)
     assert (c.ypos is 0)
     assert (c.oid is 0)
-    df.join()
-    df.fork()
+    df.commit()
+    df.checkout()
     c.xpos = 1
     c.ypos = 1
     c2 = Car(1)
     df.add_one(Car, c2)
-    df.join()
+    df.commit()
     df.push()
     # Setting point S2
     client_ready.set()
@@ -311,7 +329,7 @@ def client_df1(send_q, recv_q, server_ready, client_ready):
     server_ready.wait()
     server_ready.clear()
     df.pull()
-    df.fork()
+    df.checkout()
     assert (df.read_one(Car, 1) is None)
     assert (df.read_one(Car, 2) is None)
     # This does not work yet. Have to figure it out.
@@ -347,7 +365,7 @@ def server_df2(send_q, recv_q, server_ready, client_ready):
     # The server goes first.
     #print ("Server at start:", df.versioned_heap.version_graph.nodes.keys())
 
-    df.fork()
+    df.checkout()
     #Add car to server
     c1 = Car(0)
     c2 = Car(1)
@@ -355,7 +373,7 @@ def server_df2(send_q, recv_q, server_ready, client_ready):
     # Modify the car value.
     c1.xvel = 1
     # Push record into server.
-    df.join()
+    df.commit()
     #print ("Server after adding 2 cars:", df.versioned_heap.version_graph.nodes.keys())
     # Setting point C1
     #print ("Setting C1")
@@ -366,9 +384,9 @@ def server_df2(send_q, recv_q, server_ready, client_ready):
     client_ready.clear()
     #print ("Server after waiting for client first time:", df.versioned_heap.version_graph.nodes.keys())
     #print (df.versioned_heap.state_to_app)
-    df.fork()
+    df.checkout()
     c1.yvel = 1
-    df.join()
+    df.commit()
     #print (df.versioned_heap.state_to_app)
     #print ("Server after modifying once:", df.versioned_heap.version_graph.nodes.keys())
     # Setting point C2
@@ -381,7 +399,7 @@ def server_df2(send_q, recv_q, server_ready, client_ready):
     #print ("Server after waiting for client second time.:", df.versioned_heap.version_graph.nodes.keys())
 
     # Check how the merge worked out.
-    df.fork()
+    df.checkout()
     c1 = df.read_one(Car, 0)
     c2 = df.read_one(Car, 1)
     assert ("xvel" not in c1.__dict__)
@@ -427,7 +445,7 @@ def client_df2(send_q, recv_q, server_ready, client_ready):
     # Pull from the server.
     df.pull()
     #print ("Client after first pull:", df.versioned_heap.version_graph.nodes.keys())
-    df.fork()
+    df.checkout()
     cars = df.read_all(Car)
     assert (2 == len(cars))
     c1, c2 = cars
@@ -435,7 +453,7 @@ def client_df2(send_q, recv_q, server_ready, client_ready):
     # Setting point S1
     client_ready.set()
     c2.yvel = 1
-    df.join()
+    df.commit()
     #print ("Client after first modification:", df.versioned_heap.version_graph.nodes.keys())
     # Waiting at point C2
     #print ("Waiting for C2")
@@ -454,7 +472,7 @@ def client_df2(send_q, recv_q, server_ready, client_ready):
     df.pull()
     #print ("Client after pulling second time:", df.versioned_heap.version_graph.nodes.keys())
 
-    df.fork()
+    df.checkout()
 
     c1 = df.read_one(Car, 0)
     c2 = df.read_one(Car, 1)
@@ -478,6 +496,129 @@ def client_df2(send_q, recv_q, server_ready, client_ready):
     assert (c2.xpos is 0)
     assert (c2.ypos is 0)
     assert (c2.oid is 1)
+
+    # Setting point S3
+    #print ("Setting S3")
+    client_ready.set()
+
+@pcc_set
+class Counter(object):
+    oid = primarykey(int)
+    count = dimension(int)
+    def __init__(self, oid):
+        self.oid = oid
+        self.count = 0
+    
+    @merge
+    def merge_func(original, new, conflicting):
+        
+        original.count = (new.count + conflicting.count) - original.count
+        return original
+
+
+
+def server_df3(send_q, recv_q, server_ready, client_ready):
+    df = Dataframe("SERVER_TEST", [Counter])
+    send_q.put(df.details)
+    client_name = recv_q.get()
+    # The server goes first.
+    #print ("Server at start:", df.versioned_heap.version_graph.nodes.keys())
+
+    df.checkout()
+    #Add Counter to server
+    c1 = Counter(0)
+
+    df.add_many(Counter, [c1])
+    assert (c1.count == 0)
+    # Modify the counter value.
+    c1.count += 1
+    assert (c1.count == 1)
+    # Push record into server.
+    df.commit()
+    #print ("Server after adding 2 cars:", df.versioned_heap.version_graph.nodes.keys())
+    # Setting point C1
+    #print ("Setting C1")
+    server_ready.set()
+    # Waiting at point S1
+    #print ("Waiting for S1")
+    client_ready.wait()
+    client_ready.clear()
+    #print ("Server after waiting for client first time:", df.versioned_heap.version_graph.nodes.keys())
+    #print (df.versioned_heap.state_to_app)
+    df.checkout()
+    assert (c1.count == 1)
+    c1.count += 1
+    assert (c1.count == 2)
+    df.commit()
+    #print (df.versioned_heap.state_to_app)
+    #print ("Server after modifying once:", df.versioned_heap.version_graph.nodes.keys())
+    # Setting point C2
+    #print ("Setting C2")
+    server_ready.set()
+    # Waiting at point S2
+    #print ("Waiting for S2")
+    client_ready.wait()
+    client_ready.clear()
+    #print ("Server after waiting for client second time.:", df.versioned_heap.version_graph.nodes.keys())
+
+    # Check how the merge worked out.
+    df.checkout()
+    assert (c1.count == 3)
+    # Setting point C3
+    #print ("Setting C3")
+    server_ready.set()
+    # Waiting at point S3
+    #print ("Waiting for S3")
+    client_ready.wait()
+    client_ready.clear()
+
+
+def client_df3(send_q, recv_q, server_ready, client_ready):
+    server_name = recv_q.get()
+    df = Dataframe("CLIENT_TEST", [Counter], details=server_name)
+    send_q.put(df.details)
+    #print ("Client at start:", df.versioned_heap.version_graph.nodes.keys())
+    # Waiting at point C1
+    #print ("Waiting for C1")
+    server_ready.wait()
+    server_ready.clear()
+    #print ("Client after waiting for server first time.:", df.versioned_heap.version_graph.nodes.keys())
+
+    # Pull from the server.
+    df.pull()
+    #print ("Client after first pull:", df.versioned_heap.version_graph.nodes.keys())
+    df.checkout()
+    counters = df.read_all(Counter)
+    assert (1 == len(counters))
+    c1 = counters[0]
+    assert (c1.count == 1)
+    #print ("Setting S1")
+    # Setting point S1
+    client_ready.set()
+    c1.count += 1
+    assert (c1.count == 2)
+    df.commit()
+    #print ("Client after first modification:", df.versioned_heap.version_graph.nodes.keys())
+    # Waiting at point C2
+    #print ("Waiting for C2")
+    server_ready.wait()
+    server_ready.clear()
+    #print ("Client after waiting for server:", df.versioned_heap.version_graph.nodes.keys())
+    df.push()
+    #print ("Client after pushing:", df.versioned_heap.version_graph.nodes.keys())
+    # Setting point S2
+    #print ("Setting S2")
+    client_ready.set()
+    # Waiting at point c3
+    #print ("Waiting for C3")
+    server_ready.wait()
+    server_ready.clear()
+    df.pull()
+    #print ("Client after pulling second time:", df.versioned_heap.version_graph.nodes.keys())
+
+    df.checkout()
+
+    assert (c1.count == 3)
 
     # Setting point S3
     #print ("Setting S3")

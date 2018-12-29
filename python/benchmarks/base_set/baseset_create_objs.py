@@ -21,6 +21,7 @@ class BaseSet(object):
 
 @app(Producer=[BaseSet])
 def producer(dataframe):
+    print ("Running Producer create objs")
     done = False
     MAX_OBJ_COUNT = 1000
     obj_count = 0
@@ -37,9 +38,11 @@ def producer(dataframe):
     json.dump(
         {"start": start, "timings": timing, "end": time.time()},
         open("benchmarks/results/baseset_create.producer.json", "w"))
+    print ("Completed Producer create objs")
     
 @app(GetterSetter=[BaseSet])
 def consumer(dataframe):
+    print ("Running Consumer create objs")
     timing = list()
     current = start = time.time()
     while dataframe.sync():
@@ -51,6 +54,7 @@ def consumer(dataframe):
     json.dump(
         {"start": start, "timings": timing, "end": time.time()},
         open("benchmarks/results/baseset_create.consumer.json", "w"))
+    print ("Completed Consumer create objs")
 
 @register
 @app(Types=[BaseSet])

@@ -3,7 +3,7 @@ from benchmarks import REGISTERED
 apps = list()
 for app in REGISTERED:
     apps.append(app())
-    apps[-1].start()
+    apps[-1].start_async()
 
 for app in apps:
     app.join()

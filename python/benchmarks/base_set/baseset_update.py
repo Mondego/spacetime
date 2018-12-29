@@ -21,6 +21,7 @@ class BaseSet(object):
 
 @app(Producer=[BaseSet])
 def producer(dataframe):
+    print ("Running Producer update objs")
     MAX_OBJ_COUNT = 1000
     dataframe.add_many(BaseSet, [
         BaseSet(
@@ -38,22 +39,27 @@ def producer(dataframe):
     json.dump(
         {"start": start, "timings": timing, "end": time.time()},
         open("benchmarks/results/baseset_update.producer.json", "w"))
-    print ("Producer is done")
+    print ("Completed Producer update objs")
     
 @app(GetterSetter=[BaseSet])
 def consumer(dataframe):
+    print ("Running Consumer update objs")
     timing = list()
     current = start = time.time()
     i_count = 0
+    prev_total = 0
     while dataframe.sync() and i_count < 1000:
         timing.append(1000*(time.time() - current))
         current =time.time()
         objs = dataframe.read_all(BaseSet)
-        print (sum(obj.prop1 for obj in objs))
+        total = (sum(obj.prop1 for obj in objs))
+        assert (total >= prev_total)
+        prev_total = total
         i_count += 1
     json.dump(
         {"start": start, "timings": timing, "end": time.time()},
         open("benchmarks/results/baseset_update.consumer.json", "w"))
+    print ("Completed Consumer update objs")
 
 @register
 @app(Types=[BaseSet])
@@ -62,7 +68,6 @@ def update_objs(dataframe):
     con_app = consumer(dataframe=dataframe)
     con_app.start_async()
     prod_app.start()
-    print ("Producer completed")
     con_app.join()
 
 

@@ -1,4 +1,4 @@
-from rtypes.attributes import Dimension
+from rtypes.attributes import Dimension, MergeFunction
 from rtypes.metadata import Metadata
 from rtypes.utils.enums import Rtype
 from rtypes.utils.converter import convert, unconvert
@@ -12,6 +12,8 @@ def get_property(cls, dimname, dim_obj):
             return unconvert(
                 self.__r_df__.read_dimension(
                     cls, oid, dimname))
+        if hasattr(self, "__r_temp__") and self.__r_temp__ is not None:
+            return unconvert(self.__r_temp__[dimname])
         return cls.__r_table__.get(oid, dimname, dim_obj)
 
     @prop.setter
@@ -37,6 +39,8 @@ def get_property(cls, dimname, dim_obj):
             else:
                 self.__r_oid__ = cls.__r_table__.set(
                     oid, dimname, dim_obj, value)
+        if hasattr(self, "__r_temp__") and self.__r_temp__ is not None:
+            self.__r_temp__[dimname] = convert(dim_obj.dim_type, value)
 
     return prop
 
@@ -47,11 +51,17 @@ def set_dimension(cls, dim):
 
 def set_metadata(cls):
     cls.__r_table__ = RtypesTable(cls)
-    dims = [
-        attr for attr in dir(cls) if isinstance(
-            getattr(cls, attr), Dimension)]
+    dims = list()
+    merge_func = None
+    for attr in dir(cls):
+        if isinstance(getattr(cls, attr), Dimension):
+            dims.append(attr)
+        if isinstance(getattr(cls, attr), MergeFunction):
+            merge_func = getattr(cls, attr)
+
     dimmap = {dim: set_dimension(cls, dim) for dim in dims}
-    meta = Metadata(Rtype.SET, cls, dims, dimmap)
+
+    meta = Metadata(Rtype.SET, cls, dims, dimmap, merge_func)
     if hasattr(cls, "__r_meta__"):
         cls.__r_meta__.compose(meta)
     else:

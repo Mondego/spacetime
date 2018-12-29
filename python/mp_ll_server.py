@@ -2,11 +2,10 @@ import gym
 import time
 import sys
 from sample_apps.gym_mp_lunarlander.envs.multiplayer_lunar_lander import Lander
-from spacetime import app
+from spacetime import Application
 
 WAIT_FOR_START = 10.0
 
-@app(Types=[Lander])
 def lander_server(dataframe):
     env = gym.make('MultiplayerLunarLander-v0')
     players = list()
@@ -15,7 +14,7 @@ def lander_server(dataframe):
         print ("\rWaiting for %d " % (int(WAIT_FOR_START - (time.time() - start)),), "Seconds for clients to connect.")
         time.sleep(1)
     
-    dataframe.fork()
+    dataframe.checkout()
     players = dataframe.read_all(Lander)
     if not players:
         print ("No players connected, the game cannot continue. Exiting")
@@ -25,7 +24,7 @@ def lander_server(dataframe):
     env.build(players)
     for player in players:
         player.ready = True
-    dataframe.join()
+    dataframe.commit()
 
     while dataframe.sync() and not env.game_over:
         env.render()
@@ -34,7 +33,7 @@ def lander_server(dataframe):
     time.sleep(5)
 
 def main(port):
-    server = lander_server(server_port=port)
+    server = Application(lander_server, server_port=port, Types=[Lander])
     server.start()
 
 if __name__ == "__main__":

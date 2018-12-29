@@ -14,7 +14,7 @@ def get_details(dataframe):
 def get_app(func, types, producer,
             getter_setter, getter, setter, deleter):
 
-    class Application(Process):
+    class App(Process):
         @property
         def type_map(self):
             return {
@@ -45,7 +45,8 @@ def get_app(func, types, producer,
             self.func = func
             self.args = tuple()
             self.kwargs = dict()
-            self.dataframe_details = get_details(dataframe) if dataframe else None
+            self.dataframe_details = (
+                get_details(dataframe) if dataframe else None)
             self.server_port = server_port
 
             super().__init__()
@@ -53,13 +54,14 @@ def get_app(func, types, producer,
 
         def run(self):
             # Create the dataframe.
-            dataframe = self._create_dataframe(self.dataframe_details, server_port=self.server_port)
+            dataframe = self._create_dataframe(
+                self.dataframe_details, server_port=self.server_port)
             # Fork the dataframe for initialization of app.
-            dataframe.fork()
+            dataframe.checkout()
             # Run the main function of the app.
             self.func(dataframe, *self.args, **self.kwargs)
             # Merge the final changes back to the dataframe.
-            dataframe.join()
+            dataframe.commit()
             dataframe.push()
 
         def _start(self, *args, **kwargs):
@@ -75,10 +77,12 @@ def get_app(func, types, producer,
             self._start(*args, **kwargs)
 
         def _create_dataframe(self, details, server_port=0):
-            df = Dataframe(self.appname, self.all_types, details=details, server_port=server_port)
+            df = Dataframe(
+                self.appname, self.all_types,
+                details=details, server_port=server_port)
             #print(self.appname, self.all_types, details, df.details)
             return df
-    return Application
+    return App
 
 
 class app(object):
@@ -96,3 +100,14 @@ class app(object):
         return get_app(
             func, self.types, self.producer, self.getter_setter,
             self.getter, self.setter, self.deleter)
+
+def Application(
+        target, dataframe=None, server_port=0,
+        Types=list(), Producer=list(), GetterSetter=list(),
+        Getter=list(), Setter=list(), Deleter=list()):
+    app_cls = get_app(
+        target, set(Types), set(Producer), set(GetterSetter),
+        set(Getter), set(Setter), set(Deleter))
+    return app_cls(dataframe=dataframe, server_port=server_port)
+    
+        

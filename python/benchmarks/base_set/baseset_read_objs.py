@@ -21,15 +21,17 @@ class BaseSet(object):
 
 @app(Producer=[BaseSet])
 def producer(dataframe):
+    print ("Running Producer read objs")
     MAX_OBJ_COUNT = 1000
     dataframe.add_many(BaseSet, [
         BaseSet(
             i, i+1, "{0}".format(i), float(i),
             "{0}".format(i)*1000) for i in range(MAX_OBJ_COUNT)])
-    print ("Producer is done")
+    print ("Completed Producer read objs")
     
 @app(GetterSetter=[BaseSet])
 def consumer(dataframe):
+    print ("Running Consumer read objs")
     timing = list()
     current = start = time.time()
     i_count = 0
@@ -41,6 +43,7 @@ def consumer(dataframe):
     json.dump(
         {"start": start, "timings": timing, "end": time.time()},
         open("benchmarks/results/baseset_read.consumer.json", "w"))
+    print ("Completed Consumer read objs")
 
 @register
 @app(Types=[BaseSet])
@@ -49,7 +52,6 @@ def read_objs(dataframe):
     con_app = consumer(dataframe=dataframe)
     con_app.start_async()
     prod_app.start()
-    print ("Producer completed")
     con_app.join()
 
 

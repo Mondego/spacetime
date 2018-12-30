@@ -1,6 +1,6 @@
 from rtypes import pcc_set, primarykey, dimension
 from spacetime import app
-from benchmarks.register import register
+from benchmarks.register import register, VERSIONBY
 
 import time, json
 
@@ -21,17 +21,20 @@ class BaseSet(object):
 
 @app(Producer=[BaseSet])
 def producer(dataframe):
-    print ("Running Producer read objs")
+    print ("Running Producer read objs {0}".format(
+            VERSIONBY[dataframe.version_by]))
     MAX_OBJ_COUNT = 1000
     dataframe.add_many(BaseSet, [
         BaseSet(
             i, i+1, "{0}".format(i), float(i),
             "{0}".format(i)*1000) for i in range(MAX_OBJ_COUNT)])
-    print ("Completed Producer read objs")
+    print ("Completed Producer read objs {0}".format(
+            VERSIONBY[dataframe.version_by]))
     
 @app(GetterSetter=[BaseSet])
 def consumer(dataframe):
-    print ("Running Consumer read objs")
+    print ("Running Consumer read objs {0}".format(
+            VERSIONBY[dataframe.version_by]))
     timing = list()
     current = start = time.time()
     i_count = 0
@@ -42,14 +45,16 @@ def consumer(dataframe):
         i_count += 1
     json.dump(
         {"start": start, "timings": timing, "end": time.time()},
-        open("benchmarks/results/baseset_read.consumer.json", "w"))
-    print ("Completed Consumer read objs")
+        open("benchmarks/results/baseset.read.consumer.{0}.json".format(
+            VERSIONBY[dataframe.version_by]), "w"))
+    print ("Completed Consumer read objs {0}".format(
+            VERSIONBY[dataframe.version_by]))
 
 @register
 @app(Types=[BaseSet])
-def read_objs(dataframe):
-    prod_app = producer(dataframe=dataframe)
-    con_app = consumer(dataframe=dataframe)
+def read_objs(dataframe, version_by):
+    prod_app = producer(dataframe=dataframe, version_by=version_by)
+    con_app = consumer(dataframe=dataframe, version_by=version_by)
     con_app.start_async()
     prod_app.start()
     con_app.join()

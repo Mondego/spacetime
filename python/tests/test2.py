@@ -6,7 +6,7 @@ from rtypes import pcc_set, primarykey, dimension, merge
 from rtypes.utils.enums import Datatype
 
 from spacetime import Dataframe
-from spacetime.utils.enums import Event
+from spacetime.utils.enums import Event, VersionBy
 
 @pcc_set
 class Car(object):
@@ -73,64 +73,9 @@ class TestRtypes(unittest.TestCase):
             }})
         self.assertEqual(c.__r_oid__, 1)
         
-
-class TestDataframe(unittest.TestCase):
-    def test_basic(self):
-        df = Dataframe("TEST", [Car])
-        c = Car(0)
-        df.checkout()
-        df.add_one(Car, c)
-        c.xvel = 1
-        self.assertFalse("xvel" in c.__dict__)
-        self.assertFalse("yvel" in c.__dict__)
-        self.assertFalse("xpos" in c.__dict__)
-        self.assertFalse("ypos" in c.__dict__)
-        self.assertFalse("oid" in c.__dict__)
-        self.assertTrue(hasattr(c, "__r_df__"))
-        self.assertEqual(df.local_heap, c.__r_df__)
-        self.assertEqual(c.xvel, 1)
-        self.assertEqual(c.yvel, 0)
-        self.assertEqual(c.xpos, 0)
-        self.assertEqual(c.ypos, 0)
-        self.assertEqual(c.oid, 0)
-
-    def test_basic_delete1(self):
-        df = Dataframe("TEST", [Car])
-        c = Car(0)
-        df.checkout()
-        df.add_one(Car, c)
-        c.xvel = 1
-        self.assertFalse("xvel" in c.__dict__)
-        self.assertFalse("yvel" in c.__dict__)
-        self.assertFalse("xpos" in c.__dict__)
-        self.assertFalse("ypos" in c.__dict__)
-        self.assertFalse("oid" in c.__dict__)
-        self.assertTrue(hasattr(c, "__r_df__"))
-        self.assertEqual(df.local_heap, c.__r_df__)
-        self.assertEqual(c.xvel, 1)
-        self.assertEqual(c.yvel, 0)
-        self.assertEqual(c.xpos, 0)
-        self.assertEqual(c.ypos, 0)
-        self.assertEqual(c.oid, 0)
-        df.commit()
-        df.delete_one(Car, c)
-        df.commit()
-        self.assertListEqual(list(), df.read_all(Car))
-        self.assertFalse("xvel" in c.__dict__)
-        self.assertFalse("yvel" in c.__dict__)
-        self.assertFalse("xpos" in c.__dict__)
-        self.assertFalse("ypos" in c.__dict__)
-        self.assertFalse("oid" in c.__dict__)
-        self.assertTrue(hasattr(c, "__r_df__"))
-        self.assertEqual(None, c.__r_df__)
-        self.assertEqual(c.xvel, 1)
-        self.assertEqual(c.yvel, 0)
-        self.assertEqual(c.xpos, 0)
-        self.assertEqual(c.ypos, 0)
-        self.assertEqual(c.oid, 0)
-
+class TestFullStateDataframeBasic(unittest.TestCase):
     def test_basic_delete2(self):
-        df = Dataframe("TEST", [Car])
+        df = Dataframe("TEST", [Car], version_by=VersionBy.FULLSTATE)
         c = Car(0)
         df.checkout()
         df.add_one(Car, c)
@@ -174,8 +119,8 @@ class TestDataframe(unittest.TestCase):
         self.assertEqual(c.oid, 0)
 
     def test_push1(self):
-        df1 = Dataframe("TEST1", [Car])
-        df2 = Dataframe("TEST2", [Car], details=df1.details)
+        df1 = Dataframe("TEST1", [Car], version_by=VersionBy.FULLSTATE)
+        df2 = Dataframe("TEST2", [Car], details=df1.details, version_by=VersionBy.FULLSTATE)
         appname1 = df1.appname
         appname2 = df2.appname
         c = Car(0)
@@ -199,62 +144,120 @@ class TestDataframe(unittest.TestCase):
             df2.versioned_heap.app_to_state,
             {appname2: version1, "SOCKETPARENT": version1})
 
-    def test_parallel_df_no_merge(self):
-        server_to_client_q = Queue()
-        client_to_server_q = Queue()
-        server_ready = MPEvent()
-        client_ready = MPEvent()
-        serv_proc = Process(
-            target=server_df1,
-            args=(server_to_client_q, client_to_server_q, server_ready, client_ready))
-        serv_proc.daemon = True
-        serv_proc.start()
-        client_proc = Process(
-            target=client_df1,
-            args=(client_to_server_q, server_to_client_q, server_ready, client_ready))
-        client_proc.daemon = True
-        client_proc.start()
-        serv_proc.join()
-        client_proc.join()
 
-    def test_parallel_df_merge(self):
-       server_to_client_q = Queue()
-       client_to_server_q = Queue()
-       server_ready = MPEvent()
-       client_ready = MPEvent()
-       serv_proc = Process(
-           target=server_df2,
-           args=(server_to_client_q, client_to_server_q, server_ready, client_ready))
-       serv_proc.daemon = True
-       serv_proc.start()
-       client_proc = Process(
-           target=client_df2,
-           args=(client_to_server_q, server_to_client_q, server_ready, client_ready))
-       client_proc.daemon = True
-       client_proc.start()
-       serv_proc.join()
-       client_proc.join()
+def get_dataframe_test(versionby):
+    class TestDataframe(unittest.TestCase):
+        def test_basic(self):
+            df = Dataframe("TEST", [Car], version_by=versionby)
+            c = Car(0)
+            df.checkout()
+            df.add_one(Car, c)
+            c.xvel = 1
+            self.assertFalse("xvel" in c.__dict__)
+            self.assertFalse("yvel" in c.__dict__)
+            self.assertFalse("xpos" in c.__dict__)
+            self.assertFalse("ypos" in c.__dict__)
+            self.assertFalse("oid" in c.__dict__)
+            self.assertTrue(hasattr(c, "__r_df__"))
+            self.assertEqual(df.local_heap, c.__r_df__)
+            self.assertEqual(c.xvel, 1)
+            self.assertEqual(c.yvel, 0)
+            self.assertEqual(c.xpos, 0)
+            self.assertEqual(c.ypos, 0)
+            self.assertEqual(c.oid, 0)
 
-    def test_parallel_df_merge_with_func(self):
-       server_to_client_q = Queue()
-       client_to_server_q = Queue()
-       server_ready = MPEvent()
-       client_ready = MPEvent()
-       serv_proc = Process(
-           target=server_df3,
-           args=(server_to_client_q, client_to_server_q, server_ready, client_ready))
-       serv_proc.daemon = True
-       serv_proc.start()
-       client_proc = Process(
-           target=client_df3,
-           args=(client_to_server_q, server_to_client_q, server_ready, client_ready))
-       client_proc.daemon = True
-       client_proc.start()
-       serv_proc.join()
-       client_proc.join()
+        def test_basic_delete1(self):
+            df = Dataframe("TEST", [Car], version_by=versionby)
+            c = Car(0)
+            df.checkout()
+            df.add_one(Car, c)
+            c.xvel = 1
+            self.assertFalse("xvel" in c.__dict__)
+            self.assertFalse("yvel" in c.__dict__)
+            self.assertFalse("xpos" in c.__dict__)
+            self.assertFalse("ypos" in c.__dict__)
+            self.assertFalse("oid" in c.__dict__)
+            self.assertTrue(hasattr(c, "__r_df__"))
+            self.assertEqual(df.local_heap, c.__r_df__)
+            self.assertEqual(c.xvel, 1)
+            self.assertEqual(c.yvel, 0)
+            self.assertEqual(c.xpos, 0)
+            self.assertEqual(c.ypos, 0)
+            self.assertEqual(c.oid, 0)
+            df.commit()
+            df.delete_one(Car, c)
+            df.commit()
+            self.assertListEqual(list(), df.read_all(Car))
+            self.assertFalse("xvel" in c.__dict__)
+            self.assertFalse("yvel" in c.__dict__)
+            self.assertFalse("xpos" in c.__dict__)
+            self.assertFalse("ypos" in c.__dict__)
+            self.assertFalse("oid" in c.__dict__)
+            self.assertTrue(hasattr(c, "__r_df__"))
+            self.assertEqual(None, c.__r_df__)
+            self.assertEqual(c.xvel, 1)
+            self.assertEqual(c.yvel, 0)
+            self.assertEqual(c.xpos, 0)
+            self.assertEqual(c.ypos, 0)
+            self.assertEqual(c.oid, 0)
 
-def server_df1(send_q, recv_q, server_ready, client_ready):
-    df = Dataframe("SERVER_TEST", [Car])
+        def test_parallel_df_no_merge(self):
+            server_to_client_q = Queue()
+            client_to_server_q = Queue()
+            server_ready = MPEvent()
+            client_ready = MPEvent()
+            serv_proc = Process(
+                target=server_df1,
+                args=(server_to_client_q, client_to_server_q, server_ready, client_ready, versionby))
+            serv_proc.daemon = True
+            serv_proc.start()
+            client_proc = Process(
+                target=client_df1,
+                args=(client_to_server_q, server_to_client_q, server_ready, client_ready, versionby))
+            client_proc.daemon = True
+            client_proc.start()
+            serv_proc.join()
+            client_proc.join()
+
+        def test_parallel_df_merge(self):
+            server_to_client_q = Queue()
+            client_to_server_q = Queue()
+            server_ready = MPEvent()
+            client_ready = MPEvent()
+            serv_proc = Process(
+                target=server_df2,
+                args=(server_to_client_q, client_to_server_q, server_ready, client_ready, versionby))
+            serv_proc.daemon = True
+            serv_proc.start()
+            client_proc = Process(
+                target=client_df2,
+                args=(client_to_server_q, server_to_client_q, server_ready, client_ready, versionby))
+            client_proc.daemon = True
+            client_proc.start()
+            serv_proc.join()
+            client_proc.join()
+
+        def test_parallel_df_merge_with_func(self):
+            server_to_client_q = Queue()
+            client_to_server_q = Queue()
+            server_ready = MPEvent()
+            client_ready = MPEvent()
+            serv_proc = Process(
+                target=server_df3,
+                args=(server_to_client_q, client_to_server_q, server_ready, client_ready, versionby))
+            serv_proc.daemon = True
+            serv_proc.start()
+            client_proc = Process(
+                target=client_df3,
+                args=(client_to_server_q, server_to_client_q, server_ready, client_ready, versionby))
+            client_proc.daemon = True
+            client_proc.start()
+            serv_proc.join()
+            client_proc.join()
+    return TestDataframe
+
+def server_df1(send_q, recv_q, server_ready, client_ready, versionby):
+    df = Dataframe("SERVER_TEST", [Car], version_by=versionby)
     send_q.put(df.details)
     client_name = recv_q.get()
     # The server goes first.
@@ -349,9 +352,9 @@ def server_df1(send_q, recv_q, server_ready, client_ready):
     # Waiting for S3
     client_ready.wait()
 
-def client_df1(send_q, recv_q, server_ready, client_ready):
+def client_df1(send_q, recv_q, server_ready, client_ready, versionby):
     server_name = recv_q.get()
-    df = Dataframe("CLIENT_TEST", [Car], details=server_name)
+    df = Dataframe("CLIENT_TEST", [Car], details=server_name, version_by=versionby)
     send_q.put(df.details)
     # Waiting at point C1
     server_ready.wait()
@@ -437,8 +440,8 @@ def client_df1(send_q, recv_q, server_ready, client_ready):
     # Setting point S3
     client_ready.set()
     
-def server_df2(send_q, recv_q, server_ready, client_ready):
-    df = Dataframe("SERVER_TEST", [Car])
+def server_df2(send_q, recv_q, server_ready, client_ready, versionby):
+    df = Dataframe("SERVER_TEST", [Car], version_by=versionby)
     send_q.put(df.details)
     client_name = recv_q.get()
     # The server goes first.
@@ -510,9 +513,9 @@ def server_df2(send_q, recv_q, server_ready, client_ready):
     client_ready.clear()
 
 
-def client_df2(send_q, recv_q, server_ready, client_ready):
+def client_df2(send_q, recv_q, server_ready, client_ready, versionby):
     server_name = recv_q.get()
-    df = Dataframe("CLIENT_TEST", [Car], details=server_name)
+    df = Dataframe("CLIENT_TEST", [Car], details=server_name, version_by=versionby)
     send_q.put(df.details)
     #print ("Client at start:", df.versioned_heap.version_graph.nodes.keys())
     # Waiting at point C1
@@ -596,8 +599,8 @@ class Counter(object):
 
 
 
-def server_df3(send_q, recv_q, server_ready, client_ready):
-    df = Dataframe("SERVER_TEST", [Counter])
+def server_df3(send_q, recv_q, server_ready, client_ready, versionby):
+    df = Dataframe("SERVER_TEST", [Counter], version_by=versionby)
     send_q.put(df.details)
     client_name = recv_q.get()
     # The server goes first.
@@ -652,9 +655,9 @@ def server_df3(send_q, recv_q, server_ready, client_ready):
     client_ready.clear()
 
 
-def client_df3(send_q, recv_q, server_ready, client_ready):
+def client_df3(send_q, recv_q, server_ready, client_ready, versionby):
     server_name = recv_q.get()
-    df = Dataframe("CLIENT_TEST", [Counter], details=server_name)
+    df = Dataframe("CLIENT_TEST", [Counter], details=server_name, version_by=versionby)
     send_q.put(df.details)
     #print ("Client at start:", df.versioned_heap.version_graph.nodes.keys())
     # Waiting at point C1
@@ -703,4 +706,6 @@ def client_df3(send_q, recv_q, server_ready, client_ready):
     #print ("Setting S3")
     client_ready.set()
 
+TestFullStateDataframe = get_dataframe_test(VersionBy.FULLSTATE)
 
+TestTypeDataframe = get_dataframe_test(VersionBy.TYPE)

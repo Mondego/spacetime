@@ -1,6 +1,6 @@
 from rtypes import pcc_set, primarykey, dimension
 from spacetime import app
-from benchmarks.register import register
+from benchmarks.register import register, VERSIONBY
 
 import time, json
 
@@ -21,7 +21,8 @@ class BaseSet(object):
 
 @app(Producer=[BaseSet])
 def producer(dataframe):
-    print ("Running Producer update objs")
+    print ("Running Producer update objs {0}".format(
+            VERSIONBY[dataframe.version_by]))
     MAX_OBJ_COUNT = 1000
     dataframe.add_many(BaseSet, [
         BaseSet(
@@ -38,12 +39,15 @@ def producer(dataframe):
         count += 1
     json.dump(
         {"start": start, "timings": timing, "end": time.time()},
-        open("benchmarks/results/baseset_update.producer.json", "w"))
-    print ("Completed Producer update objs")
+        open("benchmarks/results/baseset.update.producer.{0}.json".format(
+            VERSIONBY[dataframe.version_by]), "w"))
+    print ("Completed Producer update objs {0}".format(
+            VERSIONBY[dataframe.version_by]))
     
 @app(GetterSetter=[BaseSet])
 def consumer(dataframe):
-    print ("Running Consumer update objs")
+    print ("Running Consumer update objs {0}".format(
+            VERSIONBY[dataframe.version_by]))
     timing = list()
     current = start = time.time()
     i_count = 0
@@ -52,20 +56,23 @@ def consumer(dataframe):
         timing.append(1000*(time.time() - current))
         current =time.time()
         objs = dataframe.read_all(BaseSet)
+        #print (i_count, len(objs))
         total = (sum(obj.prop1 for obj in objs))
         assert (total >= prev_total)
         prev_total = total
         i_count += 1
     json.dump(
         {"start": start, "timings": timing, "end": time.time()},
-        open("benchmarks/results/baseset_update.consumer.json", "w"))
-    print ("Completed Consumer update objs")
+        open("benchmarks/results/baseset.update.consumer.{0}.json".format(
+            VERSIONBY[dataframe.version_by]), "w"))
+    print ("Completed Consumer update objs {0}".format(
+            VERSIONBY[dataframe.version_by]))
 
 @register
 @app(Types=[BaseSet])
-def update_objs(dataframe):
-    prod_app = producer(dataframe=dataframe)
-    con_app = consumer(dataframe=dataframe)
+def update_objs(dataframe, version_by):
+    prod_app = producer(dataframe=dataframe, version_by=version_by)
+    con_app = consumer(dataframe=dataframe, version_by=version_by)
     con_app.start_async()
     prod_app.start()
     con_app.join()

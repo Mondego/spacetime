@@ -1,9 +1,9 @@
 from spacetime.managers.diff import Diff
-from spacetime.utils.enums import Event
+from spacetime.utils.enums import Event, VersionBy
 import spacetime.utils.utils as utils
 
 class ManagedHeap(object):
-    def __init__(self, types):
+    def __init__(self, types, version_by):
         self.types = types
         self.type_map = {
             tp.__r_meta__.name: tp
@@ -11,12 +11,24 @@ class ManagedHeap(object):
         }
         self.data = dict()
         self.diff = Diff()
-        self.version = "ROOT"
+        self.version = None
+        if version_by == VersionBy.FULLSTATE:
+            self.version = "ROOT"
+        elif version_by == VersionBy.TYPE:
+            self.version = {
+                tp.__r_meta__.name: "ROOT"
+                for tp in types
+            }
+        else:
+            raise NotImplementedError()
+
         self.membership = dict()
         self.tracked_objs = {
             tp.__r_meta__.name: dict()
             for tp in types
         }
+
+        self.version_by = version_by
 
     def _take_control(self, tpname, obj):
         obj.__r_df__ = self
@@ -40,7 +52,11 @@ class ManagedHeap(object):
 
     def _set_membership(self, package):
         membership = dict()
-        for _, tp_changes in package.items():
+        if not package:
+            return self.membership
+        for dtpname, tp_changes in package.items():
+            if not tp_changes and dtpname in self.membership:
+                membership[dtpname] = self.membership[dtpname]
             for oid, obj_changes in tp_changes.items():
                 for tpname, event in obj_changes["types"].items():
                     if tpname not in membership:
@@ -66,6 +82,39 @@ class ManagedHeap(object):
                                 "object that does not exist.")
         return membership
 
+    def _get_next_version(self):
+        if self.version_by == VersionBy.FULLSTATE:
+            return [self.version, self.diff.version]
+        elif self.version_by == VersionBy.TYPE:
+            return {
+                tpname: [self.version[tpname], self.diff.version]
+                for tpname in self.version
+                if tpname in self.diff
+            }
+        else:
+            raise NotImplementedError()
+
+    def _extract_new_version(self, version):
+        if self.version_by == VersionBy.FULLSTATE:
+            return version[1]
+        elif self.version_by == VersionBy.TYPE:
+            return {
+                tpname: version[tpname][1]
+                for tpname in version
+            }
+        else:
+            raise NotImplementedError()
+
+    def _get_noop_version(self):
+        if self.version_by == VersionBy.FULLSTATE:
+            return [self.version, self.version]
+        elif self.version_by == VersionBy.TYPE:
+            return {
+                tpname: [self.version[tpname], self.version[tpname]]
+                for tpname in self.version
+            }
+        else:
+            raise NotImplementedError()
 
     def receive_data(self, data, version):
         if data:
@@ -75,19 +124,40 @@ class ManagedHeap(object):
             self.data = utils.merge_state_delta(
                 self.data, data, delete_it=True)
             self.membership = self._set_membership(data)
-        self.version = version
+        self.version = self._extract_new_version(version)
         return True
 
     def retreive_data(self):
         if len(self.diff) > 0:
-            return self.diff, [self.version, self.diff.version]
-        return dict(), [self.version, self.version]
+            return self.diff, self._get_next_version()
+        return dict(), self._get_noop_version()
 
-    def data_sent_confirmed(self):
+    def data_sent_confirmed(self, versions):
+        merged_it = False
+        if self.version_by == VersionBy.FULLSTATE:
+            if versions[0] == versions[1]:
+                return
+            merged_it = True
+        elif self.version_by == VersionBy.TYPE:
+            for tpname in versions:
+                if versions[tpname][0] != versions[tpname][1]:
+                    merged_it = True
+        else:
+            raise NotImplementedError()
+        if not merged_it:
+            return
         self.data = utils.merge_state_delta(
             self.data, self.diff, delete_it=True)
         self.membership = self._set_membership(self.diff)
-        self.version = self.diff.version
+        if self.version_by == VersionBy.FULLSTATE:
+            self.version = self.diff.version
+        elif self.version_by == VersionBy.TYPE:
+            for tpname in versions:
+                if versions[tpname][0] != versions[tpname][1]:
+                    self.version[tpname] = versions[tpname][1]
+        else:
+            raise NotImplementedError()
+        
         self.diff = Diff()
 
     def read_one(self, dtype, oid):

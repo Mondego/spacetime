@@ -1,6 +1,6 @@
 from rtypes import pcc_set, primarykey, dimension
 from spacetime import app
-from benchmarks.register import register
+from benchmarks.register import register, VERSIONBY
 
 import time, json
 
@@ -21,7 +21,8 @@ class BaseSet(object):
 
 @app(Producer=[BaseSet])
 def producer(dataframe):
-    print ("Running Producer create objs")
+    print ("Running Producer create objs {0}".format(
+            VERSIONBY[dataframe.version_by]))
     done = False
     MAX_OBJ_COUNT = 1000
     obj_count = 0
@@ -37,12 +38,15 @@ def producer(dataframe):
         obj_count += 1
     json.dump(
         {"start": start, "timings": timing, "end": time.time()},
-        open("benchmarks/results/baseset_create.producer.json", "w"))
-    print ("Completed Producer create objs")
+        open("benchmarks/results/baseset.create.producer.{0}.json".format(
+            VERSIONBY[dataframe.version_by]), "w"))
+    print ("Completed Producer create objs {0}".format(
+            VERSIONBY[dataframe.version_by]))
     
 @app(GetterSetter=[BaseSet])
 def consumer(dataframe):
-    print ("Running Consumer create objs")
+    print ("Running Consumer create objs {0}".format(
+            VERSIONBY[dataframe.version_by]))
     timing = list()
     current = start = time.time()
     while dataframe.sync():
@@ -53,14 +57,16 @@ def consumer(dataframe):
             break
     json.dump(
         {"start": start, "timings": timing, "end": time.time()},
-        open("benchmarks/results/baseset_create.consumer.json", "w"))
-    print ("Completed Consumer create objs")
+        open("benchmarks/results/baseset.create.consumer.{0}.json".format(
+            VERSIONBY[dataframe.version_by]), "w"))
+    print ("Completed Consumer create objs {0}".format(
+            VERSIONBY[dataframe.version_by]))
 
 @register
 @app(Types=[BaseSet])
-def create_objs(dataframe):
-    prod_app = producer(dataframe=dataframe)
-    con_app = consumer(dataframe=dataframe)
+def create_objs(dataframe, version_by):
+    prod_app = producer(dataframe=dataframe, version_by=version_by)
+    con_app = consumer(dataframe=dataframe, version_by=version_by)
     con_app.start_async()
     prod_app.start()
     con_app.join()

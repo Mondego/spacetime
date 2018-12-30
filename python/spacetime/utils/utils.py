@@ -40,6 +40,12 @@ def merge_state_delta(old_change, newer_change, delete_it=False):
             merged[dtpname] = newer_change[dtpname]
     return merged
 
+def get_merge_objectlist_delta(dtpname):
+    def curry_func(old_change, new_change, delete_it=False):
+        return merge_objectlist_deltas(
+            dtpname, old_change, new_change, delete_it=False)
+    return curry_func
+
 def merge_objectlist_deltas(dtpname, old_change, new_change, delete_it=False):
     merged = dict()
     for oid in old_change:
@@ -101,7 +107,11 @@ def make_obj(dtype, oid):
     return obj
 
 def get_deleted(data):
-    return [
-        (dtpname, oid)
-        for dtpname in data for oid in data[dtpname]
-        if data[dtpname][oid]["types"][dtpname] == Event.Delete]
+    try:
+        return [
+            (dtpname, oid)
+            for dtpname in data for oid in data[dtpname]
+            if data[dtpname][oid]["types"][dtpname] == Event.Delete]
+    except Exception:
+        print(data)
+        raise

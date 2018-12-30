@@ -12,3 +12,9 @@ class Event(object):
     New = 0
     Modification = 1
     Delete = 2
+
+class VersionBy(object):
+    FULLSTATE = 0
+    TYPE = 1
+    OBJECT = 2
+    DIMENSION = 3

@@ -2,15 +2,20 @@ import matplotlib.pyplot as plt
 import os, json
 
 def main():
-    colors = ["y", "m", "c", "g", "r", "b"]
-    fig = plt.figure()
-    filename = "benchmarks/results.png"
+    groups = dict()
     for jfile in os.listdir("benchmarks/results"):
-        data = json.load(open(os.path.join("benchmarks/results/", jfile), "r"))
-        x, y = zip(*enumerate(data["timings"]))
-        plt.plot(x, y, label=jfile)
-    plt.legend()
-    fig.savefig(filename, bbox_inches="tight")
-    plt.close()
+        settp, testtp, app, dfmode = jfile.split(".")[:-1]
+        groups.setdefault(".".join([settp, testtp, app]), list()).append(dfmode)
+    for group in groups:
+        fname = "benchmarks/graphs/results.{0}.png".format(group)
+        fig = plt.figure()
+        for mode in groups[group]:
+            jfile = "benchmarks/results/" + group + "." + mode + ".json"
+            data = json.load(open(jfile, "r"))
+            x, y = zip(*enumerate(data["timings"]))
+            plt.plot(x, y, label=mode)
+        plt.legend()
+        fig.savefig(fname, bbox_inches="tight")
+        plt.close()
 
 main()

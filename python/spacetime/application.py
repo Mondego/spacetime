@@ -2,6 +2,7 @@ from uuid import uuid4
 from multiprocessing.dummy import Process
 
 from spacetime.dataframe import Dataframe
+from spacetime.utils.enums import VersionBy
 
 def get_details(dataframe):
     if isinstance(dataframe , Dataframe):
@@ -33,7 +34,9 @@ def get_app(func, types, producer,
                         self.setter).union(
                             self.deleter).union(self.types)
 
-        def __init__(self, dataframe=None, server_port=0):
+        def __init__(
+                self, dataframe=None, server_port=0,
+                version_by=VersionBy.FULLSTATE):
             self.appname = "{0}_{1}".format(func.__name__, str(uuid4()))
             self.producer = producer
             self.getter_setter = getter_setter
@@ -45,6 +48,7 @@ def get_app(func, types, producer,
             self.func = func
             self.args = tuple()
             self.kwargs = dict()
+            self.version_by = version_by
             self.dataframe_details = (
                 get_details(dataframe) if dataframe else None)
             self.server_port = server_port
@@ -54,8 +58,7 @@ def get_app(func, types, producer,
 
         def run(self):
             # Create the dataframe.
-            dataframe = self._create_dataframe(
-                self.dataframe_details, server_port=self.server_port)
+            dataframe = self._create_dataframe()
             # Fork the dataframe for initialization of app.
             dataframe.checkout()
             # Run the main function of the app.
@@ -76,10 +79,11 @@ def get_app(func, types, producer,
         def start_async(self, *args, **kwargs):
             self._start(*args, **kwargs)
 
-        def _create_dataframe(self, details, server_port=0):
+        def _create_dataframe(self):
             df = Dataframe(
                 self.appname, self.all_types,
-                details=details, server_port=server_port)
+                details=self.dataframe_details, server_port=self.server_port,
+                version_by=self.version_by)
             #print(self.appname, self.all_types, details, df.details)
             return df
     return App

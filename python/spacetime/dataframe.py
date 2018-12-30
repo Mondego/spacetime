@@ -2,7 +2,7 @@ from multiprocessing import RLock
 import traceback
 
 from spacetime.managers.socket_manager import SocketServer, SocketConnector
-from spacetime.managers.version_manager import FullStateVersionManager
+from spacetime.managers.version_manager import FullStateVersionManager, TypeVersionManager
 from spacetime.managers.managed_heap import ManagedHeap
 from spacetime.managers.diff import Diff
 import spacetime.utils.enums as enums
@@ -14,21 +14,30 @@ class Dataframe(object):
     def details(self):
         return self.socket_server.port
 
-    def __init__(self, appname, types, worker_count=5, details=None, server_port=0):
+    def __init__(
+            self, appname, types, worker_count=5, details=None, server_port=0,
+            version_by=enums.VersionBy.FULLSTATE):
         self.appname = appname
         self.logger = utils.get_logger("%s_Dataframe" % appname)
+        self.version_by = version_by
         self.socket_server = SocketServer(
             self.appname, details, server_port, worker_count,
             self.pull_call_back, self.push_call_back, self.confirm_pull_req)
 
         self.socket_connector = SocketConnector(
-            self.appname, details, self.details)
+            self.appname, details, self.details, types, version_by)
 
         self.types = types
         self.type_map = {
             tp.__r_meta__.name: tp for tp in self.types}
-        self.local_heap = ManagedHeap(types)
-        self.versioned_heap = FullStateVersionManager(self.appname, types)
+        self.local_heap = ManagedHeap(types, version_by)
+        self.versioned_heap = None
+        if version_by == enums.VersionBy.FULLSTATE:
+            self.versioned_heap = FullStateVersionManager(self.appname, types)
+        elif version_by == enums.VersionBy.TYPE:
+            self.versioned_heap = TypeVersionManager(self.appname, types)
+        else:
+            raise NotImplementedError()
         self.write_lock = RLock()
         
         self.socket_server.start()
@@ -75,20 +84,19 @@ class Dataframe(object):
         data, versions = self.versioned_heap.retrieve_data(
             self.appname,
             self.local_heap.version)
-        if versions[0] != versions[1]:
-            if self.local_heap.receive_data(data, versions[1]):
-                # Can be carefully made Async.
-                with self.write_lock:
-                    self.versioned_heap.data_sent_confirmed(
-                        self.appname, versions[1])
+        if self.local_heap.receive_data(data, versions):
+            # Can be carefully made Async.
+            with self.write_lock:
+                self.versioned_heap.data_sent_confirmed(
+                    self.appname, versions)
 
     def commit(self):
         data, versions = self.local_heap.retreive_data()
         with self.write_lock:
             succ = self.versioned_heap.receive_data(
                 self.appname, versions, data)
-        if succ and versions[0] != versions[1]:
-            self.local_heap.data_sent_confirmed()
+        if succ:
+            self.local_heap.data_sent_confirmed(versions)
 
     def sync(self):
         self.commit()
@@ -105,16 +113,27 @@ class Dataframe(object):
             with self.write_lock:
                 data, version = self.versioned_heap.retrieve_data(
                     "SOCKETPARENT", self.socket_connector.parent_version)
-                if version[0] == version[1]:
-                    self.logger.debug(
-                        "Push not required, "
-                        "parent already has the information.")
-                    return
+                if self.version_by == enums.VersionBy.FULLSTATE:
+                    if version[0] == version[1]:
+                        self.logger.debug(
+                            "Push not required, "
+                            "parent already has the information.")
+                        return
+                elif self.version_by == enums.VersionBy.TYPE:
+                    something_different = False
+                    for tpname in version:
+                        if version[tpname][0] != version[tpname][1]:
+                            something_different = True
+                    if not something_different:
+                        return
+                else:
+                    raise NotImplementedError()
+                
             if self.socket_connector.push_req(data, version):
                 self.logger.debug("Push request completed.")
                 with self.write_lock:
                     self.versioned_heap.data_sent_confirmed(
-                        "SOCKETPARENT", version[1])
+                        "SOCKETPARENT", version)
                 self.logger.debug("Push request registered.")
 
     def pull(self):
@@ -133,8 +152,7 @@ class Dataframe(object):
     def pull_call_back(self, appname, version):
         try:
             with self.write_lock:
-                data = self.versioned_heap.retrieve_data(appname, version)
-                return data
+                return self.versioned_heap.retrieve_data(appname, version)
         except Exception as e:
             print (e)
             print(traceback.format_exc())
@@ -142,10 +160,9 @@ class Dataframe(object):
     
     def confirm_pull_req(self, appname, version):
         try:
-            if version[0] != version[1]:
-                with self.write_lock:
-                    self.versioned_heap.data_sent_confirmed(
-                        appname, version[1])
+            with self.write_lock:
+                self.versioned_heap.data_sent_confirmed(
+                    appname, version)
         except Exception as e:
             print (e)
             print(traceback.format_exc())
@@ -154,9 +171,8 @@ class Dataframe(object):
     def push_call_back(self, appname, versions, data):
         try:
             with self.write_lock:
-                data = self.versioned_heap.receive_data(
+                return self.versioned_heap.receive_data(
                     appname, versions, data)
-                return data
         except Exception as e:
             print (e)
             print(traceback.format_exc())

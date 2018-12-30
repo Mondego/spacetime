@@ -244,7 +244,7 @@ class TestFullStateVersionManager(unittest.TestCase):
         vm.receive_data("TEST_APP1", ["ROOT", "0"], package1)
         vm.receive_data("TEST_APP2", ["0", "1"], package2)
         vm.receive_data("TEST_APP1", ["0", "2"], package4)
-        vm.data_sent_confirmed("TEST_APP1", vg.head.current)
+        vm.data_sent_confirmed("TEST_APP1", ["0", vg.head.current])
 
         self.assertSetEqual(
             set(["ROOT", "1", vg.head.current]), set(vg.nodes.keys()))
@@ -266,7 +266,7 @@ class TestFullStateVersionManager(unittest.TestCase):
             [("ROOT", "1", package3),
              ("1", vg.head.current, package4)])
 
-        vm.data_sent_confirmed("TEST_APP2", vg.head.current)
+        vm.data_sent_confirmed("TEST_APP2", ["0", vg.head.current])
 
         self.assertSetEqual(
             set(["ROOT", vg.head.current]), set(vg.nodes.keys()))

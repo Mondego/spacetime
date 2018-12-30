@@ -163,13 +163,37 @@ class SocketConnector(object):
     def has_parent_connection(self):
         return self.parent is not None
 
-    def __init__(self, appname, parent, details):
+    def __init__(self, appname, parent, details, types, version_by):
         self.appname = appname
         self.details = details
         self.parent = parent
-        self.parent_version = "ROOT"
+        self.parent_version = None
+        if version_by == enums.VersionBy.FULLSTATE:
+            self.parent_version = "ROOT"
+        elif version_by == enums.VersionBy.TYPE:
+            self.parent_version = {
+                tp.__r_meta__.name: "ROOT"
+                for tp in types
+            }
+        else:
+            raise NotImplementedError()
         # Logger for SocketManager
         self.logger = utils.get_logger("%s_SocketConnector" % self.appname)
+        self.version_by = version_by
+
+    def get_new_version(self, new_versions):
+        if self.version_by == enums.VersionBy.FULLSTATE:
+            return new_versions[1]
+        elif self.version_by == enums.VersionBy.TYPE:
+            versions = dict()
+            versions.update(self.parent_version)
+            versions.update({
+                tpname: new_versions[tpname][1]
+                for tpname in new_versions
+            })
+            return versions
+        else:
+            raise NotImplementedError()
 
     def pull_req(self):
         try:
@@ -198,7 +222,7 @@ class SocketConnector(object):
             req_socket.send(pack("!?", True))
             self.logger.debug("Ack sent (pull req)")
             req_socket.close()
-            self.parent_version = new_versions[1]
+            self.parent_version = self.get_new_version(new_versions)
             return package, new_versions
         except Exception as e:
             print ("PULL", e)
@@ -225,7 +249,7 @@ class SocketConnector(object):
             succ = unpack("!?", req_socket.recv(1))[0]
             self.logger.debug("Ack recv (push req)")
             req_socket.close()
-            self.parent_version = version[1]
+            self.parent_version = self.get_new_version(version)
             return succ
         except Exception as e:
             print ("PUSH", e)

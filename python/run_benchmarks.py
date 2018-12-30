@@ -1,9 +1,7 @@
-from benchmarks import REGISTERED
+from benchmarks import REGISTERED, VERSIONBY
 
 apps = list()
 for app in REGISTERED:
-    apps.append(app())
-    apps[-1].start_async()
-
-for app in apps:
-    app.join()
+    for version in VERSIONBY:
+        apps.append(app(version_by=version))
+        apps[-1].start(version)

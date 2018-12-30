@@ -353,6 +353,8 @@ class TypeVersionManager(VersionManager):
 
     def receive_data(self, appname, versions, package):
         for tpname in versions:
+            if tpname not in self.version_graph:
+                continue
             start_v, end_v = versions[tpname]
             if start_v == end_v:
                 # The versions are the same, lets ignore.
@@ -368,6 +370,8 @@ class TypeVersionManager(VersionManager):
     def retrieve_data(self, appname, version):
         final_data, final_versions = dict(), dict()
         for tpname in version:
+            if tpname not in self.version_graph:
+                continue
             data, version_change = self.retrieve_data_nomaintain(
                 tpname, version[tpname])
             self.set_app_marker(appname, tpname, version_change[1])
@@ -412,6 +416,124 @@ class TypeVersionManager(VersionManager):
                     # and has not been added.
                     # Do not return a value.
                     break
+
+    def maintain(self, appname, tpname, end_v):
+        return super().maintain(
+            self.state_to_app[tpname], self.app_to_state[tpname],
+            self.version_graph[tpname], appname, end_v,
+            utils.get_merge_objectlist_delta(tpname))
+
+
+class ObjectVersionManagerVersionSent(VersionManager):
+    def __init__(self, appname, types):
+        self.types = types
+        self.type_map = {tp.__r_meta__.name: tp for tp in types}
+        self.version_graph = {tp.__r_meta__.name: dict() for tp in types}
+        self.state_to_app = {tp.__r_meta__.name: dict() for tp in types}
+        self.app_to_state = {tp.__r_meta__.name: dict() for tp in types}
+        self.logger = utils.get_logger("%s_TypeVersionManager" % appname)
+
+    def receive_data(self, appname, versions, package):
+        for tpname in versions:
+            if tpname not in self.version_graph:
+                continue
+            for oid in versions[tpname]:
+                start_v, end_v = versions[tpname][oid]
+                if start_v == end_v:
+                    # The versions are the same, lets ignore.
+                    return True
+                if oid not in self.version_graph[tpname] and start_v != "ROOT":
+                    # Can recover if it is a delete, but do not want to hide
+                    # the error.
+                    raise RuntimeError(
+                        "Got an increment without having the object.")
+                graph = self.version_graph[tpname].setdefault(oid, Graph())
+            
+                if start_v != graph.head.current:
+                    self.resolve_conflict(
+                        tpname, oid, start_v, end_v, package[tpname])
+                else:
+                    graph.continue_chain(start_v, end_v, package[tpname])
+                
+                self.maintain(appname, tpname, oid, end_v)
+                self.delete_objs()
+        return True
+
+    def retrieve_data(self, appname, version):
+        final_data, final_versions = dict(), dict()
+        for tpname in version:
+            if tpname not in self.version_graph:
+                continue
+            data = dict()
+            new_versions = dict()
+            version_oids = set(version[tpname].keys())
+            current_oids = set(self.version_graph[tpname].keys())
+            deleted_oids = version_oids - current_oids
+            # Deal with deletes
+            for oid in deleted_oids:
+                data[oid] = {
+                    "types": {
+                        tpname: Event.Delete
+                    }
+                }
+                new_versions[oid] = [version[tpname][oid], "END"]
+            # Deal with new
+            for oid in current_oids - version_oids:
+                obj_data, version_change = self.retrieve_data_nomaintain(
+                    tpname, oid, "ROOT")
+                self.set_app_marker(appname, tpname, oid, version_change[1])
+                data[oid] = obj_data
+                new_versions[oid] = version_change
+            # Deal with modified
+            for oid in version_oids.intersection(current_oids):
+                obj_data, version_change = self.retrieve_data_nomaintain(
+                    tpname, oid, version[tpname][oid])
+                self.set_app_marker(appname, tpname, oid, version_change[1])
+                data[oid] = obj_data
+                new_versions[oid] = version_change
+            final_data[tpname] = data
+            final_versions[tpname] = new_versions
+        return final_data, final_versions
+
+    def set_app_marker(self, appname, tpname, oid, end_v):
+        self.state_to_app[tpname].setdefault(
+            oid, dict()).setdefault(end_v, set()).add(appname)
+
+    def retrieve_data_nomaintain(self, tpname, oid, version):
+        merged = dict()
+        for delta in self.version_graph[tpname][oid][version:]:
+            merged = utils.merge_object_delta(tpname, merged, delta)
+        return merged, [version, self.version_graph[tpname][oid].head.current]
+
+    def resolve_conflict(self, tpname, oid, start_v, end_v, package):
+        graph = self.version_graph[tpname][oid]
+        new_v = graph.head.current
+        change, _ = self.retrieve_data_nomaintain(tpname, oid, start_v)
+        t_new_merge, t_conflict_merge = self.ot_on_obj(
+            tpname, oid, start_v, change, package)
+        merge_v = str(uuid4())
+        graph.continue_chain(new_v, merge_v, t_new_merge)
+        graph.continue_chain(
+            end_v, merge_v, t_conflict_merge)
+
+    def data_sent_confirmed(self, app, version):
+        for tpname in version:
+            for oid in version[tpname]:
+                if version[tpname][oid][0] != version[tpname][oid][1]:
+                    self.maintain(app, tpname, oid, version[tpname][oid][1])
+
+    def read_dimension_at(self, version, dtype, oid, dimname):
+        dtpname = dtype.__r_meta__.name
+        for change in self.version_graph[dtpname][oid][version::-1]:
+            if "dims" in change and dimname in change["dims"]:
+                return change["dims"][dimname]
+            if ("types" in change
+                    and dtpname in change["types"]
+                    and change["types"][dtpname] == Event.Delete):
+                # Object has been deleted before this version,
+                # and has not been added.
+                # Do not return a value.
+                break
 
     def maintain(self, appname, tpname, end_v):
         return super().maintain(

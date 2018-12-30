@@ -108,10 +108,12 @@ class app(object):
 def Application(
         target, dataframe=None, server_port=0,
         Types=list(), Producer=list(), GetterSetter=list(),
-        Getter=list(), Setter=list(), Deleter=list()):
+        Getter=list(), Setter=list(), Deleter=list(),
+        version_by=VersionBy.FULLSTATE):
     app_cls = get_app(
         target, set(Types), set(Producer), set(GetterSetter),
         set(Getter), set(Setter), set(Deleter))
-    return app_cls(dataframe=dataframe, server_port=server_port)
+    return app_cls(
+        dataframe=dataframe, server_port=server_port, version_by=version_by)
     
         

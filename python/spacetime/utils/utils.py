@@ -53,8 +53,13 @@ def merge_objectlist_deltas(dtpname, old_change, new_change, delete_it=False):
             merged[oid] = old_change[oid]
         else:
             if delete_it and new_change[oid]["types"][dtpname] is Event.Delete:
-                # Do not include this object in the mergd changes if
+                # Do not include this object in the merged changes if
                 # delete is True
+                continue
+            if (old_change[oid]["types"][dtpname] is Event.New
+                    and new_change[oid]["types"][dtpname] is Event.Delete):
+                # Do not include this object as it was both created and deleted
+                # in these merged changes.
                 continue
             merged[oid] = merge_object_delta(
                 dtpname, old_change[oid], new_change[oid])

@@ -46,6 +46,12 @@ def get_merge_objectlist_delta(dtpname):
             dtpname, old_change, new_change, delete_it=False)
     return curry_func
 
+def get_merge_object_delta(dtpname):
+    def curry_func(old_change, new_change):
+        return merge_object_delta(
+            dtpname, old_change, new_change)
+    return curry_func
+
 def merge_objectlist_deltas(dtpname, old_change, new_change, delete_it=False):
     merged = dict()
     for oid in old_change:
@@ -69,6 +75,8 @@ def merge_objectlist_deltas(dtpname, old_change, new_change, delete_it=False):
     return merged
 
 def merge_object_delta(dtpname, old_change, new_change):
+    if old_change["types"][dtpname] is Event.New and new_change["types"][dtpname] is Event.Delete:
+        return None
     if new_change["types"][dtpname] is Event.Delete:
         return new_change
     if (old_change["types"][dtpname] is Event.Delete

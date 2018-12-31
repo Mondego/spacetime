@@ -54,6 +54,9 @@ class ManagedHeap(object):
         membership = dict()
         if not package:
             return self.membership
+        for dtpname in self.membership:
+            if dtpname not in package:
+                membership[dtpname] = self.membership[dtpname]
         for dtpname, tp_changes in package.items():
             if not tp_changes and dtpname in self.membership:
                 membership[dtpname] = self.membership[dtpname]
@@ -124,6 +127,12 @@ class ManagedHeap(object):
             self.data = utils.merge_state_delta(
                 self.data, data, delete_it=True)
             self.membership = self._set_membership(data)
+            # for tpname in self.membership:
+            #     if self.membership[tpname]:
+            #         try:
+            #             assert (self.membership[tpname] == set(self.data[tpname].keys()))
+            #         except Exception:
+            #             raise
         self.version = self._extract_new_version(version)
         return True
 
@@ -149,6 +158,12 @@ class ManagedHeap(object):
         self.data = utils.merge_state_delta(
             self.data, self.diff, delete_it=True)
         self.membership = self._set_membership(self.diff)
+        # for tpname in self.membership:
+        #     if self.membership[tpname]:
+        #         try:
+        #             assert (self.membership[tpname] == set(self.data[tpname].keys()))
+        #         except Exception:
+        #             raise
         if self.version_by == VersionBy.FULLSTATE:
             self.version = self.diff.version
         elif self.version_by == VersionBy.TYPE:

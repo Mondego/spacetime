@@ -431,7 +431,8 @@ class ObjectVersionManagerVersionSent(VersionManager):
         self.version_graph = {tp.__r_meta__.name: dict() for tp in types}
         self.state_to_app = {tp.__r_meta__.name: dict() for tp in types}
         self.app_to_state = {tp.__r_meta__.name: dict() for tp in types}
-        self.logger = utils.get_logger("%s_TypeVersionManager" % appname)
+        self.logger = utils.get_logger(
+            "%s_ObjectVersionManagerVersionSent" % appname)
 
     def receive_data(self, appname, versions, package):
         for tpname in versions:
@@ -456,7 +457,6 @@ class ObjectVersionManagerVersionSent(VersionManager):
                     graph.continue_chain(start_v, end_v, package[tpname])
                 
                 self.maintain(appname, tpname, oid, end_v)
-                self.delete_objs()
         return True
 
     def retrieve_data(self, appname, version):
@@ -535,9 +535,18 @@ class ObjectVersionManagerVersionSent(VersionManager):
                 # Do not return a value.
                 break
 
-    def maintain(self, appname, tpname, end_v):
-        return super().maintain(
-            self.state_to_app[tpname], self.app_to_state[tpname],
-            self.version_graph[tpname], appname, end_v,
-            utils.get_merge_objectlist_delta(tpname))
+    def maintain(self, appname, tpname, oid, end_v):
+        graph = self.version_graph[tpname][oid]
+        super().maintain(
+            self.state_to_app[tpname][oid], self.app_to_state[tpname][oid],
+            graph, appname, end_v,
+            utils.get_merge_object_delta(tpname))
+        if (graph.head.prev_master == "ROOT"
+                and (graph.head.current, graph.head.prev_master) in graph.edges
+                and graph.edges[
+                    (graph.head.current,
+                     graph.head.prev_master)].payload is None):
+            # The object is deleted, and everyone who had it, has received a
+            # delete request. So delete the object.
+            del self.version_graph[tpname][oid]
 

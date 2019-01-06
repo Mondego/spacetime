@@ -175,6 +175,11 @@ class SocketConnector(object):
                 tp.__r_meta__.name: "ROOT"
                 for tp in types
             }
+        elif version_by == enums.VersionBy.OBJECT_NOSTORE:
+            self.parent_version = {
+                tp.__r_meta__.name: dict()
+                for tp in types
+            }
         else:
             raise NotImplementedError()
         # Logger for SocketManager
@@ -191,6 +196,20 @@ class SocketConnector(object):
                 tpname: new_versions[tpname][1]
                 for tpname in new_versions
             })
+            return versions
+        elif self.version_by == enums.VersionBy.OBJECT_NOSTORE:
+            versions = dict()
+            versions.update(self.parent_version)
+            for tpname in new_versions:
+                if tpname not in versions and new_versions[tpname]:
+                    versions[tpname] = dict()
+                for oid in new_versions[tpname]:
+                    new_v = new_versions[tpname][oid][1]
+                    if new_v == "END":
+                        if oid in versions[tpname]:
+                            del versions[tpname][oid]
+                        continue
+                    versions[tpname][oid] = new_v
             return versions
         else:
             raise NotImplementedError()

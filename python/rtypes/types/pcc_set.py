@@ -11,9 +11,9 @@ def get_property(cls, dimname, dim_obj):
         if hasattr(self, "__r_df__") and self.__r_df__ is not None:
             return unconvert(
                 self.__r_df__.read_dimension(
-                    cls, oid, dimname))
+                    cls, oid, dimname), dim_obj.dim_type, self.__r_df__)
         if hasattr(self, "__r_temp__") and self.__r_temp__ is not None:
-            return unconvert(self.__r_temp__[dimname])
+            return unconvert(self.__r_temp__[dimname], dim_obj.dim_type)
         return cls.__r_table__.get(oid, dimname, dim_obj)
 
     @prop.setter

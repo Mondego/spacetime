@@ -4,6 +4,8 @@ class Datatype(object):
     FLOAT = 2
     BOOLEAN = 3 
 
+    FOREIGNKEY = 10
+
     BASICTYPES = set([
         INTEGER, STRING, FLOAT, BOOLEAN])
     

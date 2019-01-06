@@ -16,5 +16,5 @@ class Event(object):
 class VersionBy(object):
     FULLSTATE = 0
     TYPE = 1
-    OBJECT = 2
+    OBJECT_NOSTORE = 2
     DIMENSION = 3

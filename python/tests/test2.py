@@ -272,6 +272,43 @@ def get_dataframe_test(versionby):
             client_proc.start()
             serv_proc.join()
             client_proc.join()
+
+        ''' Does not work yet as types are curried by value, not by reference. How odd.
+        def test_foreign_key_basic(self):
+            server_to_client_q = Queue()
+            client_to_server_q = Queue()
+            server_ready = MPEvent()
+            client_ready = MPEvent()
+            serv_proc = Process(
+                target=server_df6,
+                args=(server_to_client_q, client_to_server_q, server_ready, client_ready, versionby))
+            serv_proc.daemon = True
+            serv_proc.start()
+            client_proc = Process(
+                target=client_df6,
+                args=(client_to_server_q, server_to_client_q, server_ready, client_ready, versionby))
+            client_proc.daemon = True
+            client_proc.start()
+            serv_proc.join()
+            client_proc.join()
+        '''
+        def test_yours_theirs_semantics(self):
+            server_to_client_q = Queue()
+            client_to_server_q = Queue()
+            server_ready = MPEvent()
+            client_ready = MPEvent()
+            serv_proc = Process(
+                target=server_df7,
+                args=(server_to_client_q, client_to_server_q, server_ready, client_ready, versionby))
+            serv_proc.daemon = True
+            serv_proc.start()
+            client_proc = Process(
+                target=client_df7,
+                args=(client_to_server_q, server_to_client_q, server_ready, client_ready, versionby))
+            client_proc.daemon = True
+            client_proc.start()
+            serv_proc.join()
+            client_proc.join()
     return TestDataframe
 
 def server_df1(send_q, recv_q, server_ready, client_ready, versionby):
@@ -610,9 +647,8 @@ class Counter(object):
         self.count = 0
     
     @merge
-    def merge_func(original, new, conflicting):
-        
-        original.count = (new.count + conflicting.count) - original.count
+    def merge_func(original, yours, theirs):
+        original.count = (yours.count + theirs.count) - original.count
         return original
 
 
@@ -727,6 +763,8 @@ def client_df3(send_q, recv_q, server_ready, client_ready, versionby):
 TestFullStateDataframe = get_dataframe_test(VersionBy.FULLSTATE)
 
 TestTypeDataframe = get_dataframe_test(VersionBy.TYPE)
+
+TestObjectDataframeNoStore = get_dataframe_test(VersionBy.OBJECT_NOSTORE)
 
 class TestTypeDataframeBasic(unittest.TestCase):
     def test_multiple_types(self):
@@ -1044,3 +1082,194 @@ def client_df5(send_q, recv_q, server_ready, client_ready, versionby):
     # Setting point S3
     client_ready.set()
     
+@pcc_set
+class ClassWithCounter(object):
+    oid = primarykey(int)
+    counter = dimension(Counter)
+    def __init__(self, oid):
+        self.oid = oid
+        self.counter = Counter(oid)
+
+def server_df6(send_q, recv_q, server_ready, client_ready, versionby):
+    df = Dataframe("SERVER_TEST", [ClassWithCounter, Counter], version_by=versionby)
+    send_q.put(df.details)
+    client_name = recv_q.get()
+    # The server goes first.
+
+    df.checkout()
+    c1 = ClassWithCounter(0)
+    df.add_one(Counter, c1.counter)
+    df.add_one(ClassWithCounter, c1)
+    c1.counter.count += 1
+    # Push record into server.
+    df.commit()
+    # Setting point C1
+    server_ready.set()
+    # Client 
+    # Pull and read the changes.
+    # Waiting at point S1
+    client_ready.wait()
+    client_ready.clear()
+
+def client_df6(send_q, recv_q, server_ready, client_ready, versionby):
+    server_name = recv_q.get()
+    df = Dataframe("CLIENT_TEST", [ClassWithCounter, Counter], details=server_name, version_by=versionby)
+    send_q.put(df.details)
+    # Waiting at point C1
+    server_ready.wait()
+    server_ready.clear()
+
+    # Pull from the server.
+    df.pull()
+    df.checkout()
+    ccs = df.read_all(ClassWithCounter)
+    assert (1 == len(ccs))
+    c = ccs[0]
+    assert ("counter" not in c.__dict__)
+    assert ("oid" not in c.__dict__)
+    assert (c.counter.oid is 0)
+    assert (c.counter.count is 1)
+    assert (c.oid is 0)
+    df.commit()
+    # Setting point S1
+    client_ready.set()    
+
+@pcc_set
+class Blocker(object):
+    oid = primarykey(int)
+    prop = dimension(int)
+
+    def __init__(self, oid):
+        self.oid = oid
+        self.prop = 0
+
+    @merge
+    def merge_func(original, yours, theirs):
+        return theirs
+
+def server_df7(send_q, recv_q, server_ready, client_ready, versionby):
+    df = Dataframe("SERVER_TEST", [Blocker], version_by=versionby)
+    send_q.put(df.details)
+    client_name = recv_q.get()
+    # The server goes first.
+    #print ("Server at start:", df.versioned_heap.version_graph.nodes.keys())
+
+    df.checkout()
+    #Add Counter to server
+    b1 = Blocker(0)
+    df.add_many(Blocker, [b1])
+    assert (b1.prop == 0)
+    b1.prop += 1
+    assert (b1.prop == 1)
+    # Push record into server.
+    df.commit()
+    #print ("Server after adding 2 cars:", df.versioned_heap.version_graph.nodes.keys())
+    # Setting point C1
+    #print ("Setting C1")
+    server_ready.set()
+    # Waiting at point S1
+    #print ("Waiting for S1")
+    client_ready.wait()
+    client_ready.clear()
+    #print ("Server after waiting for client first time:", df.versioned_heap.version_graph.nodes.keys())
+    #print (df.versioned_heap.state_to_app)
+    df.checkout()
+    assert (b1.prop == 1)
+    b1.prop += 1
+    assert (b1.prop == 2)
+    df.commit()
+    #print (df.versioned_heap.state_to_app)
+    #print ("Server after modifying once:", df.versioned_heap.version_graph.nodes.keys())
+    # Setting point C2
+    #print ("Setting C2")
+    server_ready.set()
+    # Waiting at point S2
+    #print ("Waiting for S2")
+    client_ready.wait()
+    client_ready.clear()
+    #print ("Server after waiting for client second time.:", df.versioned_heap.version_graph.nodes.keys())
+
+    # Check how the merge worked out.
+    df.checkout()
+    assert (b1.prop == 10), b1.prop
+    # Setting point C3
+    #print ("Setting C3")
+    server_ready.set()
+    # Waiting at point S3
+    #print ("Waiting for S3")
+    client_ready.wait()
+    client_ready.clear()
+    assert (b1.prop == 10)
+    b1.prop = 20
+    assert (b1.prop == 20)
+    df.commit()
+    df.checkout()
+    assert (b1.prop == 5)
+    
+    # Setting point C4
+    #print ("Setting C4")
+    server_ready.set()
+    
+
+
+
+def client_df7(send_q, recv_q, server_ready, client_ready, versionby):
+    server_name = recv_q.get()
+    df = Dataframe("CLIENT_TEST", [Blocker], details=server_name, version_by=versionby)
+    send_q.put(df.details)
+    #print ("Client at start:", df.versioned_heap.version_graph.nodes.keys())
+    # Waiting at point C1
+    #print ("Waiting for C1")
+    server_ready.wait()
+    server_ready.clear()
+    #print ("Client after waiting for server first time.:", df.versioned_heap.version_graph.nodes.keys())
+
+    # Pull from the server.
+    df.pull()
+    #print ("Client after first pull:", df.versioned_heap.version_graph.nodes.keys())
+    df.checkout()
+    blockers = df.read_all(Blocker)
+    assert (1 == len(blockers))
+    b1 = blockers[0]
+    assert (b1.prop == 1)
+    #print ("Setting S1")
+    # Setting point S1
+    client_ready.set()
+    b1.prop = 10
+    assert (b1.prop == 10)
+    df.commit()
+    #print ("Client after first modification:", df.versioned_heap.version_graph.nodes.keys())
+    # Waiting at point C2
+    #print ("Waiting for C2")
+    server_ready.wait()
+    server_ready.clear()
+    #print ("Client after waiting for server:", df.versioned_heap.version_graph.nodes.keys())
+    df.push()
+    #print ("Client after pushing:", df.versioned_heap.version_graph.nodes.keys())
+    # Setting point S2
+    #print ("Setting S2")
+    client_ready.set()
+    # Waiting at point c3
+    #print ("Waiting for C3")
+    server_ready.wait()
+    server_ready.clear()
+    df.pull()
+    #print ("Client after pulling second time:", df.versioned_heap.version_graph.nodes.keys())
+
+    df.checkout()
+
+    assert (b1.prop == 10)
+    b1.prop = 5
+    df.commit()
+    df.push()
+
+    # Setting point S3
+    #print ("Setting S3")
+    client_ready.set()
+
+    # Waiting at point c4
+    #print ("Waiting for C4")
+    server_ready.wait()
+    server_ready.clear()
+
+

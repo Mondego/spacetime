@@ -59,7 +59,7 @@ class RtypesTable(object):
             # Value has not been assigned.
             raise AttributeError("{0} has not been assigned a value.".format(dimname))
         # return value from local table.
-        return unconvert(self.object_table[oid][dimname])
+        return unconvert(self.object_table[oid][dimname], dim_obj.dim_type)
 
     def delete_obj(self, oid):
         if oid in self.object_table:

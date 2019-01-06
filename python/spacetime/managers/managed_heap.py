@@ -19,6 +19,11 @@ class ManagedHeap(object):
                 tp.__r_meta__.name: "ROOT"
                 for tp in types
             }
+        elif version_by == VersionBy.OBJECT_NOSTORE:
+            self.version = {
+                tp.__r_meta__.name: dict()
+                for tp in types
+            }
         else:
             raise NotImplementedError()
 
@@ -94,6 +99,23 @@ class ManagedHeap(object):
                 for tpname in self.version
                 if tpname in self.diff
             }
+        elif self.version_by == VersionBy.OBJECT_NOSTORE:
+            version = dict()
+            for tpname in self.diff:
+                if not self.diff[tpname]:
+                    continue
+                version[tpname] = dict()
+                for oid in self.diff[tpname]:
+                    if tpname in self.version and oid in self.version[tpname]:
+                        start = self.version[tpname][oid]
+                    else:
+                        start = "ROOT"
+                    if self.diff[tpname][oid]["types"][tpname] == Event.Delete:
+                        end = "END"
+                    else:
+                        end = self.diff.version
+                    version[tpname][oid] = [start, end]
+            return version
         else:
             raise NotImplementedError()
 
@@ -101,21 +123,28 @@ class ManagedHeap(object):
         if self.version_by == VersionBy.FULLSTATE:
             return version[1]
         elif self.version_by == VersionBy.TYPE:
-            return {
+            extracted_v = {
+                tpname: self.version[tpname]
+                for tpname in self.version
+                if tpname not in version
+            }
+            extracted_v.update({
                 tpname: version[tpname][1]
                 for tpname in version
-            }
-        else:
-            raise NotImplementedError()
-
-    def _get_noop_version(self):
-        if self.version_by == VersionBy.FULLSTATE:
-            return [self.version, self.version]
-        elif self.version_by == VersionBy.TYPE:
-            return {
-                tpname: [self.version[tpname], self.version[tpname]]
-                for tpname in self.version
-            }
+            })
+            return extracted_v
+        elif self.version_by == VersionBy.OBJECT_NOSTORE:
+            final_v = dict(self.version)
+            for tpname in version:
+                if not version[tpname]:
+                    continue
+                final_v.setdefault(tpname, dict())
+                for oid in version[tpname]:
+                    if version[tpname][oid][1] != "END":
+                        final_v[tpname][oid] = version[tpname][oid][1]
+                    elif oid in final_v[tpname]:
+                        del final_v[tpname][oid]
+            return final_v
         else:
             raise NotImplementedError()
 
@@ -139,21 +168,10 @@ class ManagedHeap(object):
     def retreive_data(self):
         if len(self.diff) > 0:
             return self.diff, self._get_next_version()
-        return dict(), self._get_noop_version()
+        return dict(), None
 
     def data_sent_confirmed(self, versions):
-        merged_it = False
-        if self.version_by == VersionBy.FULLSTATE:
-            if versions[0] == versions[1]:
-                return
-            merged_it = True
-        elif self.version_by == VersionBy.TYPE:
-            for tpname in versions:
-                if versions[tpname][0] != versions[tpname][1]:
-                    merged_it = True
-        else:
-            raise NotImplementedError()
-        if not merged_it:
+        if versions is None:
             return
         self.data = utils.merge_state_delta(
             self.data, self.diff, delete_it=True)
@@ -168,8 +186,14 @@ class ManagedHeap(object):
             self.version = self.diff.version
         elif self.version_by == VersionBy.TYPE:
             for tpname in versions:
-                if versions[tpname][0] != versions[tpname][1]:
-                    self.version[tpname] = versions[tpname][1]
+                self.version[tpname] = versions[tpname][1]
+        elif self.version_by == VersionBy.OBJECT_NOSTORE:
+            for tpname in versions:
+                for oid in versions[tpname]:
+                    if versions[tpname][oid][1] == "END":
+                        del self.version[tpname][oid]
+                        continue
+                    self.version[tpname][oid] = versions[tpname][oid][1]
         else:
             raise NotImplementedError()
         

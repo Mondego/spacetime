@@ -2,7 +2,7 @@ from multiprocessing import RLock
 import traceback
 
 from spacetime.managers.socket_manager import SocketServer, SocketConnector
-from spacetime.managers.version_manager import FullStateVersionManager, TypeVersionManager
+from spacetime.managers.version_manager import FullStateVersionManager, TypeVersionManager, ObjectVersionManagerVersionSent
 from spacetime.managers.managed_heap import ManagedHeap
 from spacetime.managers.diff import Diff
 import spacetime.utils.enums as enums
@@ -36,6 +36,9 @@ class Dataframe(object):
             self.versioned_heap = FullStateVersionManager(self.appname, types)
         elif version_by == enums.VersionBy.TYPE:
             self.versioned_heap = TypeVersionManager(self.appname, types)
+        elif version_by == enums.VersionBy.OBJECT_NOSTORE:
+            self.versioned_heap = ObjectVersionManagerVersionSent(
+                self.appname, types)
         else:
             raise NotImplementedError()
         self.write_lock = RLock()
@@ -92,11 +95,12 @@ class Dataframe(object):
 
     def commit(self):
         data, versions = self.local_heap.retreive_data()
-        with self.write_lock:
-            succ = self.versioned_heap.receive_data(
-                self.appname, versions, data)
-        if succ:
-            self.local_heap.data_sent_confirmed(versions)
+        if versions:
+            with self.write_lock:
+                succ = self.versioned_heap.receive_data(
+                    self.appname, versions, data, from_external=False)
+            if succ:
+                self.local_heap.data_sent_confirmed(versions)
 
     def sync(self):
         self.commit()
@@ -124,6 +128,14 @@ class Dataframe(object):
                     for tpname in version:
                         if version[tpname][0] != version[tpname][1]:
                             something_different = True
+                    if not something_different:
+                        return
+                elif self.version_by == enums.VersionBy.OBJECT_NOSTORE:
+                    something_different = False
+                    for tpname in version:
+                        for oid in version[tpname]:
+                            if version[tpname][oid][0] != version[tpname][oid][1]:
+                                something_different = True
                     if not something_different:
                         return
                 else:

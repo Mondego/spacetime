@@ -11,7 +11,8 @@
 			"**/.hg": true,
 			"**/CVS": true,
 			"**/.DS_Store": true,
-			"**/*.pyc": true
+			"**/*.pyc": true,
+			"**/build/": true,
 		},
 		"files.autoSave": "afterDelay",
 		"files.autoSaveDelay": 1000,

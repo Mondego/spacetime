@@ -14,7 +14,7 @@ class VersionManager(object):
         self.logger = utils.get_logger("%s_VersionManager" % appname)
 
     @abstractmethod
-    def receive_data(self, appname, versions, package):
+    def receive_data(self, appname, versions, package, from_external=True):
         pass
 
     @abstractmethod
@@ -29,7 +29,8 @@ class VersionManager(object):
     def read_dimension_at(self, version, dtype, oid, dimname):
         pass
 
-    def operational_transform(self, start, new_path, conflict_path):
+    def operational_transform(
+            self, start, new_path, conflict_path, from_external):
         # This will contain all changes in the merge that do not conflict with
         # new changes in place + merged resolutions.
         t_new_merge = dict()
@@ -40,7 +41,8 @@ class VersionManager(object):
             if tpname in conflict_path:
                 # Merge tp changes.
                 tp_merge, tp_conf_merge = self.ot_on_type(
-                    tpname, start, new_path[tpname], conflict_path[tpname])
+                    tpname, start, new_path[tpname], conflict_path[tpname],
+                    from_external)
                 t_new_merge[tpname] = tp_merge
                 t_conflict_merge[tpname] = tp_conf_merge
             else:
@@ -54,7 +56,9 @@ class VersionManager(object):
                 t_new_merge[tpname] = conflict_path[tpname]
         return t_new_merge, t_conflict_merge
 
-    def ot_on_type(self, dtpname, start, new_tp_change, conflict_tp_change):
+    def ot_on_type(
+            self, dtpname, start, new_tp_change, conflict_tp_change,
+            from_external):
         tp_merge = dict()
         tp_conf_merge = dict()
         for oid in new_tp_change:
@@ -62,7 +66,8 @@ class VersionManager(object):
                 # Merge oid change.
                 obj_merge, obj_conf_merge = self.ot_on_obj(
                     dtpname, oid,
-                    start, new_tp_change[oid], conflict_tp_change[oid])
+                    start, new_tp_change[oid], conflict_tp_change[oid],
+                    from_external)
                 tp_merge[oid] = obj_merge
                 tp_conf_merge[oid] = obj_conf_merge
             else:
@@ -75,7 +80,9 @@ class VersionManager(object):
                 tp_merge[oid] = conflict_tp_change[oid]
         return tp_merge, tp_conf_merge
 
-    def ot_on_obj(self, dtpname, oid, start, new_obj_change, conf_obj_change):
+    def ot_on_obj(
+            self, dtpname, oid, start, new_obj_change, conf_obj_change,
+            from_external):
         dtype = self.type_map[dtpname]
         obj_merge = dict()
         obj_conf_merge = dict()
@@ -87,14 +94,18 @@ class VersionManager(object):
             # Both paths have created a new object.
             # Resolve that.
             if dtype.__r_meta__.merge is not None:
+                new = self.make_temp_obj(
+                        start, dtype, oid, with_change=new_obj_change)  # new
+                conflicting = self.make_temp_obj(
+                        start, dtype, oid,
+                         with_change=conf_obj_change)  # conflicting
+                yours = new if from_external else conflicting
+                theirs = conflicting if from_external else new
                 obj_merge, obj_conf_merge = self.resolve_with_custom_merge(
                     dtype, oid,
-                    None,  # original
-                    self.make_temp_obj(
-                        start, dtype, oid, with_change=new_obj_change),  # new
-                    self.make_temp_obj(
-                        start, dtype, oid,
-                         with_change=conf_obj_change),  # conflicting
+                    None,  # original,
+                    yours,
+                    theirs,
                     new_obj_change, conf_obj_change)
             else:
                 # Choose the New as other apps might have started work
@@ -129,14 +140,18 @@ class VersionManager(object):
                   and event_conf is Event.Modification):
             # resolve between two different modifications.
             if dtype.__r_meta__.merge is not None:
+                new = self.make_temp_obj(
+                        start, dtype, oid, with_change=new_obj_change)  # new
+                conflicting = self.make_temp_obj(
+                        start, dtype, oid,
+                        with_change=conf_obj_change)  # conflicting
+                yours = new if from_external else conflicting
+                theirs = conflicting if from_external else new
                 obj_merge, obj_conf_merge = self.resolve_with_custom_merge(
                     dtype, oid,
                     self.make_temp_obj(start, dtype, oid),  # original
-                    self.make_temp_obj(
-                        start, dtype, oid, with_change=new_obj_change),  # new
-                    self.make_temp_obj(
-                        start, dtype, oid,
-                        with_change=conf_obj_change),  # conflicting
+                    yours,  # new
+                    theirs,  # conflicting
                     new_obj_change, conf_obj_change)
             else:
                 # LWW strategy
@@ -148,12 +163,16 @@ class VersionManager(object):
             # resolve between an app modifyinbg it,
             # and another app deleting the object.
             if dtype.__r_meta__.merge is not None:
+                new = self.make_temp_obj(
+                        start, dtype, oid, with_change=new_obj_change)  # new
+                conflicting = None,  # conflicting
+                yours = new if from_external else conflicting
+                theirs = conflicting if from_external else new
                 obj_merge, obj_conf_merge = self.resolve_with_custom_merge(
                     dtype, oid,
                     self.make_temp_obj(start, dtype, oid),  # original
-                    self.make_temp_obj(
-                        start, dtype, oid, with_change=new_obj_change),  # new
-                    None,  # conflicting
+                    yours,  # new
+                    theirs,  # conflicting
                     new_obj_change, conf_obj_change)
             else:
                 # LWW strategy
@@ -170,13 +189,17 @@ class VersionManager(object):
             # resolve between an app modifyinbg it,
             # and another app deleting the object.
             if dtype.__r_meta__.merge is not None:
+                new = None,  # new
+                conflicting = self.make_temp_obj(
+                        start, dtype, oid,
+                         with_change=conf_obj_change)  # conflicting
+                yours = new if from_external else conflicting
+                theirs = conflicting if from_external else theirs
                 obj_merge, obj_conf_merge = self.resolve_with_custom_merge(
                     dtype, oid,
                     self.make_temp_obj(start, dtype, oid),  # original
-                    None,  # new
-                    self.make_temp_obj(
-                        start, dtype, oid,
-                        with_change=conf_obj_change),  # conflicting
+                    yours,  # new
+                    theirs,  # conflicting
                     new_obj_change, conf_obj_change)
             else:
                 # LWW strategy
@@ -194,8 +217,9 @@ class VersionManager(object):
         obj = dtype.__r_meta__.merge(original, new, conflicting)  # conflicting
         dtpname = dtype.__r_meta__.name
         if obj:
+            obj.__r_temp__.update(dtype.__r_table__.store_as_temp[oid])
             changes = {
-                "dims": dtype.__r_table__.store_as_temp[oid], "types": dict()}
+                "dims": obj.__r_temp__, "types": dict()}
             changes["types"][dtpname] = (
                 Event.Modification if original is not None else Event.New)
             
@@ -286,13 +310,13 @@ class FullStateVersionManager(VersionManager):
     def set_app_marker(self, appname, end_v):
         self.state_to_app.setdefault(end_v, set()).add(appname)
 
-    def receive_data(self, appname, versions, package):
+    def receive_data(self, appname, versions, package, from_external=True):
         start_v, end_v = versions
         if start_v == end_v:
             # The versions are the same, lets ignore.
             return True
         if start_v != self.version_graph.head.current:
-            self.resolve_conflict(start_v, end_v, package)
+            self.resolve_conflict(start_v, end_v, package, from_external)
         else:
             self.version_graph.continue_chain(start_v, end_v, package)
         self.maintain(appname, end_v)
@@ -313,11 +337,11 @@ class FullStateVersionManager(VersionManager):
         if version[0] != version[1]:
             self.maintain(app, version[1])
 
-    def resolve_conflict(self, start_v, end_v, package):
+    def resolve_conflict(self, start_v, end_v, package, from_external):
         new_v = self.version_graph.head.current
         change, _ = self.retrieve_data_nomaintain(start_v)
         t_new_merge, t_conflict_merge = self.operational_transform(
-            start_v, change, package)
+            start_v, change, package, from_external)
         merge_v = str(uuid4())
         self.version_graph.continue_chain(new_v, merge_v, t_new_merge)
         self.version_graph.continue_chain(end_v, merge_v, t_conflict_merge)
@@ -351,7 +375,7 @@ class TypeVersionManager(VersionManager):
         self.app_to_state = {tp.__r_meta__.name: dict() for tp in types}
         self.logger = utils.get_logger("%s_TypeVersionManager" % appname)
 
-    def receive_data(self, appname, versions, package):
+    def receive_data(self, appname, versions, package, from_external=True):
         for tpname in versions:
             if tpname not in self.version_graph:
                 continue
@@ -360,7 +384,8 @@ class TypeVersionManager(VersionManager):
                 # The versions are the same, lets ignore.
                 return True
             if start_v != self.version_graph[tpname].head.current:
-                self.resolve_conflict(tpname, start_v, end_v, package[tpname])
+                self.resolve_conflict(
+                    tpname, start_v, end_v, package[tpname], from_external)
             else:
                 self.version_graph[tpname].continue_chain(
                     start_v, end_v, package[tpname])
@@ -388,11 +413,11 @@ class TypeVersionManager(VersionManager):
             merged = utils.merge_objectlist_deltas(tpname, merged, delta)
         return merged, [version, self.version_graph[tpname].head.current]
 
-    def resolve_conflict(self, tpname, start_v, end_v, package):
+    def resolve_conflict(self, tpname, start_v, end_v, package, from_external):
         new_v = self.version_graph[tpname].head.current
         change, _ = self.retrieve_data_nomaintain(tpname, start_v)
         t_new_merge, t_conflict_merge = self.ot_on_type(
-            tpname, start_v, change, package)
+            tpname, start_v, change, package, from_external)
         merge_v = str(uuid4())
         self.version_graph[tpname].continue_chain(new_v, merge_v, t_new_merge)
         self.version_graph[tpname].continue_chain(
@@ -434,7 +459,7 @@ class ObjectVersionManagerVersionSent(VersionManager):
         self.logger = utils.get_logger(
             "%s_ObjectVersionManagerVersionSent" % appname)
 
-    def receive_data(self, appname, versions, package):
+    def receive_data(self, appname, versions, package, from_external=True):
         for tpname in versions:
             if tpname not in self.version_graph:
                 continue
@@ -452,9 +477,10 @@ class ObjectVersionManagerVersionSent(VersionManager):
             
                 if start_v != graph.head.current:
                     self.resolve_conflict(
-                        tpname, oid, start_v, end_v, package[tpname])
+                        tpname, oid, start_v, end_v, package[tpname][oid],
+                        from_external)
                 else:
-                    graph.continue_chain(start_v, end_v, package[tpname])
+                    graph.continue_chain(start_v, end_v, package[tpname][oid])
                 
                 self.maintain(appname, tpname, oid, end_v)
         return True
@@ -488,11 +514,13 @@ class ObjectVersionManagerVersionSent(VersionManager):
             for oid in version_oids.intersection(current_oids):
                 obj_data, version_change = self.retrieve_data_nomaintain(
                     tpname, oid, version[tpname][oid])
-                self.set_app_marker(appname, tpname, oid, version_change[1])
-                data[oid] = obj_data
-                new_versions[oid] = version_change
-            final_data[tpname] = data
-            final_versions[tpname] = new_versions
+                if obj_data:
+                    self.set_app_marker(appname, tpname, oid, version_change[1])
+                    data[oid] = obj_data
+                    new_versions[oid] = version_change
+            if data:
+                final_data[tpname] = data
+                final_versions[tpname] = new_versions
         return final_data, final_versions
 
     def set_app_marker(self, appname, tpname, oid, end_v):
@@ -505,12 +533,13 @@ class ObjectVersionManagerVersionSent(VersionManager):
             merged = utils.merge_object_delta(tpname, merged, delta)
         return merged, [version, self.version_graph[tpname][oid].head.current]
 
-    def resolve_conflict(self, tpname, oid, start_v, end_v, package):
+    def resolve_conflict(
+            self, tpname, oid, start_v, end_v, package, from_external):
         graph = self.version_graph[tpname][oid]
         new_v = graph.head.current
         change, _ = self.retrieve_data_nomaintain(tpname, oid, start_v)
         t_new_merge, t_conflict_merge = self.ot_on_obj(
-            tpname, oid, start_v, change, package)
+            tpname, oid, start_v, change, package, from_external)
         merge_v = str(uuid4())
         graph.continue_chain(new_v, merge_v, t_new_merge)
         graph.continue_chain(
@@ -538,15 +567,14 @@ class ObjectVersionManagerVersionSent(VersionManager):
     def maintain(self, appname, tpname, oid, end_v):
         graph = self.version_graph[tpname][oid]
         super().maintain(
-            self.state_to_app[tpname][oid], self.app_to_state[tpname][oid],
+            self.state_to_app[tpname].setdefault(oid, dict()),
+            self.app_to_state[tpname].setdefault(oid, dict()),
             graph, appname, end_v,
             utils.get_merge_object_delta(tpname))
-        if (graph.head.prev_master == "ROOT"
-                and (graph.head.current, graph.head.prev_master) in graph.edges
-                and graph.edges[
-                    (graph.head.current,
-                     graph.head.prev_master)].payload is None):
+        if graph.head.prev_master == "ROOT" and graph.head.current == "END":
             # The object is deleted, and everyone who had it, has received a
             # delete request. So delete the object.
             del self.version_graph[tpname][oid]
+            del self.state_to_app[tpname][oid]
+            del self.app_to_state[tpname][oid]
 

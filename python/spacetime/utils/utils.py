@@ -2,6 +2,7 @@ import logging
 import os
 
 from spacetime.utils.enums import Event
+from copy import deepcopy
 
 class _container(object):
     pass
@@ -27,17 +28,18 @@ def get_logger(name):
 
 def merge_state_delta(old_change, newer_change, delete_it=False):
     merged = dict()
-
+    if old_change == dict():
+        return deepcopy(newer_change)
     for dtpname in old_change:
         if dtpname not in newer_change:
-            merged[dtpname] = old_change[dtpname]
+            merged[dtpname] = deepcopy(old_change[dtpname])
         else:
             merged[dtpname] = merge_objectlist_deltas(
                 dtpname, old_change[dtpname], newer_change[dtpname],
                 delete_it=delete_it)
     for dtpname in newer_change:
         if dtpname not in old_change:
-            merged[dtpname] = newer_change[dtpname]
+            merged[dtpname] = deepcopy(newer_change[dtpname])
     return merged
 
 def get_merge_objectlist_delta(dtpname):
@@ -56,7 +58,7 @@ def merge_objectlist_deltas(dtpname, old_change, new_change, delete_it=False):
     merged = dict()
     for oid in old_change:
         if oid not in new_change:
-            merged[oid] = old_change[oid]
+            merged[oid] = deepcopy(old_change[oid])
         else:
             if delete_it and new_change[oid]["types"][dtpname] is Event.Delete:
                 # Do not include this object in the merged changes if
@@ -71,24 +73,26 @@ def merge_objectlist_deltas(dtpname, old_change, new_change, delete_it=False):
                 dtpname, old_change[oid], new_change[oid])
     for oid in new_change:
         if oid not in old_change:
-            merged[oid] = new_change[oid]
+            if delete_it and new_change[oid]["types"][dtpname] is Event.Delete:
+                continue
+            merged[oid] = deepcopy(new_change[oid])
     return merged
 
 def merge_object_delta(dtpname, old_change, new_change):
     if not old_change:
-        return new_change
+        return deepcopy(new_change)
     if old_change["types"][dtpname] is Event.New and new_change["types"][dtpname] is Event.Delete:
         return None
     if new_change["types"][dtpname] is Event.Delete:
-        return new_change
+        return deepcopy(new_change)
     if (old_change["types"][dtpname] is Event.Delete
             and new_change["types"][dtpname] is Event.New):
-        return new_change
+        return deepcopy(new_change)
     if new_change["types"][dtpname] is not Event.Modification:
         raise RuntimeError(
             "Not sure why the new change does not have modification.")
 
-    dim_change = dict(old_change["dims"])
+    dim_change = deepcopy(old_change["dims"])
     dim_change.update(new_change["dims"])
     type_change = dict()
     for tpname, old_event in old_change["types"].items():

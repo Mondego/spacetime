@@ -9,6 +9,9 @@ import traceback
 import spacetime.utils.utils as utils
 import spacetime.utils.enums as enums
 
+
+MAX_THREADPOOL_WORKERS = 100
+
 def receive_data(con, length):
     stack = list()
     while length:
@@ -26,19 +29,13 @@ def send_all(con, data):
         data = data[sent:]
 
 
-class SocketServer(Thread):
-    def __init__(self, appname, parent, server_port, worker_count, pull_call_back, push_call_back, confirm_pull_req):
-        # Name of the app
-        self.appname = appname
-
+class NPSocketServer(Thread):
+    def __init__(self, appname, server_port, pull_call_back, push_call_back, confirm_pull_req):
         # Logger for SocketManager
-        self.logger = utils.get_logger("%s_SocketManager" % self.appname)
+        self.logger = utils.get_logger("%s_SocketManager" % appname)
 
         # Number of workers in pool for connection
-        self.worker_count = worker_count
-
-        # Details of the forking dataframe if it exists.
-        self.parent = parent
+        self.worker_count = MAX_THREADPOOL_WORKERS
 
         # Call back function to process incoming pull requests. 
         self.pull_call_back = pull_call_back
@@ -158,7 +155,7 @@ class SocketServer(Thread):
         return req_count            
 
 
-class SocketConnector(object):
+class NPSocketConnector(object):
     @property
     def has_parent_connection(self):
         return self.parent is not None

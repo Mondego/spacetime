@@ -184,25 +184,30 @@ class TestFullStateVersionManager(unittest.TestCase):
         vm.receive_data("TEST_APP1", ["0", "2"], package4)
         node3 = vg.head
         self.assertSetEqual(
-            set(["ROOT", "1", "2", node3.current]), set(vg.nodes.keys()))
+            set(["ROOT", "0", "1", "2", node3.current]), set(vg.nodes.keys()))
         self.check_nodes(
             vg.nodes,
-            [("ROOT", None, "1", set(), set(["1"]), True),
-             ("1", "ROOT", node3.current,
-              set(["ROOT"]), set([node3.current]), True),
-             ("2", None, node3.current, set(), set([node3.current]), False),
+            [("ROOT", None, "0", set(), set(["0"]), True),
+             ("0", "ROOT", "1", set(["ROOT"]), set(["1", "2"]), True),
+             ("1", "0", node3.current,
+              set(["0"]), set([node3.current]), True),
+             ("2", "0", node3.current, set(["0"]), set([node3.current]), False),
              (node3.current, "1", None, set(["1", "2"]), set(), True)])
 
         self.assertSetEqual(
             set([
-                ("ROOT", "1"),
+                ("ROOT", "0"),
+                ("0", "1"),
+                ("0", "2"),
                 ("1", node3.current),
                 ("2", node3.current)]),
             set(vg.edges.keys()))
         
         self.check_edges(
             vg.edges,
-            [("ROOT", "1", package3),
+            [("ROOT", "0", package1),
+             ("0", "1", package2),
+             ("0", "2", package4),
              ("1", node3.current, package4),
              ("2", node3.current, package2)])
         

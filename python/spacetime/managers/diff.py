@@ -2,9 +2,9 @@ from uuid import uuid4
 from spacetime.utils.enums import Event
 
 class Diff(dict):
-    def __init__(self, diff_id=None):
-        super().__init__()
-        self.version = diff_id if diff_id else str(uuid4())
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.version = str(uuid4())
 
     def add(self, dtype, objs):
         dtpname = dtype.__r_meta__.name
@@ -20,6 +20,9 @@ class Diff(dict):
 
     def write_dimension(self, dtype, oid, dim, value):
         dtpname = dtype.__r_meta__.name
+        # No need for locks because once this operation is set
+        # which is either the old list, and can be added.
+        # or is new
         tpchange = self.setdefault(dtpname, dict())
         if oid in tpchange and tpchange[oid]["types"][dtpname] is Event.Delete:
             # If the object was marked for delete, modifications shouldnt work.

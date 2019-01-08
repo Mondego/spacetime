@@ -18,3 +18,8 @@ class VersionBy(object):
     TYPE = 1
     OBJECT_NOSTORE = 2
     DIMENSION = 3
+
+class ConnectionStyle(object):
+    TSocket = 0
+    NPSocket = 1
+    AIOSocket = 2

@@ -1,8 +1,10 @@
 from multiprocessing import RLock
 import traceback
 
-from spacetime.managers.socket_manager import SocketServer, SocketConnector
-from spacetime.managers.version_manager import FullStateVersionManager, TypeVersionManager, ObjectVersionManagerVersionSent
+from spacetime.managers.connectors.np_socket_manager import NPSocketServer, NPSocketConnector
+from spacetime.managers.connectors.asyncio_socket_manager import AIOSocketServer, AIOSocketConnector
+from spacetime.managers.connectors.thread_socket_manager import TSocketServer, TSocketConnector
+from spacetime.managers.version_manager import FullStateVersionManager, TypeVersionManager, ObjectVersionManagerVersionSent, VersionManagerProcess
 from spacetime.managers.managed_heap import ManagedHeap
 from spacetime.managers.diff import Diff
 import spacetime.utils.enums as enums
@@ -15,13 +17,24 @@ class Dataframe(object):
         return self.socket_server.port
 
     def __init__(
-            self, appname, types, worker_count=5, details=None, server_port=0,
-            version_by=enums.VersionBy.FULLSTATE):
+            self, appname, types, details=None, server_port=0,
+            version_by=enums.VersionBy.FULLSTATE, separate_dag=False,
+            connection_as=enums.ConnectionStyle.TSocket):
         self.appname = appname
         self.logger = utils.get_logger("%s_Dataframe" % appname)
         self.version_by = version_by
+
+        if connection_as == enums.ConnectionStyle.TSocket:
+            SocketServer, SocketConnector = TSocketServer, TSocketConnector
+        elif connection_as == enums.ConnectionStyle.NPSocket:
+            SocketServer, SocketConnector = NPSocketServer, NPSocketConnector
+        elif connection_as == enums.ConnectionStyle.AIOSocket:
+            SocketServer, SocketConnector = AIOSocketServer, AIOSocketConnector
+        else:
+            raise NotImplementedError()
+        
         self.socket_server = SocketServer(
-            self.appname, details, server_port, worker_count,
+            self.appname, server_port,
             self.pull_call_back, self.push_call_back, self.confirm_pull_req)
 
         self.socket_connector = SocketConnector(
@@ -32,7 +45,12 @@ class Dataframe(object):
             tp.__r_meta__.name: tp for tp in self.types}
         self.local_heap = ManagedHeap(types, version_by)
         self.versioned_heap = None
-        if version_by == enums.VersionBy.FULLSTATE:
+        
+        if separate_dag:
+            self.versioned_heap = VersionManagerProcess(
+                self.appname, types, version_by)
+            self.versioned_heap.start()
+        elif version_by == enums.VersionBy.FULLSTATE:
             self.versioned_heap = FullStateVersionManager(self.appname, types)
         elif version_by == enums.VersionBy.TYPE:
             self.versioned_heap = TypeVersionManager(self.appname, types)

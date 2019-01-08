@@ -1,3 +1,4 @@
+from multiprocessing import RLock
 from spacetime.managers.diff import Diff
 from spacetime.utils.enums import Event, VersionBy
 import spacetime.utils.utils as utils
@@ -5,11 +6,15 @@ import spacetime.utils.utils as utils
 class ManagedHeap(object):
     def __init__(self, types, version_by):
         self.types = types
+        self.diff_access_lock = RLock()
         self.type_map = {
             tp.__r_meta__.name: tp
             for tp in types
         }
-        self.data = dict()
+        self.data = {
+            tp.__r_meta__.name: dict()
+            for tp in types
+        }
         self.diff = Diff()
         self.version = None
         if version_by == VersionBy.FULLSTATE:
@@ -27,12 +32,12 @@ class ManagedHeap(object):
         else:
             raise NotImplementedError()
 
-        self.membership = dict()
         self.tracked_objs = {
             tp.__r_meta__.name: dict()
             for tp in types
         }
 
+        self.pending_commit = Diff()
         self.version_by = version_by
 
     def _take_control(self, tpname, obj):
@@ -53,42 +58,7 @@ class ManagedHeap(object):
     
     def _exists(self, dtype, oid):
         dtpname = dtype.__r_meta__.name
-        return dtpname in self.membership and oid in self.membership[dtpname]
-
-    def _set_membership(self, package):
-        membership = dict()
-        if not package:
-            return self.membership
-        for dtpname in self.membership:
-            if dtpname not in package:
-                membership[dtpname] = self.membership[dtpname]
-        for dtpname, tp_changes in package.items():
-            if not tp_changes and dtpname in self.membership:
-                membership[dtpname] = self.membership[dtpname]
-            for oid, obj_changes in tp_changes.items():
-                for tpname, event in obj_changes["types"].items():
-                    if tpname not in membership:
-                        membership[tpname] = (
-                            set() 
-                            if tpname not in self.membership else
-                            self.membership[tpname])
-                    if event is Event.Delete:
-                        # Oid has to be removed from the new version
-                        if oid not in membership[tpname]:
-                            raise RuntimeError(
-                                "Got an delete without having the object.")
-                        membership[tpname].remove(oid)
-                    elif event is Event.New:
-                        if oid in membership[tpname]:
-                            raise RuntimeError(
-                                "Got a new object but already have the object.")
-                        membership[tpname].add(oid)
-                    else:
-                        if oid not in membership[tpname]:
-                            raise RuntimeError(
-                                "Got a modification for an "
-                                "object that does not exist.")
-        return membership
+        return dtpname in self.data and oid in self.data[dtpname]
 
     def _get_next_version(self):
         if self.version_by == VersionBy.FULLSTATE:
@@ -155,35 +125,25 @@ class ManagedHeap(object):
                 self._release_control(self.type_map[tpname], oid)
             self.data = utils.merge_state_delta(
                 self.data, data, delete_it=True)
-            self.membership = self._set_membership(data)
-            # for tpname in self.membership:
-            #     if self.membership[tpname]:
-            #         try:
-            #             assert (self.membership[tpname] == set(self.data[tpname].keys()))
-            #         except Exception:
-            #             raise
         self.version = self._extract_new_version(version)
         return True
 
     def retreive_data(self):
         if len(self.diff) > 0:
-            return self.diff, self._get_next_version()
+            final_diff = Diff(utils.merge_state_delta(self.pending_commit, self.diff))
+            final_diff.version = self.diff.version
+            versions = self._get_next_version()
+            self.pending_commit = final_diff
+            self.diff = Diff()
+            return final_diff, versions 
         return dict(), None
 
     def data_sent_confirmed(self, versions):
         if versions is None:
             return
-        self.data = utils.merge_state_delta(
-            self.data, self.diff, delete_it=True)
-        self.membership = self._set_membership(self.diff)
-        # for tpname in self.membership:
-        #     if self.membership[tpname]:
-        #         try:
-        #             assert (self.membership[tpname] == set(self.data[tpname].keys()))
-        #         except Exception:
-        #             raise
+        self.pending_commit = Diff()
         if self.version_by == VersionBy.FULLSTATE:
-            self.version = self.diff.version
+            self.version = versions[1]
         elif self.version_by == VersionBy.TYPE:
             for tpname in versions:
                 self.version[tpname] = versions[tpname][1]
@@ -191,7 +151,8 @@ class ManagedHeap(object):
             for tpname in versions:
                 for oid in versions[tpname]:
                     if versions[tpname][oid][1] == "END":
-                        del self.version[tpname][oid]
+                        if oid in self.version[tpname]:
+                            del self.version[tpname][oid]
                         continue
                     self.version[tpname][oid] = versions[tpname][oid][1]
         else:
@@ -201,9 +162,7 @@ class ManagedHeap(object):
 
     def read_one(self, dtype, oid):
         dtpname = dtype.__r_meta__.name
-        if (self.diff.not_marked_for_delete(dtype, oid) 
-                and (self.diff.exists(dtype, oid) 
-                        or self._exists(dtype, oid))):
+        if self._exists(dtype, oid):
             if oid in self.tracked_objs[dtpname]:
                 return self.tracked_objs[dtpname][oid]
             return self._take_control(dtpname, utils.make_obj(dtype, oid))
@@ -211,15 +170,13 @@ class ManagedHeap(object):
 
     def read_all(self, dtype):
         dtpname = dtype.__r_meta__.name
-        staged_oids, fresh_deletes = self.diff.read_oids(dtype)
-        sm_oids = (
-            self.membership.setdefault(
-                dtype.__r_meta__.name, set()) - fresh_deletes)
+        if dtpname not in self.data:
+            return list()
         return [
             (self.tracked_objs[dtpname][oid]
              if oid in self.tracked_objs[dtpname] else
              self._take_control(dtpname, utils.make_obj(dtype, oid)))
-            for oid in staged_oids.union(sm_oids)
+            for oid in self.data[dtpname]
         ]
 
     def add_one(self, dtype, obj):
@@ -229,6 +186,8 @@ class ManagedHeap(object):
             raise ValueError(
                 "Obj ({0}, {1}) already exists in dataframe.".format(
                     dtpname, oid))
+        dim_map = dtype.__r_table__[obj.__r_oid__]
+        self.data[dtpname][oid] =  {"dims": dim_map, "types": {dtpname: Event.New}}
         self.diff.add(dtype, [obj])
         self._take_control(dtpname, obj)
 
@@ -240,30 +199,36 @@ class ManagedHeap(object):
                 raise ValueError(
                     "Obj ({0}, {1}) already exists in dataframe.".format(
                         dtpname, oid))
-            
+            dim_map = dtype.__r_table__[obj.__r_oid__]
+            self.data[dtpname][oid] =  {"dims": dim_map, "types": {dtpname: Event.New}}
         self.diff.add(dtype, objs)
+        
         for obj in objs:
             self._take_control(dtpname, obj)
 
     def delete_one(self, dtype, obj):
         oid = obj.__r_oid__
+        dtpname = dtype.__r_meta__.name
         self._release_control(dtype, oid)
         assert (obj.__r_df__ is None)
         in_prev = self._exists(dtype, oid)
         self.diff.delete(dtype, oid, in_prev)
+        del self.data[dtpname][oid]
     
     def delete_all(self, dtype):
         objs = self.read_all(dtype)
+        dtpname = dtype.__r_meta__.name
         for obj in objs:
             oid = obj.__r_oid__
             self._release_control(dtype, oid)
             assert (obj.__r_df__ is None)
             in_prev = self._exists(dtype, oid)
             self.diff.delete(dtype, oid, in_prev)
+            del self.data[dtpname][oid]
 
     def read_dimension(self, dtype, oid, dimname):
-        if self.diff.has_new_value(dtype, oid, dimname):
-            return self.diff.read_dimension(dtype, oid, dimname)
+        # if self.diff.has_new_value(dtype, oid, dimname):
+        #     return self.diff.read_dimension(dtype, oid, dimname)
         dtpname = dtype.__r_meta__.name
         if (dtpname in self.data 
                 and oid in self.data[dtpname] 
@@ -274,6 +239,9 @@ class ManagedHeap(object):
 
     def write_dimension(self, dtype, oid, dimname, value):
         self.diff.write_dimension(dtype, oid, dimname, value)
+        dtpname = dtype.__r_meta__.name
+        self.data[dtpname][oid]["dims"][dimname] = value
+
 
     def reset_primary_key(self, dtype, oid, dim, value):
         pass

@@ -1,8 +1,79 @@
+import asyncio
+import cbor
 from uuid import uuid4
 from abc import ABCMeta, abstractmethod
+from multiprocessing import Process, Queue
 from spacetime.managers.version_graph import Graph
 import spacetime.utils.utils as utils
-from spacetime.utils.enums import Event
+from spacetime.utils.enums import Event, VersionBy
+
+class VersionManagerProcess(Process):
+            
+    def __init__(self, appname, types, version_by):
+        self.version_manager = None
+        if version_by == VersionBy.FULLSTATE:
+            self.version_manager = FullStateVersionManager(appname, types)
+        elif version_by == VersionBy.TYPE:
+            self.version_manager = TypeVersionManager(appname, types)
+        elif version_by == VersionBy.OBJECT_NOSTORE:
+            self.version_manager = ObjectVersionManagerVersionSent(
+                appname, types)
+        else:
+            raise NotImplementedError()
+        super().__init__()
+        self.daemon = True
+        self.done = False
+        self.read_queue = Queue()
+        self.write_queue = Queue()
+        
+    def _retrieve_data(
+            self, appname, version):
+        return self.version_manager.retrieve_data(appname, version)
+
+    async def _send_data_request(self, appname, version):
+        reader, _ = await asyncio.open_connection()
+        self.read_queue.put((reader, appname, version))
+        data = cbor.loads(await reader.read())
+        await reader.close()
+        return data
+
+    async def _process_reads(self):
+        while True:
+            req = self.read_queue.get()
+            writer, appname, version = req
+            writer.write(cbor.dumps(self._retrieve_data(appname, version)))
+            writer.write_eof()
+            await writer.drain()
+            writer.close()
+
+    async def _process_writes(self):
+        while True:
+            req = self.write_queue.get()
+            if req[0] == "GET":
+                appname, versions, package, from_external = req[1:]
+                self.version_manager.receive_data(
+                    appname, versions, package, from_external)
+            elif req[0] == "CONFIRM":
+                app, version = req[1:]
+                self.version_manager.data_sent_confirmed(app, version)
+
+    def run(self):
+        loop = asyncio.get_event_loop()
+        loop.create_task(self._process_reads())
+        loop.create_task(self._process_writes())
+        loop.run_forever()
+
+    def receive_data(self, appname, versions, package, from_external=True):
+        self.write_queue.put(("GET", appname, versions, package, from_external))
+
+    def retrieve_data(self, appname, version):
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(
+            self._send_data_request(appname, version))
+
+    def data_sent_confirmed(self, app, version):
+        self.write_queue.put(("CONFIRM", app, version))
+
 
 class VersionManager(object):
     __metaclass__ = ABCMeta
@@ -26,7 +97,7 @@ class VersionManager(object):
         pass
 
     @abstractmethod
-    def read_dimension_at(self, version, dtype, oid, dimname):
+    def _read_dimension_at(self, version, dtype, oid, dimname):
         pass
 
     def operational_transform(
@@ -240,7 +311,7 @@ class VersionManager(object):
             dimname: (
                 with_change["dims"][dimname]
                 if "dims" in with_change and dimname in with_change["dims"] else
-                self.read_dimension_at(version, dtype, oid, dimname))
+                self._read_dimension_at(version, dtype, oid, dimname))
             for dimname in dtype.__r_meta__.dimmap}
         
         dtype.__r_table__.store_as_temp[oid] = dict()
@@ -329,6 +400,8 @@ class FullStateVersionManager(VersionManager):
 
     def retrieve_data_nomaintain(self, version):
         merged = dict()
+        if version not in self.version_graph.nodes:
+            return merged, [version, version]
         for delta in self.version_graph[version:]:
             merged = utils.merge_state_delta(merged, delta)
         return merged, [version, self.version_graph.head.current]
@@ -343,10 +416,11 @@ class FullStateVersionManager(VersionManager):
         t_new_merge, t_conflict_merge = self.operational_transform(
             start_v, change, package, from_external)
         merge_v = str(uuid4())
+        self.version_graph.continue_chain(start_v, end_v, package)
         self.version_graph.continue_chain(new_v, merge_v, t_new_merge)
         self.version_graph.continue_chain(end_v, merge_v, t_conflict_merge)
 
-    def read_dimension_at(self, version, dtype, oid, dimname):
+    def _read_dimension_at(self, version, dtype, oid, dimname):
         dtpname = dtype.__r_meta__.name
         for change in self.version_graph[version::-1]:
             if dtpname in change and oid in change[dtpname]:
@@ -428,7 +502,7 @@ class TypeVersionManager(VersionManager):
             if version[tpname][0] != version[tpname][1]:
                 self.maintain(app, tpname, version[tpname][1])
 
-    def read_dimension_at(self, version, dtype, oid, dimname):
+    def _read_dimension_at(self, version, dtype, oid, dimname):
         dtpname = dtype.__r_meta__.name
         for change in self.version_graph[dtpname][version::-1]:
             if oid in change:
@@ -551,7 +625,7 @@ class ObjectVersionManagerVersionSent(VersionManager):
                 if version[tpname][oid][0] != version[tpname][oid][1]:
                     self.maintain(app, tpname, oid, version[tpname][oid][1])
 
-    def read_dimension_at(self, version, dtype, oid, dimname):
+    def _read_dimension_at(self, version, dtype, oid, dimname):
         dtpname = dtype.__r_meta__.name
         for change in self.version_graph[dtpname][oid][version::-1]:
             if "dims" in change and dimname in change["dims"]:

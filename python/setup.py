@@ -66,7 +66,7 @@ setup(
 
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
-    packages=['spacetime', 'rtypes', 'rtypes.types', 'rtypes.utils', 'spacetime.managers', 'spacetime.utils'],
+    packages=['spacetime', 'rtypes', 'rtypes.types', 'rtypes.utils', 'spacetime.managers', 'spacetime.utils', 'spacetime.managers.connectors'],
 
     # Alternatively, if you want to distribute just a my_module.py, uncomment
     # this:

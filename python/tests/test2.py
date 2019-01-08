@@ -209,12 +209,12 @@ def get_dataframe_test(versionby):
             serv_proc = Process(
                 target=server_df1,
                 args=(server_to_client_q, client_to_server_q, server_ready, client_ready, versionby))
-            serv_proc.daemon = True
+            #serv_proc.daemon = True
             serv_proc.start()
             client_proc = Process(
                 target=client_df1,
                 args=(client_to_server_q, server_to_client_q, server_ready, client_ready, versionby))
-            client_proc.daemon = True
+            #client_proc.daemon = True
             client_proc.start()
             serv_proc.join()
             client_proc.join()
@@ -227,12 +227,12 @@ def get_dataframe_test(versionby):
             serv_proc = Process(
                 target=server_df2,
                 args=(server_to_client_q, client_to_server_q, server_ready, client_ready, versionby))
-            serv_proc.daemon = True
+            #serv_proc.daemon = True
             serv_proc.start()
             client_proc = Process(
                 target=client_df2,
                 args=(client_to_server_q, server_to_client_q, server_ready, client_ready, versionby))
-            client_proc.daemon = True
+            #client_proc.daemon = True
             client_proc.start()
             serv_proc.join()
             client_proc.join()
@@ -245,12 +245,12 @@ def get_dataframe_test(versionby):
             serv_proc = Process(
                 target=server_df3,
                 args=(server_to_client_q, client_to_server_q, server_ready, client_ready, versionby))
-            serv_proc.daemon = True
+            #serv_proc.daemon = True
             serv_proc.start()
             client_proc = Process(
                 target=client_df3,
                 args=(client_to_server_q, server_to_client_q, server_ready, client_ready, versionby))
-            client_proc.daemon = True
+            #client_proc.daemon = True
             client_proc.start()
             serv_proc.join()
             client_proc.join()
@@ -263,12 +263,12 @@ def get_dataframe_test(versionby):
             serv_proc = Process(
                 target=server_df5,
                 args=(server_to_client_q, client_to_server_q, server_ready, client_ready, versionby))
-            serv_proc.daemon = True
+            #serv_proc.daemon = True
             serv_proc.start()
             client_proc = Process(
                 target=client_df5,
                 args=(client_to_server_q, server_to_client_q, server_ready, client_ready, versionby))
-            client_proc.daemon = True
+            #client_proc.daemon = True
             client_proc.start()
             serv_proc.join()
             client_proc.join()
@@ -282,12 +282,12 @@ def get_dataframe_test(versionby):
             serv_proc = Process(
                 target=server_df6,
                 args=(server_to_client_q, client_to_server_q, server_ready, client_ready, versionby))
-            serv_proc.daemon = True
+            #serv_proc.daemon = True
             serv_proc.start()
             client_proc = Process(
                 target=client_df6,
                 args=(client_to_server_q, server_to_client_q, server_ready, client_ready, versionby))
-            client_proc.daemon = True
+            #client_proc.daemon = True
             client_proc.start()
             serv_proc.join()
             client_proc.join()
@@ -300,12 +300,12 @@ def get_dataframe_test(versionby):
             serv_proc = Process(
                 target=server_df7,
                 args=(server_to_client_q, client_to_server_q, server_ready, client_ready, versionby))
-            serv_proc.daemon = True
+            #serv_proc.daemon = True
             serv_proc.start()
             client_proc = Process(
                 target=client_df7,
                 args=(client_to_server_q, server_to_client_q, server_ready, client_ready, versionby))
-            client_proc.daemon = True
+            #client_proc.daemon = True
             client_proc.start()
             serv_proc.join()
             client_proc.join()
@@ -398,9 +398,7 @@ def server_df1(send_q, recv_q, server_ready, client_ready, versionby):
     df.delete_one(Car, c3)
     assert (df.read_one(Car, 2) is None)
     df.commit()
-    assert (df.local_heap.membership == {
-        Car.__r_meta__.name: set([0])
-    })
+    assert (set(df.local_heap.data[Car.__r_meta__.name].keys()) == set([0]))
     
     # Setting point C3
     server_ready.set()
@@ -555,7 +553,7 @@ def server_df2(send_q, recv_q, server_ready, client_ready, versionby):
     assert ("ypos" not in c2.__dict__)
     assert ("oid" not in c2.__dict__)
     assert (c2.xvel is 0)
-    assert (c2.yvel is 1)
+    assert (c2.yvel is 1), c2.yvel
     assert (c2.xpos is 0)
     assert (c2.ypos is 0)
     assert (c2.oid is 1)
@@ -699,7 +697,7 @@ def server_df3(send_q, recv_q, server_ready, client_ready, versionby):
 
     # Check how the merge worked out.
     df.checkout()
-    assert (c1.count == 3)
+    assert (c1.count == 3), c1.count
     # Setting point C3
     #print ("Setting C3")
     server_ready.set()
@@ -795,14 +793,15 @@ class TestTypeDataframeBasic(unittest.TestCase):
         serv_proc = Process(
             target=server_df4,
             args=(server_to_client_q, client_to_server_q, server_ready, client_ready, VersionBy.TYPE))
-        serv_proc.daemon = True
+        #serv_proc.daemon = True
         serv_proc.start()
         client_proc = Process(
             target=client_df4,
             args=(client_to_server_q, server_to_client_q, server_ready, client_ready, VersionBy.TYPE))
-        client_proc.daemon = True
+        #client_proc.daemon = True
         client_proc.start()
         serv_proc.join()
+        client_proc.join()
     
 def server_df4(send_q, recv_q, server_ready, client_ready, versionby):
     df = Dataframe("SERVER_TEST", [Car, Counter], version_by=versionby)
@@ -1008,9 +1007,7 @@ def server_df5(send_q, recv_q, server_ready, client_ready, versionby):
     df.delete_one(Car, c3)
     assert (df.read_one(Car, 2) is None)
     df.commit()
-    assert (df.local_heap.membership == {
-        Car.__r_meta__.name: set([0])
-    })
+    assert (set(df.local_heap.data[Car.__r_meta__.name].keys()) == set([0]))
     
     # Setting point C3
     server_ready.set()

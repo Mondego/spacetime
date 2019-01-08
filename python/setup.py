@@ -22,7 +22,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.1.0',
+    version='2.0.0',
 
     description='Spacetime Application Framework',
     long_description=long_description,
@@ -58,9 +58,7 @@ setup(
 
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.6',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
     ],
 
     # What does your project relate to?
@@ -68,7 +66,7 @@ setup(
 
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
-    packages=['spacetime', 'spacetime.client', 'spacetime.common', 'spacetime.server'],
+    packages=['spacetime', 'rtypes', 'rtypes.types', 'rtypes.utils', 'spacetime.managers', 'spacetime.utils', 'spacetime.managers.connectors'],
 
     # Alternatively, if you want to distribute just a my_module.py, uncomment
     # this:
@@ -78,7 +76,7 @@ setup(
     # your project is installed. For an analysis of "install_requires" vs pip's
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=['pcc', 'requests', 'tornado', 'dill'],
+    install_requires=['cbor'],
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). You can install these using the following syntax,

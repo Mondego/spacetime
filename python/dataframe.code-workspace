@@ -1,0 +1,24 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.exclude": {
+			"**/.git": true,
+			"**/.svn": true,
+			"**/.hg": true,
+			"**/CVS": true,
+			"**/.DS_Store": true,
+			"**/*.pyc": true,
+			"**/build/": true,
+		},
+		"files.autoSave": "afterDelay",
+		"files.autoSaveDelay": 1000,
+		"editor.rulers": [
+			80
+		],
+		"python.pythonPath": "C:\\Program Files\\Python36\\python.exe",
+	}
+}

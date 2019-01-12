@@ -6,6 +6,8 @@ from threading import Thread
 import spacetime.utils.utils as utils
 import spacetime.utils.enums as enums
 from spacetime.utils.socket_utils import send_ack, send_data, recv_ack, recv_data
+from spacetime.utils.utils import instrument_func
+
 
 async def create_connection(loop, details):
     reader, writer = await asyncio.open_connection(
@@ -19,7 +21,7 @@ class AIOSocketConnector(object):
     def has_parent_connection(self):
         return self.parent is not None
 
-    def __init__(self, appname, parent, details, types, version_by):
+    def __init__(self, appname, parent, details, types, version_by, instrument_q):
         self.appname = appname
         self.parent = parent
         self.details = details
@@ -43,6 +45,7 @@ class AIOSocketConnector(object):
         self.logger = utils.get_logger("%s_SocketConnector" % self.appname)
         self.version_by = version_by
         self.loop = asyncio.new_event_loop()
+        self.instrument_record = instrument_q
         self.reader, self.writer = (
             self.loop.run_until_complete(
                 create_connection(self.loop, self.parent))
@@ -76,7 +79,7 @@ class AIOSocketConnector(object):
             return versions
         else:
             raise NotImplementedError()
-            
+
     async def _push(self, diff_data, version):
         try:
             package = {
@@ -101,15 +104,15 @@ class AIOSocketConnector(object):
                 enums.TransferFields.RequestType: enums.RequestType.Pull,
                 enums.TransferFields.Versions: self.parent_version
             }
-            
+
             await send_data(self.writer, data)
             self.logger.debug("Data sent (pull req)")
-            
+
             self.logger.debug("Data received (pull req).")
             # Versions
             resp = await recv_data(self.reader)
-            
-            # Doesnt matter if connection was lost in the next function. 
+
+            # Doesnt matter if connection was lost in the next function.
             # Just the ack failed.
             # Maintain wont happen on server, but its not the end of the world.
             # It can happen next cycle.
@@ -126,12 +129,14 @@ class AIOSocketConnector(object):
             print(traceback.format_exc())
             raise
 
+    @instrument_func("send_push")
     def push_req(self, diff_data, version):
         if self.parent:
             return self.loop.run_until_complete(
                 self._push(diff_data, version))
         return True
 
+    @instrument_func("send_pull")
     def pull_req(self):
         if self.parent:
             return self.loop.run_until_complete(self._pull())
@@ -139,12 +144,13 @@ class AIOSocketConnector(object):
 
 
 class AIOSocketServer(Thread):
-    def __init__(self, appname, server_port, 
-                 pull_call_back, push_call_back, confirm_pull_req):
+    def __init__(self, appname, server_port,
+                 pull_call_back, push_call_back, confirm_pull_req,
+                 instrument_q):
         # Logger for SocketManager
         self.logger = utils.get_logger("%s_SocketManager" % appname)
 
-        # Call back function to process incoming pull requests. 
+        # Call back function to process incoming pull requests.
         self.pull_call_back = pull_call_back
 
         # Call back function to process incoming push requests.
@@ -152,7 +158,7 @@ class AIOSocketServer(Thread):
 
         # Call back function to confirm incoming pull requests to dataframe.
         self.confirm_pull_req = confirm_pull_req
-        
+
         # The socket that can be used by children.
         self.sync_socket = self.setup_socket(server_port)
 
@@ -165,6 +171,7 @@ class AIOSocketServer(Thread):
         self.daemon = True
         self.server = None
         self.loop = None
+        self.instrument_record = instrument_q
 
     def setup_socket(self, server_port):
         sync_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -173,7 +180,7 @@ class AIOSocketServer(Thread):
         sync_socket.listen()
         self.logger.debug("Socket bound")
         return sync_socket
-        
+
     def run(self):
         self.loop = asyncio.new_event_loop()
         coro = asyncio.start_server(
@@ -186,7 +193,8 @@ class AIOSocketServer(Thread):
             self.server.close()
             self.loop.run_until_complete(self.server.wait_closed())
             self.loop.close()
-    
+
+    @instrument_func("handle_client")
     async def handle_client(self, reader, writer):
         while True:  # Till the client breaks or the connection has to be ended.
             try:

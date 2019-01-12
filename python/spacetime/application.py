@@ -2,7 +2,7 @@ from uuid import uuid4
 from multiprocessing.dummy import Process
 
 from spacetime.dataframe import Dataframe
-from spacetime.utils.enums import VersionBy
+from spacetime.utils.enums import VersionBy, ConnectionStyle
 
 def get_details(dataframe):
     if isinstance(dataframe , Dataframe):
@@ -36,7 +36,8 @@ def get_app(func, types, producer,
 
         def __init__(
                 self, dataframe=None, server_port=0,
-                version_by=VersionBy.FULLSTATE):
+                version_by=VersionBy.FULLSTATE, instrument=None, dump_graph=None,
+                connection_as=ConnectionStyle.TSocket):
             self.appname = "{0}_{1}".format(func.__name__, str(uuid4()))
             self.producer = producer
             self.getter_setter = getter_setter
@@ -51,8 +52,11 @@ def get_app(func, types, producer,
             self.version_by = version_by
             self.dataframe_details = (
                 get_details(dataframe) if dataframe else None)
-            self.server_port = server_port
 
+            self.server_port = server_port
+            self.instrument = instrument
+            self.dump_graph = dump_graph
+            self.connection_as = connection_as
             super().__init__()
             self.daemon = True
 
@@ -71,7 +75,7 @@ def get_app(func, types, producer,
             self.args = args
             self.kwargs = kwargs
             super().start()
-    
+
         def start(self, *args, **kwargs):
             self._start(*args, **kwargs)
             self.join()
@@ -81,9 +85,13 @@ def get_app(func, types, producer,
 
         def _create_dataframe(self):
             df = Dataframe(
-                self.appname, self.all_types,
-                details=self.dataframe_details, server_port=self.server_port,
-                version_by=self.version_by)
+                    self.appname, self.all_types,
+                    details=self.dataframe_details,
+                    server_port=self.server_port,
+                    version_by=self.version_by,
+                    connection_as=self.connection_as,
+                    instrument=self.instrument,
+                    dump_graph=self.dump_graph)
             #print(self.appname, self.all_types, details, df.details)
             return df
     return App
@@ -109,11 +117,10 @@ def Application(
         target, dataframe=None, server_port=0,
         Types=list(), Producer=list(), GetterSetter=list(),
         Getter=list(), Setter=list(), Deleter=list(),
-        version_by=VersionBy.FULLSTATE):
+        version_by=VersionBy.FULLSTATE, instrument=None, dump_graph=None, connection_as=ConnectionStyle.TSocket):
     app_cls = get_app(
         target, set(Types), set(Producer), set(GetterSetter),
         set(Getter), set(Setter), set(Deleter))
     return app_cls(
-        dataframe=dataframe, server_port=server_port, version_by=version_by)
-    
-        
+        dataframe=dataframe, server_port=server_port, version_by=version_by,
+        instrument=instrument, dump_graph=dump_graph, connection_as=connection_as)

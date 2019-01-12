@@ -1,9 +1,13 @@
 REGISTERED = list()
 VERSIONBY = {
-    0: "FULLSTATE",
-    1: "TYPES",
-    2: "OBJECT_NOSTORE"
+    0: "FULLSTATE"
+#    1: "TYPES",
+#    2: "OBJECT_NOSTORE"
 }
-def register(app):
-    REGISTERED.append(app)
-    return app
+
+class register(object):
+    def __init__(self, name):
+        self.name = name
+    def __call__(self, app):
+        REGISTERED.append((self.name, app))
+        return app

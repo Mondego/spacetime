@@ -8,7 +8,7 @@ import traceback
 
 import spacetime.utils.utils as utils
 import spacetime.utils.enums as enums
-
+from spacetime.utils.utils import instrument_func
 
 MAX_THREADPOOL_WORKERS = 100
 
@@ -17,8 +17,8 @@ def receive_data(con, length):
     while length:
         data = con.recv(length)
         stack.append(data)
-        length = length - len(data) 
-    
+        length = length - len(data)
+
     return b"".join(stack)
 
 def send_all(con, data):
@@ -30,14 +30,14 @@ def send_all(con, data):
 
 
 class NPSocketServer(Thread):
-    def __init__(self, appname, server_port, pull_call_back, push_call_back, confirm_pull_req):
+    def __init__(self, appname, server_port, pull_call_back, push_call_back, confirm_pull_req, instrument_q):
         # Logger for SocketManager
         self.logger = utils.get_logger("%s_SocketManager" % appname)
 
         # Number of workers in pool for connection
         self.worker_count = MAX_THREADPOOL_WORKERS
 
-        # Call back function to process incoming pull requests. 
+        # Call back function to process incoming pull requests.
         self.pull_call_back = pull_call_back
 
         # Call back function to process incoming push requests.
@@ -45,25 +45,25 @@ class NPSocketServer(Thread):
 
         # Call back function to confirm incoming pull requests to dataframe.
         self.confirm_pull_req = confirm_pull_req
-        
+
         # The socket that can be used by children.
         self.sync_socket = self.setup_socket(server_port)
 
         # The socket details.
         addr, port = self.sync_socket.getsockname()
-        
+
         self.port = (addr if addr != "0.0.0.0" else "127.0.0.1", port)
 
         super().__init__()
         self.daemon = True
-
+        self.instrument_record = instrument_q
         # Need to have a per app RLock, so that the app that just pushed data,
         # does not ask for data that has not completely been pushed in.
         # Potential memory leak?
         # Another way to do it would be to keep persistent sockets.
         # We'll see that later.
         self.app_lock = dict()
-       
+
     def setup_socket(self, server_port):
         sync_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # sync_socket.settimeout(2)
@@ -71,9 +71,6 @@ class NPSocketServer(Thread):
         sync_socket.listen()
         self.logger.debug("Socket bound")
         return sync_socket
-
-    def has_parent_connection(self):
-        return self.parent is not None
 
     def raise_excp(self, fut):
         exp = fut.exception()
@@ -96,12 +93,13 @@ class NPSocketServer(Thread):
                     self.logger.debug(
                         "Submitted processing req from %s, %d (%d)", addr[0], addr[1], req_count)
                     req_count+=1
-                    
+
                 except Exception as e:
                     print ("RUN", e)
                     print(traceback.format_exc())
                     raise
 
+    @instrument_func("handle_client")
     def incoming_connection(self, con, address, req_count):
         try:
             # Unpack message length
@@ -152,7 +150,7 @@ class NPSocketServer(Thread):
             raise
         con.close()
         self.logger.debug("Incoming Connection closed. (%d)", req_count)
-        return req_count            
+        return req_count
 
 
 class NPSocketConnector(object):
@@ -160,11 +158,12 @@ class NPSocketConnector(object):
     def has_parent_connection(self):
         return self.parent is not None
 
-    def __init__(self, appname, parent, details, types, version_by):
+    def __init__(self, appname, parent, details, types, version_by, instrument_q):
         self.appname = appname
         self.details = details
         self.parent = parent
         self.parent_version = None
+        self.instrument_record = instrument_q
         if version_by == enums.VersionBy.FULLSTATE:
             self.parent_version = "ROOT"
         elif version_by == enums.VersionBy.TYPE:
@@ -211,6 +210,7 @@ class NPSocketConnector(object):
         else:
             raise NotImplementedError()
 
+    @instrument_func("send_pull")
     def pull_req(self):
         try:
             data = cbor.dumps({
@@ -226,7 +226,7 @@ class NPSocketConnector(object):
             req_socket.send(pack("!L", len(data)))
             send_all(req_socket, data)
             self.logger.debug("Data sent (pull req)")
-            
+
             content_length = unpack("!L", req_socket.recv(4))[0]
             data = cbor.loads(receive_data(req_socket, content_length))
             self.logger.debug("Data received (pull req).")
@@ -244,7 +244,8 @@ class NPSocketConnector(object):
             print ("PULL", e)
             print(traceback.format_exc())
             raise
-        
+
+    @instrument_func("send_push")
     def push_req(self, diff_data, version):
         try:
             package = {

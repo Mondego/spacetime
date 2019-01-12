@@ -25,7 +25,7 @@ class Node(object):
         if self.prev_master is None:
             self.prev_master = version
         self.all_prev.add(version)
-            
+
 
 class Edge(object):
     def __init__(self, from_node, to_node, payload):
@@ -73,7 +73,7 @@ class Graph(object):
     def continue_chain(self, from_version, to_version, package):
         from_version_node = self.nodes.setdefault(
             from_version, Node(from_version, from_version == self.head.current))
-        
+
         to_version_node = self.nodes.setdefault(
             to_version, Node(to_version, from_version == self.head.current))
         to_version_node.set_prev(from_version)
@@ -84,11 +84,78 @@ class Graph(object):
         from_version_node.set_next(to_version)
         if from_version == self.head.current:
             self.head = to_version_node
-        
+
     def delete_item(self, version):
         pass
 
+    def maintain_edges(self):
+        edges_to_del = set()
+        for edge in self.edges:
+            start, end = self.nodes[edge[0]], self.nodes[edge[1]]
+            if not start.is_master and not end.is_master:
+                # Can delete the edge that took start to the master line.
+                # The other application clearly ignored it.
+                # Lets delete so that nodes can be merged.
+                for node_v in start.all_next:
+                    if self.nodes[node_v].is_master and (start.current, node_v) in self.edges:
+                        edges_to_del.add((start.current, node_v))
+                        start.next_master = end.current
+        for start, end in edges_to_del:
+            del self.edges[(start, end)]
+            self.nodes[start].all_next.remove(end)
+            self.nodes[end].all_prev.remove(start)
+
+
+    def merge_node(self, node, merger_function):
+        del self.nodes[node.current]
+        old_change = self.edges[(node.prev_master, node.current)].payload
+        new_change = self.edges[(node.current, node.next_master)].payload
+        new_payload = merger_function(old_change, new_change)
+
+        del self.edges[(node.prev_master, node.current)]
+        del self.edges[(node.current, node.next_master)]
+        self.nodes[node.prev_master].all_next.remove(node.current)
+        self.nodes[node.next_master].all_prev.remove(node.current)
+        if (node.prev_master, node.next_master) not in self.edges:
+            self.edges[(node.prev_master, node.next_master)] = Edge(
+                node.prev_master, node.next_master, new_payload)
+        else:
+            # Figure out how to avoid this computation.
+            assert self.edges[(node.prev_master, node.next_master)].payload == new_payload, (self.edges[(node.prev_master, node.next_master)].payload, new_payload)
+        if self.nodes[node.prev_master].next_master == node.current:
+            self.nodes[node.prev_master].next_master = node.next_master
+        self.nodes[node.prev_master].all_next.add(node.next_master)
+        if self.nodes[node.next_master].prev_master == node.current:
+            self.nodes[node.next_master].prev_master = node.prev_master
+        self.nodes[node.next_master].all_prev.add(node.prev_master)
+
+    def maintain_nodes(self, state_to_ref, merger_function, master):
+        mark_for_merge = set()
+        mark_for_delete = set()
+        for version, node in self.nodes.items():
+            if node == self.head or node == self.tail:
+                continue
+            if version in state_to_ref and state_to_ref[version]:
+                # Node is still marked.
+                continue
+            if len(node.all_next) > 1 or len(node.all_prev) > 1:
+                # Node is marked in a branch.
+                continue
+            if node.is_master == master:
+                mark_for_merge.add(node)
+
+        for node in mark_for_merge:
+            self.merge_node(node, merger_function)
+
     def maintain(self, state_to_ref, merger_function):
+        # Delete edges that are useless.
+        self.maintain_edges()
+        # Merge nodes that are chaining without anyone looking at them
+        # First divergent.
+        self.maintain_nodes(state_to_ref, merger_function, False)
+        # The master line.
+        self.maintain_nodes(state_to_ref, merger_function, True)
+        '''
         mark_for_delete = set()
         # Pass 1 for all objects that are not in master line.
         for version, node in self.nodes.items():
@@ -100,8 +167,10 @@ class Graph(object):
                 if version in state_to_ref and state_to_ref[version]:
                     # Node is still marked.
                     continue
-                # Node can be deleted without shortcutting.
-                mark_for_delete.add(node)
+                # Node can be deleted without shortcutting but only if it does continues.
+                # a master node.
+                if self.nodes[node.prev_master].is_master:
+                    mark_for_delete.add(node)
         # Clean up non master line.
         for node in mark_for_delete:
             del self.nodes[node.current]
@@ -122,12 +191,11 @@ class Graph(object):
                 # Anything that has a fork or a join on it, cannot be deleted
                 # until all forks/joins are deleted.
                 continue
-            if node.is_master:
-                if version in state_to_ref and state_to_ref[version]:
-                    # Node is still marked.
-                    continue
+            if version in state_to_ref and state_to_ref[version]:
+                # Node is still marked.
+                continue
                 # Node can be merged with shortcutting.
-                mark_for_merge.add(node)
+            mark_for_merge.add(node)
         # Merge up master line.
         for node in mark_for_merge:
             del self.nodes[node.current]
@@ -153,3 +221,4 @@ class Graph(object):
             self.nodes[node.prev_master].all_next.add(node.next_master)
             self.nodes[node.next_master].prev_master = node.prev_master
             self.nodes[node.next_master].all_prev.add(node.prev_master)
+        '''

@@ -1,5 +1,7 @@
-from multiprocessing import RLock
+from multiprocessing import RLock, Queue, Process
+from threading import Thread
 import traceback
+import time
 
 from spacetime.managers.connectors.np_socket_manager import NPSocketServer, NPSocketConnector
 from spacetime.managers.connectors.asyncio_socket_manager import AIOSocketServer, AIOSocketConnector
@@ -9,21 +11,42 @@ from spacetime.managers.managed_heap import ManagedHeap
 from spacetime.managers.diff import Diff
 import spacetime.utils.enums as enums
 import spacetime.utils.utils as utils
-
+from spacetime.utils.utils import instrument_func
 
 class Dataframe(object):
     @property
     def details(self):
         return self.socket_server.port
 
+    @property
+    def shutdown(self):
+        return self._shutdown
+
+
+    def write_stats(self):
+        if self.instrument_record:
+            self.instrument_record.put("DONE")
+            self.instrument_writer.join()
+
     def __init__(
             self, appname, types, details=None, server_port=0,
             version_by=enums.VersionBy.FULLSTATE, separate_dag=False,
-            connection_as=enums.ConnectionStyle.TSocket):
+            connection_as=enums.ConnectionStyle.TSocket,
+            instrument=None, dump_graph=None):
         self.appname = appname
         self.logger = utils.get_logger("%s_Dataframe" % appname)
         self.version_by = version_by
+        self.instrument = instrument
+        if self.instrument:
+            self.instrument_done = False
+            self.instrument_record = Queue()
+            self.instrument_writer = Process(target=self._save_instruments)
+            self.instrument_writer.daemon = True
+            self.instrument_writer.start()
+        else:
+            self.instrument_record = None
 
+        self._shutdown = False
         if connection_as == enums.ConnectionStyle.TSocket:
             SocketServer, SocketConnector = TSocketServer, TSocketConnector
         elif connection_as == enums.ConnectionStyle.NPSocket:
@@ -32,40 +55,60 @@ class Dataframe(object):
             SocketServer, SocketConnector = AIOSocketServer, AIOSocketConnector
         else:
             raise NotImplementedError()
-        
+
         self.socket_server = SocketServer(
             self.appname, server_port,
-            self.pull_call_back, self.push_call_back, self.confirm_pull_req)
+            self.pull_call_back, self.push_call_back, self.confirm_pull_req,
+            self.instrument_record)
 
         self.socket_connector = SocketConnector(
-            self.appname, details, self.details, types, version_by)
+            self.appname, details, self.details, types, version_by,
+            self.instrument_record)
 
         self.types = types
         self.type_map = {
             tp.__r_meta__.name: tp for tp in self.types}
         self.local_heap = ManagedHeap(types, version_by)
         self.versioned_heap = None
-        
+
         if separate_dag:
             self.versioned_heap = VersionManagerProcess(
                 self.appname, types, version_by)
             self.versioned_heap.start()
         elif version_by == enums.VersionBy.FULLSTATE:
-            self.versioned_heap = FullStateVersionManager(self.appname, types)
+            self.versioned_heap = FullStateVersionManager(self.appname, types, dump_graph, self.instrument_record)
         elif version_by == enums.VersionBy.TYPE:
-            self.versioned_heap = TypeVersionManager(self.appname, types)
+            self.versioned_heap = TypeVersionManager(self.appname, types, dump_graph)
         elif version_by == enums.VersionBy.OBJECT_NOSTORE:
             self.versioned_heap = ObjectVersionManagerVersionSent(
-                self.appname, types)
+                self.appname, types, dump_graph)
         else:
             raise NotImplementedError()
         self.write_lock = RLock()
-        
         self.socket_server.start()
         if self.socket_connector.has_parent_connection:
             self.pull()
 
     # Suppport Functions
+
+    def _save_instruments(self):
+        import os
+        ifile = open(self.instrument + ".tsv", "w")
+        mfile = open(self.instrument + ".vg.tsv", "w")
+        while not self.instrument_done:
+            record =  self.instrument_record.get()
+            if record == "DONE":
+                break
+            if record[0] == "MEMORY":
+                mfile.write(record[1])
+                mfile.flush()
+                os.fsync(mfile.fileno())
+            else:
+                ifile.write(record)
+                ifile.flush()
+                os.fsync(ifile.fileno())
+
+
 
     def _create_package(self, appname, diff, start_version):
         return appname, [start_version, diff.version], diff
@@ -101,6 +144,7 @@ class Dataframe(object):
 
     # Fork and Join
 
+    @instrument_func("checkout")
     def checkout(self):
         data, versions = self.versioned_heap.retrieve_data(
             self.appname,
@@ -111,6 +155,7 @@ class Dataframe(object):
                 self.versioned_heap.data_sent_confirmed(
                     self.appname, versions)
 
+    @instrument_func("commit")
     def commit(self):
         data, versions = self.local_heap.retreive_data()
         if versions:
@@ -129,6 +174,7 @@ class Dataframe(object):
         return True
 
     # Push and Pull
+    @instrument_func("push")
     def push(self):
         if self.socket_connector.has_parent_connection:
             self.logger.debug("Push request started.")
@@ -158,7 +204,7 @@ class Dataframe(object):
                         return
                 else:
                     raise NotImplementedError()
-                
+
             if self.socket_connector.push_req(data, version):
                 self.logger.debug("Push request completed.")
                 with self.write_lock:
@@ -166,6 +212,7 @@ class Dataframe(object):
                         "SOCKETPARENT", version)
                 self.logger.debug("Push request registered.")
 
+    @instrument_func("pull")
     def pull(self):
         if self.socket_connector.has_parent_connection:
             self.logger.debug("Pull request started.")
@@ -179,6 +226,7 @@ class Dataframe(object):
 
     # Functions that respond to external requests
 
+    @instrument_func("accept_pull")
     def pull_call_back(self, appname, version):
         try:
             with self.write_lock:
@@ -187,7 +235,8 @@ class Dataframe(object):
             print (e)
             print(traceback.format_exc())
             raise
-    
+
+    @instrument_func("confirm_pull")
     def confirm_pull_req(self, appname, version):
         try:
             with self.write_lock:
@@ -197,7 +246,8 @@ class Dataframe(object):
             print (e)
             print(traceback.format_exc())
             raise
-            
+
+    @instrument_func("accept_push")
     def push_call_back(self, appname, versions, data):
         try:
             with self.write_lock:
@@ -207,4 +257,3 @@ class Dataframe(object):
             print (e)
             print(traceback.format_exc())
             raise
-

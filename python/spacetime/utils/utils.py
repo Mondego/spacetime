@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 from spacetime.utils.enums import Event
 from copy import deepcopy
@@ -13,17 +14,17 @@ def get_logger(name):
         os.makedirs("Logs")
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
-    fh = logging.FileHandler(os.path.join("Logs", name + ".log"))
-    fh.setLevel(logging.DEBUG)
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    fh.setFormatter(formatter)
-    ch.setFormatter(formatter)
+    #fh = logging.FileHandler(os.path.join("Logs", name + ".log"))
+    #fh.setLevel(logging.DEBUG)
+    #ch = logging.StreamHandler()
+    #ch.setLevel(logging.INFO)
+    #formatter = logging.Formatter(
+    #    "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    #fh.setFormatter(formatter)
+    #ch.setFormatter(formatter)
     # add the handlers to the logger
-    logger.addHandler(fh)
-    logger.addHandler(ch)
+    #logger.addHandler(fh)
+    #logger.addHandler(ch)
     return logger
 
 def merge_state_delta(old_change, newer_change, delete_it=False):
@@ -69,8 +70,11 @@ def merge_objectlist_deltas(dtpname, old_change, new_change, delete_it=False):
                 # Do not include this object as it was both created and deleted
                 # in these merged changes.
                 continue
-            merged[oid] = merge_object_delta(
+            obj_data = merge_object_delta(
                 dtpname, old_change[oid], new_change[oid])
+            if not obj_data:
+                obj_data = {"types": {dtpname: Event.Delete}}
+            merged[oid] = obj_data
     for oid in new_change:
         if oid not in old_change:
             if delete_it and new_change[oid]["types"][dtpname] is Event.Delete:
@@ -91,7 +95,8 @@ def merge_object_delta(dtpname, old_change, new_change):
     if new_change["types"][dtpname] is not Event.Modification:
         raise RuntimeError(
             "Not sure why the new change does not have modification.")
-
+    if old_change["types"][dtpname] is Event.Delete:
+        return deepcopy(old_change)
     dim_change = deepcopy(old_change["dims"])
     dim_change.update(new_change["dims"])
     type_change = dict()
@@ -134,3 +139,31 @@ def get_deleted(data):
     except Exception:
         print(data)
         raise
+
+class instrument_func(object):
+    instrument = False
+    def __init__(self, name):
+        self.name = name
+        self.file = None
+
+    def __call__(self, func):
+        def replacement(obj, *args, **kwargs):
+            start = time.perf_counter() * 1000
+            start_p = time.process_time() * 1000
+            try:
+                ret_val = func(obj, *args, **kwargs)
+            except Exception:
+                raise
+            finally:
+                end = time.perf_counter() * 1000
+                end_p = time.process_time() * 1000
+                if obj.instrument_record is not None:
+                    self.record_instrumentation(
+                        obj, self.name, time.time(), end - start, end_p - start_p)
+                if end-start > 1000:
+                    print (obj, args, kwargs, func, end - start, end_p - start_p)
+            return ret_val
+        return replacement
+
+    def record_instrumentation(self, obj, *args):
+        obj.instrument_record.put("\t".join(map(str, args)) + "\n")

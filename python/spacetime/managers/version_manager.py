@@ -1,14 +1,16 @@
 import asyncio
 import cbor
+import os
 from uuid import uuid4
 from abc import ABCMeta, abstractmethod
 from multiprocessing import Process, Queue
 from spacetime.managers.version_graph import Graph
 import spacetime.utils.utils as utils
 from spacetime.utils.enums import Event, VersionBy
+import time
 
 class VersionManagerProcess(Process):
-            
+
     def __init__(self, appname, types, version_by):
         self.version_manager = None
         if version_by == VersionBy.FULLSTATE:
@@ -25,7 +27,7 @@ class VersionManagerProcess(Process):
         self.done = False
         self.read_queue = Queue()
         self.write_queue = Queue()
-        
+
     def _retrieve_data(
             self, appname, version):
         return self.version_manager.retrieve_data(appname, version)
@@ -77,12 +79,13 @@ class VersionManagerProcess(Process):
 
 class VersionManager(object):
     __metaclass__ = ABCMeta
-    
+
     @abstractmethod
-    def __init__(self, appname, types):
+    def __init__(self, appname, types, dump_graph=None):
         self.types = types
         self.type_map = {tp.__r_meta__.name: tp for tp in types}
         self.logger = utils.get_logger("%s_VersionManager" % appname)
+        self.dump_graphs = dump_graph
 
     @abstractmethod
     def receive_data(self, appname, versions, package, from_external=True):
@@ -105,7 +108,7 @@ class VersionManager(object):
         # This will contain all changes in the merge that do not conflict with
         # new changes in place + merged resolutions.
         t_new_merge = dict()
-        # This will contain all merged resolutions. + changes in place not with 
+        # This will contain all merged resolutions. + changes in place not with
         # this version change.
         t_conflict_merge = dict()
         for tpname in new_path:
@@ -199,9 +202,9 @@ class VersionManager(object):
             # resolving between an modified object and
             #  an object that was sent as a new record.
             # Should be error again as this would not be possible.
-            # If the object was modified from the branch line, 
+            # If the object was modified from the branch line,
             # then it existed in the branch.
-            # If the object existed, then the diverging app should 
+            # If the object existed, then the diverging app should
             # have had the obj too as it
             # forked from that point. So the object cannot be returned as new.
             raise RuntimeError(
@@ -293,7 +296,7 @@ class VersionManager(object):
                 "dims": obj.__r_temp__, "types": dict()}
             changes["types"][dtpname] = (
                 Event.Modification if original is not None else Event.New)
-            
+
             del dtype.__r_table__.store_as_temp[oid]
             return (self.dim_diff(new_obj_change, changes),
                     self.dim_diff(conf_obj_changes, changes))
@@ -313,7 +316,7 @@ class VersionManager(object):
                 if "dims" in with_change and dimname in with_change["dims"] else
                 self._read_dimension_at(version, dtype, oid, dimname))
             for dimname in dtype.__r_meta__.dimmap}
-        
+
         dtype.__r_table__.store_as_temp[oid] = dict()
         return obj
 
@@ -368,15 +371,30 @@ class VersionManager(object):
         # Clean up states.
 
         graph.maintain(state_to_app, merge_func)
+        if self.dump_graphs:
+            self.dump(self.dump_graphs, graph)
+
+    def dump(self, folder, graph):
+        g = ["DiGraph G{"]
+        for node in graph.nodes:
+            g.append("\t\"{0}\"[color={1}];".format(node[:4], "red" if graph.nodes[node].is_master else "blue"))
+        for key in graph.edges:
+            g.append("\t\"{0}\" -> \"{1}\";".format(key[0][:4], key[1][:4]))
+        g.append("}")
+        gstr = "\n".join(g)
+        count = len(os.listdir(folder))
+        open(os.path.join(folder, "heap{}.dot".format(count)), "w").write(gstr)
 
 class FullStateVersionManager(VersionManager):
-    def __init__(self, appname, types):
+    def __init__(self, appname, types, dump_graph, instrument_record):
         self.types = types
         self.type_map = {tp.__r_meta__.name: tp for tp in types}
         self.version_graph = Graph()
         self.state_to_app = dict()
         self.app_to_state = dict()
         self.logger = utils.get_logger("%s_FullStateVersionManager" % appname)
+        self.dump_graphs = dump_graph
+        self.instrument_record = instrument_record
 
     def set_app_marker(self, appname, end_v):
         self.state_to_app.setdefault(end_v, set()).add(appname)
@@ -436,18 +454,23 @@ class FullStateVersionManager(VersionManager):
                     break
 
     def maintain(self, appname, end_v):
-        return super().maintain(
+        super().maintain(
             self.state_to_app, self.app_to_state,
             self.version_graph, appname, end_v, utils.merge_state_delta)
+        if self.instrument_record:
+            self.instrument_record.put(
+                ("MEMORY", "{0}\t{1}\t{2}\n".format(time.time(), len(self.version_graph.nodes), len(self.version_graph.edges))))
 
 class TypeVersionManager(VersionManager):
-    def __init__(self, appname, types):
+    def __init__(self, appname, types, dump_graph):
         self.types = types
         self.type_map = {tp.__r_meta__.name: tp for tp in types}
         self.version_graph = {tp.__r_meta__.name: Graph() for tp in types}
         self.state_to_app = {tp.__r_meta__.name: dict() for tp in types}
         self.app_to_state = {tp.__r_meta__.name: dict() for tp in types}
         self.logger = utils.get_logger("%s_TypeVersionManager" % appname)
+        self.dump_graphs = dump_graph
+        self.appname = appname
 
     def receive_data(self, appname, versions, package, from_external=True):
         for tpname in versions:
@@ -483,9 +506,13 @@ class TypeVersionManager(VersionManager):
 
     def retrieve_data_nomaintain(self, tpname, version):
         merged = dict()
-        for delta in self.version_graph[tpname][version:]:
-            merged = utils.merge_objectlist_deltas(tpname, merged, delta)
-        return merged, [version, self.version_graph[tpname].head.current]
+        try:
+            for delta in self.version_graph[tpname][version:]:
+                merged = utils.merge_objectlist_deltas(tpname, merged, delta)
+            return merged, [version, self.version_graph[tpname].head.current]
+        except KeyError:
+            print (self.appname, tpname, self.version_graph.keys(), self.version_graph[tpname].nodes.keys())
+            raise
 
     def resolve_conflict(self, tpname, start_v, end_v, package, from_external):
         new_v = self.version_graph[tpname].head.current
@@ -524,7 +551,7 @@ class TypeVersionManager(VersionManager):
 
 
 class ObjectVersionManagerVersionSent(VersionManager):
-    def __init__(self, appname, types):
+    def __init__(self, appname, types, dump_graph):
         self.types = types
         self.type_map = {tp.__r_meta__.name: tp for tp in types}
         self.version_graph = {tp.__r_meta__.name: dict() for tp in types}
@@ -532,6 +559,7 @@ class ObjectVersionManagerVersionSent(VersionManager):
         self.app_to_state = {tp.__r_meta__.name: dict() for tp in types}
         self.logger = utils.get_logger(
             "%s_ObjectVersionManagerVersionSent" % appname)
+        self.dump_graphs = dump_graph
 
     def receive_data(self, appname, versions, package, from_external=True):
         for tpname in versions:
@@ -548,14 +576,14 @@ class ObjectVersionManagerVersionSent(VersionManager):
                     raise RuntimeError(
                         "Got an increment without having the object.")
                 graph = self.version_graph[tpname].setdefault(oid, Graph())
-            
+
                 if start_v != graph.head.current:
                     self.resolve_conflict(
                         tpname, oid, start_v, end_v, package[tpname][oid],
                         from_external)
                 else:
                     graph.continue_chain(start_v, end_v, package[tpname][oid])
-                
+
                 self.maintain(appname, tpname, oid, end_v)
         return True
 

@@ -25,6 +25,11 @@ def convert(dim_type, value):
             "type": Datatype.BOOLEAN,
             "value": value
         }
+    if dim_type is bytes:
+        return {
+            "type": Datatype.BYTES,
+            "value": value
+        }
     if hasattr(dim_type, "__r_meta__") and dim_type.__r_meta__:
         # This is one of our own type. Make it a foreign key.
         return {

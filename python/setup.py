@@ -85,7 +85,8 @@ setup(
     extras_require={
         'dev': [],
         'test': [],
-        'flask': ['flask']
+        'flask': ['flask'],
+        'crypto' : ['cryptography']
     },
 
     # If there are data files included in your packages that need to be

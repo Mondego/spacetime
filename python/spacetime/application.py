@@ -1,5 +1,5 @@
 from uuid import uuid4
-from multiprocessing.dummy import Process
+from multiprocessing import Process
 
 from spacetime.dataframe import Dataframe
 from spacetime.utils.enums import VersionBy, ConnectionStyle
@@ -58,7 +58,7 @@ def get_app(func, types, producer,
             self.dump_graph = dump_graph
             self.connection_as = connection_as
             super().__init__()
-            self.daemon = True
+            self.daemon = False
 
         def run(self):
             # Create the dataframe.

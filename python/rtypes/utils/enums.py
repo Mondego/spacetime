@@ -6,7 +6,11 @@ class Datatype(object):
     BYTES = 4
 
     FOREIGNKEY = 10
+    NPARRAY = 11
 
+    TUPLE = 20
+    LIST = 21
+    
     BASICTYPES = set([
         INTEGER, STRING, FLOAT, BOOLEAN, BYTES])
 

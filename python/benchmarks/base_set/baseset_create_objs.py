@@ -19,7 +19,6 @@ class BaseSet(object):
         self.prop3 = p3
         self.prop4 = p4
 
-@app(Producer=[BaseSet])
 def producer(dataframe):
     print ("Running Producer create objs {0}".format(
             VERSIONBY[dataframe.version_by]))
@@ -43,7 +42,6 @@ def producer(dataframe):
     print ("Completed Producer create objs {0}".format(
             VERSIONBY[dataframe.version_by]))
     
-@app(GetterSetter=[BaseSet])
 def consumer(dataframe):
     print ("Running Consumer create objs {0}".format(
             VERSIONBY[dataframe.version_by]))
@@ -62,14 +60,15 @@ def consumer(dataframe):
     print ("Completed Consumer create objs {0}".format(
             VERSIONBY[dataframe.version_by]))
 
-@register
-@app(Types=[BaseSet])
 def create_objs(dataframe, version_by):
-    prod_app = producer(dataframe=dataframe, version_by=version_by)
-    con_app = consumer(dataframe=dataframe, version_by=version_by)
+    prod_app = Application(producer, types=[BaseSet], dataframe=dataframe, version_by=version_by)
+    con_app = Application(consumer, types=[BaseSet], dataframe=dataframe, version_by=version_by)
     con_app.start_async()
     prod_app.start()
     con_app.join()
 
+def main():
+    app = Application(create_objs, types=[BaseSet], dataframe=dataframe, version_by=version_by))
+    app.start()
 
 # main().start()

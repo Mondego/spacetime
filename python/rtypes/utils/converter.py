@@ -83,7 +83,7 @@ def unconvert(value, dim_type, df=None):
             import numpy as np
         return np.frombuffer(
             value["value"]["data"],
-            dtype=pickle.loads(
+            dtype=loads(
                 value["value"]["type"])).reshape(value["value"]["shape"])
         
     if value["type"] == Datatype.FOREIGNKEY:

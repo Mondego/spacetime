@@ -79,10 +79,12 @@ def unconvert(value, dim_type, df=None):
         return value["value"]
     if value["type"] == Datatype.NPARRAY:
         if not HASNUMPY:
+            global np
             import numpy as np
         return np.frombuffer(
-            value["data"],
-            dtype=pickle.loads(value["type"])).reshape(value["shape"])
+            value["value"]["data"],
+            dtype=pickle.loads(
+                value["value"]["type"])).reshape(value["value"]["shape"])
         
     if value["type"] == Datatype.FOREIGNKEY:
         obj = None

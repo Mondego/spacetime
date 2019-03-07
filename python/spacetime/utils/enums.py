@@ -23,3 +23,8 @@ class ConnectionStyle(object):
     TSocket = 0
     NPSocket = 1
     AIOSocket = 2
+
+class AutoResolve(object):
+    FullResolve = 0
+    BranchConflicts = 1
+    BranchExternalPush = 2

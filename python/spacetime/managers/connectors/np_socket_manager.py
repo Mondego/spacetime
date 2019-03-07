@@ -158,57 +158,18 @@ class NPSocketConnector(object):
     def has_parent_connection(self):
         return self.parent is not None
 
-    def __init__(self, appname, parent, details, types, version_by, instrument_q):
+    def __init__(self, appname, parent, details, types, instrument_q):
         self.appname = appname
         self.details = details
         self.parent = parent
         self.parent_version = None
         self.instrument_record = instrument_q
-        if version_by == enums.VersionBy.FULLSTATE:
-            self.parent_version = "ROOT"
-        elif version_by == enums.VersionBy.TYPE:
-            self.parent_version = {
-                tp.__r_meta__.name: "ROOT"
-                for tp in types
-            }
-        elif version_by == enums.VersionBy.OBJECT_NOSTORE:
-            self.parent_version = {
-                tp.__r_meta__.name: dict()
-                for tp in types
-            }
-        else:
-            raise NotImplementedError()
+        self.parent_version = "ROOT"
         # Logger for SocketManager
         self.logger = utils.get_logger("%s_SocketConnector" % self.appname)
-        self.version_by = version_by
 
     def get_new_version(self, new_versions):
-        if self.version_by == enums.VersionBy.FULLSTATE:
-            return new_versions[1]
-        elif self.version_by == enums.VersionBy.TYPE:
-            versions = dict()
-            versions.update(self.parent_version)
-            versions.update({
-                tpname: new_versions[tpname][1]
-                for tpname in new_versions
-            })
-            return versions
-        elif self.version_by == enums.VersionBy.OBJECT_NOSTORE:
-            versions = dict()
-            versions.update(self.parent_version)
-            for tpname in new_versions:
-                if tpname not in versions and new_versions[tpname]:
-                    versions[tpname] = dict()
-                for oid in new_versions[tpname]:
-                    new_v = new_versions[tpname][oid][1]
-                    if new_v == "END":
-                        if oid in versions[tpname]:
-                            del versions[tpname][oid]
-                        continue
-                    versions[tpname][oid] = new_v
-            return versions
-        else:
-            raise NotImplementedError()
+        return new_versions[1]
 
     @instrument_func("send_pull")
     def pull_req(self):

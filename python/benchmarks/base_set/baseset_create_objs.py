@@ -61,14 +61,14 @@ def consumer(dataframe):
             VERSIONBY[dataframe.version_by]))
 
 def create_objs(dataframe, version_by):
-    prod_app = Application(producer, types=[BaseSet], dataframe=dataframe, version_by=version_by)
-    con_app = Application(consumer, types=[BaseSet], dataframe=dataframe, version_by=version_by)
+    prod_app = Node(producer, types=[BaseSet], dataframe=dataframe, version_by=version_by)
+    con_app = Node(consumer, types=[BaseSet], dataframe=dataframe, version_by=version_by)
     con_app.start_async()
     prod_app.start()
     con_app.join()
 
 def main():
-    app = Application(create_objs, types=[BaseSet], dataframe=dataframe, version_by=version_by))
+    app = Node(create_objs, types=[BaseSet], dataframe=dataframe, version_by=version_by))
     app.start()
 
 # main().start()

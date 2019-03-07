@@ -1,6 +1,6 @@
 import sys
 from sample_apps.gym_mp_lunarlander.envs.multiplayer_lunar_lander import Lander
-from spacetime import Application
+from spacetime import Node
 
 def lander(dataframe):
     my_lander = Lander()
@@ -16,5 +16,5 @@ def lander(dataframe):
 
 if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
-    Application(lander, dataframe=("0.0.0.0", port), Producer=[Lander]).start()
+    Node(lander, dataframe=("0.0.0.0", port), Producer=[Lander]).start()
 

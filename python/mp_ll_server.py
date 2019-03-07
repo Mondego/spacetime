@@ -2,7 +2,7 @@ import gym
 import time
 import sys
 from sample_apps.gym_mp_lunarlander.envs.multiplayer_lunar_lander import Lander
-from spacetime import Application
+from spacetime import Node
 
 WAIT_FOR_START = 10.0
 
@@ -33,7 +33,7 @@ def lander_server(dataframe):
     time.sleep(5)
 
 def main(port):
-    server = Application(lander_server, server_port=port, Types=[Lander])
+    server = Node(lander_server, server_port=port, Types=[Lander])
     server.start()
 
 if __name__ == "__main__":

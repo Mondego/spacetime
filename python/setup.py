@@ -24,7 +24,7 @@ setup(
     # https://packaging.python.org/en/latest/single_source_version.html
     version='2.0.0',
 
-    description='Spacetime Application Framework',
+    description='Spacetime Node Framework',
     long_description=long_description,
 
     # The project's main homepage.
@@ -51,7 +51,7 @@ setup(
         'Intended Audience :: Science/Research',
 
         'Topic :: Software Development :: Libraries',
-        'Topic :: Software Development :: Libraries :: Application Frameworks',
+        'Topic :: Software Development :: Libraries :: Node Frameworks',
 
         # Pick your license as you wish (should match "license" above)
         'License :: OSI Approved :: MIT License',

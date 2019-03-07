@@ -6,7 +6,7 @@ import time
 from spacetime.managers.connectors.np_socket_manager import NPSocketServer, NPSocketConnector
 from spacetime.managers.connectors.asyncio_socket_manager import AIOSocketServer, AIOSocketConnector
 from spacetime.managers.connectors.thread_socket_manager import TSocketServer, TSocketConnector
-from spacetime.managers.version_manager import FullStateVersionManager, TypeVersionManager, ObjectVersionManagerVersionSent, VersionManagerProcess
+from spacetime.managers.version_manager import FullStateVersionManager
 from spacetime.managers.managed_heap import ManagedHeap
 from spacetime.managers.diff import Diff
 import spacetime.utils.enums as enums
@@ -30,13 +30,13 @@ class Dataframe(object):
 
     def __init__(
             self, appname, types, details=None, server_port=0,
-            version_by=enums.VersionBy.FULLSTATE, separate_dag=False,
             connection_as=enums.ConnectionStyle.TSocket,
-            instrument=None, dump_graph=None):
+            instrument=None, dump_graph=None, resolver=None,
+            autoresolve=enums.AutoResolve.FullResolve):
         self.appname = appname
         self.logger = utils.get_logger("%s_Dataframe" % appname)
-        self.version_by = version_by
         self.instrument = instrument
+
         if self.instrument:
             self.instrument_done = False
             self.instrument_record = Queue()
@@ -62,28 +62,22 @@ class Dataframe(object):
             self.instrument_record)
 
         self.socket_connector = SocketConnector(
-            self.appname, details, self.details, types, version_by,
+            self.appname, details, self.details, types,
             self.instrument_record)
 
         self.types = types
         self.type_map = {
             tp.__r_meta__.name: tp for tp in self.types}
-        self.local_heap = ManagedHeap(types, version_by)
+        
+        # THis is the local snapshot.
+        self.local_heap = ManagedHeap(types)
+
         self.versioned_heap = None
 
-        if separate_dag:
-            self.versioned_heap = VersionManagerProcess(
-                self.appname, types, version_by)
-            self.versioned_heap.start()
-        elif version_by == enums.VersionBy.FULLSTATE:
-            self.versioned_heap = FullStateVersionManager(self.appname, types, dump_graph, self.instrument_record)
-        elif version_by == enums.VersionBy.TYPE:
-            self.versioned_heap = TypeVersionManager(self.appname, types, dump_graph)
-        elif version_by == enums.VersionBy.OBJECT_NOSTORE:
-            self.versioned_heap = ObjectVersionManagerVersionSent(
-                self.appname, types, dump_graph)
-        else:
-            raise NotImplementedError()
+        # This is the dataframe's versioned graph.
+        self.versioned_heap = FullStateVersionManager(
+            self.appname, types, dump_graph,
+            self.instrument_record, resolver, autoresolve)
         self.write_lock = RLock()
         self.socket_server.start()
         if self.socket_connector.has_parent_connection:
@@ -181,29 +175,11 @@ class Dataframe(object):
             with self.write_lock:
                 data, version = self.versioned_heap.retrieve_data(
                     "SOCKETPARENT", self.socket_connector.parent_version)
-                if self.version_by == enums.VersionBy.FULLSTATE:
-                    if version[0] == version[1]:
-                        self.logger.debug(
-                            "Push not required, "
-                            "parent already has the information.")
-                        return
-                elif self.version_by == enums.VersionBy.TYPE:
-                    something_different = False
-                    for tpname in version:
-                        if version[tpname][0] != version[tpname][1]:
-                            something_different = True
-                    if not something_different:
-                        return
-                elif self.version_by == enums.VersionBy.OBJECT_NOSTORE:
-                    something_different = False
-                    for tpname in version:
-                        for oid in version[tpname]:
-                            if version[tpname][oid][0] != version[tpname][oid][1]:
-                                something_different = True
-                    if not something_different:
-                        return
-                else:
-                    raise NotImplementedError()
+                if version[0] == version[1]:
+                    self.logger.debug(
+                        "Push not required, "
+                        "parent already has the information.")
+                    return
 
             if self.socket_connector.push_req(data, version):
                 self.logger.debug("Push request completed.")
@@ -212,8 +188,8 @@ class Dataframe(object):
                         "SOCKETPARENT", version)
                 self.logger.debug("Push request registered.")
 
-    @instrument_func("pull")
-    def pull(self):
+    @instrument_func("fetch")
+    def fetch(self):
         if self.socket_connector.has_parent_connection:
             self.logger.debug("Pull request started.")
             package, version = self.socket_connector.pull_req()
@@ -223,6 +199,11 @@ class Dataframe(object):
                     "SOCKETPARENT",
                     version, package)
             self.logger.debug("Pull request applied.")
+
+    @instrument_func("pull")
+    def pull(self):
+        self.fetch()
+        self.checkout()
 
     # Functions that respond to external requests
 

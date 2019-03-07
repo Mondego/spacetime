@@ -1,10 +1,10 @@
 from multiprocessing import RLock
 from spacetime.managers.diff import Diff
-from spacetime.utils.enums import Event, VersionBy
+from spacetime.utils.enums import Event
 import spacetime.utils.utils as utils
 
 class ManagedHeap(object):
-    def __init__(self, types, version_by):
+    def __init__(self, types):
         self.types = types
         self.diff_access_lock = RLock()
         self.type_map = {
@@ -17,20 +17,7 @@ class ManagedHeap(object):
         }
         self.diff = Diff()
         self.version = None
-        if version_by == VersionBy.FULLSTATE:
-            self.version = "ROOT"
-        elif version_by == VersionBy.TYPE:
-            self.version = {
-                tp.__r_meta__.name: "ROOT"
-                for tp in types
-            }
-        elif version_by == VersionBy.OBJECT_NOSTORE:
-            self.version = {
-                tp.__r_meta__.name: dict()
-                for tp in types
-            }
-        else:
-            raise NotImplementedError()
+        self.version = "ROOT"
 
         self.tracked_objs = {
             tp.__r_meta__.name: dict()
@@ -38,7 +25,6 @@ class ManagedHeap(object):
         }
 
         self.pending_commit = Diff()
-        self.version_by = version_by
 
     def _take_control(self, tpname, obj):
         obj.__r_df__ = self
@@ -61,62 +47,10 @@ class ManagedHeap(object):
         return dtpname in self.data and oid in self.data[dtpname]
 
     def _get_next_version(self):
-        if self.version_by == VersionBy.FULLSTATE:
-            return [self.version, self.diff.version]
-        elif self.version_by == VersionBy.TYPE:
-            return {
-                tpname: [self.version[tpname], self.diff.version]
-                for tpname in self.version
-                if tpname in self.diff
-            }
-        elif self.version_by == VersionBy.OBJECT_NOSTORE:
-            version = dict()
-            for tpname in self.diff:
-                if not self.diff[tpname]:
-                    continue
-                version[tpname] = dict()
-                for oid in self.diff[tpname]:
-                    if tpname in self.version and oid in self.version[tpname]:
-                        start = self.version[tpname][oid]
-                    else:
-                        start = "ROOT"
-                    if self.diff[tpname][oid]["types"][tpname] == Event.Delete:
-                        end = "END"
-                    else:
-                        end = self.diff.version
-                    version[tpname][oid] = [start, end]
-            return version
-        else:
-            raise NotImplementedError()
+        return [self.version, self.diff.version]
 
     def _extract_new_version(self, version):
-        if self.version_by == VersionBy.FULLSTATE:
-            return version[1]
-        elif self.version_by == VersionBy.TYPE:
-            extracted_v = {
-                tpname: self.version[tpname]
-                for tpname in self.version
-                if tpname not in version
-            }
-            extracted_v.update({
-                tpname: version[tpname][1]
-                for tpname in version
-            })
-            return extracted_v
-        elif self.version_by == VersionBy.OBJECT_NOSTORE:
-            final_v = dict(self.version)
-            for tpname in version:
-                if not version[tpname]:
-                    continue
-                final_v.setdefault(tpname, dict())
-                for oid in version[tpname]:
-                    if version[tpname][oid][1] != "END":
-                        final_v[tpname][oid] = version[tpname][oid][1]
-                    elif oid in final_v[tpname]:
-                        del final_v[tpname][oid]
-            return final_v
-        else:
-            raise NotImplementedError()
+        return version[1]
 
     def receive_data(self, data, version):
         if data:
@@ -142,22 +76,7 @@ class ManagedHeap(object):
         if versions is None:
             return
         self.pending_commit = Diff()
-        if self.version_by == VersionBy.FULLSTATE:
-            self.version = versions[1]
-        elif self.version_by == VersionBy.TYPE:
-            for tpname in versions:
-                self.version[tpname] = versions[tpname][1]
-        elif self.version_by == VersionBy.OBJECT_NOSTORE:
-            for tpname in versions:
-                for oid in versions[tpname]:
-                    if versions[tpname][oid][1] == "END":
-                        if oid in self.version[tpname]:
-                            del self.version[tpname][oid]
-                        continue
-                    self.version[tpname][oid] = versions[tpname][oid][1]
-        else:
-            raise NotImplementedError()
-        
+        self.version = versions[1]
         self.diff = Diff()
 
     def read_one(self, dtype, oid):

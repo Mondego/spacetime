@@ -4,7 +4,7 @@ from pickle import loads, dumps
 try:
     import numpy as np
     HASNUMPY = True
-except AttributeError:
+except ModuleNotFoundError:
     HASNUMPY = False
 
 

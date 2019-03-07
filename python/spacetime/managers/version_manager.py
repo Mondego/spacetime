@@ -6,76 +6,9 @@ from abc import ABCMeta, abstractmethod
 from multiprocessing import Process, Queue
 from spacetime.managers.version_graph import Graph
 import spacetime.utils.utils as utils
-from spacetime.utils.enums import Event, VersionBy
+from spacetime.utils.enums import Event, AutoResolve
 import time
-
-class VersionManagerProcess(Process):
-
-    def __init__(self, appname, types, version_by):
-        self.version_manager = None
-        if version_by == VersionBy.FULLSTATE:
-            self.version_manager = FullStateVersionManager(appname, types)
-        elif version_by == VersionBy.TYPE:
-            self.version_manager = TypeVersionManager(appname, types)
-        elif version_by == VersionBy.OBJECT_NOSTORE:
-            self.version_manager = ObjectVersionManagerVersionSent(
-                appname, types)
-        else:
-            raise NotImplementedError()
-        super().__init__()
-        self.daemon = True
-        self.done = False
-        self.read_queue = Queue()
-        self.write_queue = Queue()
-
-    def _retrieve_data(
-            self, appname, version):
-        return self.version_manager.retrieve_data(appname, version)
-
-    async def _send_data_request(self, appname, version):
-        reader, _ = await asyncio.open_connection()
-        self.read_queue.put((reader, appname, version))
-        data = cbor.loads(await reader.read())
-        await reader.close()
-        return data
-
-    async def _process_reads(self):
-        while True:
-            req = self.read_queue.get()
-            writer, appname, version = req
-            writer.write(cbor.dumps(self._retrieve_data(appname, version)))
-            writer.write_eof()
-            await writer.drain()
-            writer.close()
-
-    async def _process_writes(self):
-        while True:
-            req = self.write_queue.get()
-            if req[0] == "GET":
-                appname, versions, package, from_external = req[1:]
-                self.version_manager.receive_data(
-                    appname, versions, package, from_external)
-            elif req[0] == "CONFIRM":
-                app, version = req[1:]
-                self.version_manager.data_sent_confirmed(app, version)
-
-    def run(self):
-        loop = asyncio.get_event_loop()
-        loop.create_task(self._process_reads())
-        loop.create_task(self._process_writes())
-        loop.run_forever()
-
-    def receive_data(self, appname, versions, package, from_external=True):
-        self.write_queue.put(("GET", appname, versions, package, from_external))
-
-    def retrieve_data(self, appname, version):
-        loop = asyncio.get_event_loop()
-        return loop.run_until_complete(
-            self._send_data_request(appname, version))
-
-    def data_sent_confirmed(self, app, version):
-        self.write_queue.put(("CONFIRM", app, version))
-
+from copy import deepcopy
 
 class VersionManager(object):
     __metaclass__ = ABCMeta
@@ -386,7 +319,10 @@ class VersionManager(object):
         open(os.path.join(folder, "heap{}.dot".format(count)), "w").write(gstr)
 
 class FullStateVersionManager(VersionManager):
-    def __init__(self, appname, types, dump_graph, instrument_record):
+    def __init__(
+            self, appname, types,
+            dump_graph=None, instrument_record=None, resolver=None, 
+            autoresolve=AutoResolve.FullResolve):
         self.types = types
         self.type_map = {tp.__r_meta__.name: tp for tp in types}
         self.version_graph = Graph()
@@ -395,6 +331,8 @@ class FullStateVersionManager(VersionManager):
         self.logger = utils.get_logger("%s_FullStateVersionManager" % appname)
         self.dump_graphs = dump_graph
         self.instrument_record = instrument_record
+        self.resolver = resolver
+        self.autoresolve = autoresolve
 
     def set_app_marker(self, appname, end_v):
         self.state_to_app.setdefault(end_v, set()).add(appname)
@@ -404,8 +342,15 @@ class FullStateVersionManager(VersionManager):
         if start_v == end_v:
             # The versions are the same, lets ignore.
             return True
+        if self.autoresolve is AutoResolve.BranchExternalPush:
+            self.version_graph.continue_chain(
+                start_v, end_v, package, self.appname != self.appname)
+
         if start_v != self.version_graph.head.current:
-            self.resolve_conflict(start_v, end_v, package, from_external)
+            if self.autoresolve is AutoResolve.FullResolve:
+                self.resolve_conflict(start_v, end_v, package, from_external)
+            elif self.autoresolve is AutoResolve.BranchConflicts:
+                self.version_graph.continue_chain(start_v, end_v, package)
         else:
             self.version_graph.continue_chain(start_v, end_v, package)
         self.maintain(appname, end_v)
@@ -437,6 +382,7 @@ class FullStateVersionManager(VersionManager):
         self.version_graph.continue_chain(start_v, end_v, package)
         self.version_graph.continue_chain(new_v, merge_v, t_new_merge)
         self.version_graph.continue_chain(end_v, merge_v, t_conflict_merge)
+        return
 
     def _read_dimension_at(self, version, dtype, oid, dimname):
         dtpname = dtype.__r_meta__.name
@@ -460,223 +406,3 @@ class FullStateVersionManager(VersionManager):
         if self.instrument_record:
             self.instrument_record.put(
                 ("MEMORY", "{0}\t{1}\t{2}\n".format(time.time(), len(self.version_graph.nodes), len(self.version_graph.edges))))
-
-class TypeVersionManager(VersionManager):
-    def __init__(self, appname, types, dump_graph):
-        self.types = types
-        self.type_map = {tp.__r_meta__.name: tp for tp in types}
-        self.version_graph = {tp.__r_meta__.name: Graph() for tp in types}
-        self.state_to_app = {tp.__r_meta__.name: dict() for tp in types}
-        self.app_to_state = {tp.__r_meta__.name: dict() for tp in types}
-        self.logger = utils.get_logger("%s_TypeVersionManager" % appname)
-        self.dump_graphs = dump_graph
-        self.appname = appname
-
-    def receive_data(self, appname, versions, package, from_external=True):
-        for tpname in versions:
-            if tpname not in self.version_graph:
-                continue
-            start_v, end_v = versions[tpname]
-            if start_v == end_v:
-                # The versions are the same, lets ignore.
-                return True
-            if start_v != self.version_graph[tpname].head.current:
-                self.resolve_conflict(
-                    tpname, start_v, end_v, package[tpname], from_external)
-            else:
-                self.version_graph[tpname].continue_chain(
-                    start_v, end_v, package[tpname])
-            self.maintain(appname, tpname, end_v)
-        return True
-
-    def retrieve_data(self, appname, version):
-        final_data, final_versions = dict(), dict()
-        for tpname in version:
-            if tpname not in self.version_graph:
-                continue
-            data, version_change = self.retrieve_data_nomaintain(
-                tpname, version[tpname])
-            self.set_app_marker(appname, tpname, version_change[1])
-            final_data[tpname] = data
-            final_versions[tpname] = version_change
-        return final_data, final_versions
-
-    def set_app_marker(self, appname, tpname, end_v):
-        self.state_to_app[tpname].setdefault(end_v, set()).add(appname)
-
-    def retrieve_data_nomaintain(self, tpname, version):
-        merged = dict()
-        try:
-            for delta in self.version_graph[tpname][version:]:
-                merged = utils.merge_objectlist_deltas(tpname, merged, delta)
-            return merged, [version, self.version_graph[tpname].head.current]
-        except KeyError:
-            print (self.appname, tpname, self.version_graph.keys(), self.version_graph[tpname].nodes.keys())
-            raise
-
-    def resolve_conflict(self, tpname, start_v, end_v, package, from_external):
-        new_v = self.version_graph[tpname].head.current
-        change, _ = self.retrieve_data_nomaintain(tpname, start_v)
-        t_new_merge, t_conflict_merge = self.ot_on_type(
-            tpname, start_v, change, package, from_external)
-        merge_v = str(uuid4())
-        self.version_graph[tpname].continue_chain(new_v, merge_v, t_new_merge)
-        self.version_graph[tpname].continue_chain(
-            end_v, merge_v, t_conflict_merge)
-
-    def data_sent_confirmed(self, app, version):
-        for tpname in version:
-            if version[tpname][0] != version[tpname][1]:
-                self.maintain(app, tpname, version[tpname][1])
-
-    def _read_dimension_at(self, version, dtype, oid, dimname):
-        dtpname = dtype.__r_meta__.name
-        for change in self.version_graph[dtpname][version::-1]:
-            if oid in change:
-                if "dims" in change[oid] and dimname in change[oid]["dims"]:
-                    return change[oid]["dims"][dimname]
-                if ("types" in change[oid]
-                        and dtpname in change[oid]["types"]
-                        and change[oid]["types"][dtpname] == Event.Delete):
-                    # Object has been deleted before this version,
-                    # and has not been added.
-                    # Do not return a value.
-                    break
-
-    def maintain(self, appname, tpname, end_v):
-        return super().maintain(
-            self.state_to_app[tpname], self.app_to_state[tpname],
-            self.version_graph[tpname], appname, end_v,
-            utils.get_merge_objectlist_delta(tpname))
-
-
-class ObjectVersionManagerVersionSent(VersionManager):
-    def __init__(self, appname, types, dump_graph):
-        self.types = types
-        self.type_map = {tp.__r_meta__.name: tp for tp in types}
-        self.version_graph = {tp.__r_meta__.name: dict() for tp in types}
-        self.state_to_app = {tp.__r_meta__.name: dict() for tp in types}
-        self.app_to_state = {tp.__r_meta__.name: dict() for tp in types}
-        self.logger = utils.get_logger(
-            "%s_ObjectVersionManagerVersionSent" % appname)
-        self.dump_graphs = dump_graph
-
-    def receive_data(self, appname, versions, package, from_external=True):
-        for tpname in versions:
-            if tpname not in self.version_graph:
-                continue
-            for oid in versions[tpname]:
-                start_v, end_v = versions[tpname][oid]
-                if start_v == end_v:
-                    # The versions are the same, lets ignore.
-                    return True
-                if oid not in self.version_graph[tpname] and start_v != "ROOT":
-                    # Can recover if it is a delete, but do not want to hide
-                    # the error.
-                    raise RuntimeError(
-                        "Got an increment without having the object.")
-                graph = self.version_graph[tpname].setdefault(oid, Graph())
-
-                if start_v != graph.head.current:
-                    self.resolve_conflict(
-                        tpname, oid, start_v, end_v, package[tpname][oid],
-                        from_external)
-                else:
-                    graph.continue_chain(start_v, end_v, package[tpname][oid])
-
-                self.maintain(appname, tpname, oid, end_v)
-        return True
-
-    def retrieve_data(self, appname, version):
-        final_data, final_versions = dict(), dict()
-        for tpname in version:
-            if tpname not in self.version_graph:
-                continue
-            data = dict()
-            new_versions = dict()
-            version_oids = set(version[tpname].keys())
-            current_oids = set(self.version_graph[tpname].keys())
-            deleted_oids = version_oids - current_oids
-            # Deal with deletes
-            for oid in deleted_oids:
-                data[oid] = {
-                    "types": {
-                        tpname: Event.Delete
-                    }
-                }
-                new_versions[oid] = [version[tpname][oid], "END"]
-            # Deal with new
-            for oid in current_oids - version_oids:
-                obj_data, version_change = self.retrieve_data_nomaintain(
-                    tpname, oid, "ROOT")
-                self.set_app_marker(appname, tpname, oid, version_change[1])
-                data[oid] = obj_data
-                new_versions[oid] = version_change
-            # Deal with modified
-            for oid in version_oids.intersection(current_oids):
-                obj_data, version_change = self.retrieve_data_nomaintain(
-                    tpname, oid, version[tpname][oid])
-                if obj_data:
-                    self.set_app_marker(appname, tpname, oid, version_change[1])
-                    data[oid] = obj_data
-                    new_versions[oid] = version_change
-            if data:
-                final_data[tpname] = data
-                final_versions[tpname] = new_versions
-        return final_data, final_versions
-
-    def set_app_marker(self, appname, tpname, oid, end_v):
-        self.state_to_app[tpname].setdefault(
-            oid, dict()).setdefault(end_v, set()).add(appname)
-
-    def retrieve_data_nomaintain(self, tpname, oid, version):
-        merged = dict()
-        for delta in self.version_graph[tpname][oid][version:]:
-            merged = utils.merge_object_delta(tpname, merged, delta)
-        return merged, [version, self.version_graph[tpname][oid].head.current]
-
-    def resolve_conflict(
-            self, tpname, oid, start_v, end_v, package, from_external):
-        graph = self.version_graph[tpname][oid]
-        new_v = graph.head.current
-        change, _ = self.retrieve_data_nomaintain(tpname, oid, start_v)
-        t_new_merge, t_conflict_merge = self.ot_on_obj(
-            tpname, oid, start_v, change, package, from_external)
-        merge_v = str(uuid4())
-        graph.continue_chain(new_v, merge_v, t_new_merge)
-        graph.continue_chain(
-            end_v, merge_v, t_conflict_merge)
-
-    def data_sent_confirmed(self, app, version):
-        for tpname in version:
-            for oid in version[tpname]:
-                if version[tpname][oid][0] != version[tpname][oid][1]:
-                    self.maintain(app, tpname, oid, version[tpname][oid][1])
-
-    def _read_dimension_at(self, version, dtype, oid, dimname):
-        dtpname = dtype.__r_meta__.name
-        for change in self.version_graph[dtpname][oid][version::-1]:
-            if "dims" in change and dimname in change["dims"]:
-                return change["dims"][dimname]
-            if ("types" in change
-                    and dtpname in change["types"]
-                    and change["types"][dtpname] == Event.Delete):
-                # Object has been deleted before this version,
-                # and has not been added.
-                # Do not return a value.
-                break
-
-    def maintain(self, appname, tpname, oid, end_v):
-        graph = self.version_graph[tpname][oid]
-        super().maintain(
-            self.state_to_app[tpname].setdefault(oid, dict()),
-            self.app_to_state[tpname].setdefault(oid, dict()),
-            graph, appname, end_v,
-            utils.get_merge_object_delta(tpname))
-        if graph.head.prev_master == "ROOT" and graph.head.current == "END":
-            # The object is deleted, and everyone who had it, has received a
-            # delete request. So delete the object.
-            del self.version_graph[tpname][oid]
-            del self.state_to_app[tpname][oid]
-            del self.app_to_state[tpname][oid]
-

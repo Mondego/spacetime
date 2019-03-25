@@ -92,7 +92,9 @@ def merge_object_delta(dtpname, old_change, new_change):
     if (old_change["types"][dtpname] is Event.Delete
             and new_change["types"][dtpname] is Event.New):
         return deepcopy(new_change)
-    if new_change["types"][dtpname] is not Event.Modification:
+    if not (
+            new_change["types"][dtpname] is Event.Modification or (
+                new_change["types"][dtpname] is Event.New and old_change["types"][dtpname] is Event.New)):
         raise RuntimeError(
             "Not sure why the new change does not have modification.")
     if old_change["types"][dtpname] is Event.Delete:

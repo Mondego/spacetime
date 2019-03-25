@@ -44,7 +44,7 @@ def guarded(func):
 class ServingClient(Thread):
     def __init__(
             self, appname, server_port, address, client_sock,
-            pull_call_back, push_call_back, confirm_pull_req, delete_client, instrument_q):
+            pull_call_back, push_call_back, confirm_pull_req, delete_client, instrument_q, debug=False):
         self.logger = utils.get_logger("%s_SocketManager" % appname)
 
         # Call back function to process incoming pull requests.
@@ -71,6 +71,7 @@ class ServingClient(Thread):
 
         super().__init__()
         self.daemon = True
+        self.debug = debug
 
     def run(self):
         done = False
@@ -106,8 +107,11 @@ class ServingClient(Thread):
                 # Actual payload
                 package = data[enums.TransferFields.Data]
                 # Send bool status back.
-                con.send(pack("!?", True))
+                if not self.debug:
+                    con.send(pack("!?", True))
                 self.push_call_back(req_app, versions, package)
+                if self.debug:
+                    con.send(pack("!?", True))
                 self.logger.debug("Push complete. sent back ack.")
             # Received pull request.
             elif data[enums.TransferFields.RequestType] is enums.RequestType.Pull:
@@ -132,7 +136,7 @@ class ServingClient(Thread):
 
 
 class TSocketServer(Thread):
-    def __init__(self, appname, server_port, pull_call_back, push_call_back, confirm_pull_req, instrument_q):
+    def __init__(self, appname, server_port, pull_call_back, push_call_back, confirm_pull_req, instrument_q, debug=False):
         self.appname = appname
         # Logger for SocketManager
         self.logger = utils.get_logger("%s_SocketManager" % appname)
@@ -159,6 +163,7 @@ class TSocketServer(Thread):
         self.clients = set()
         super().__init__()
         self.daemon = True
+        self.debug = debug
 
     def setup_socket(self, server_port):
         sync_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -185,7 +190,7 @@ class TSocketServer(Thread):
                     self.appname, self.port, addr, con,
                     self.pull_call_back, self.push_call_back,
                     self.confirm_pull_req, self.delete_client,
-                    self.instrument_record)
+                    self.instrument_record, self.debug)
 
                 self.clients.add(client_thread)
                 client_thread.start()

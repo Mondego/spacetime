@@ -32,10 +32,11 @@ class Dataframe(object):
             self, appname, types, details=None, server_port=0,
             connection_as=enums.ConnectionStyle.TSocket,
             instrument=None, dump_graph=None, resolver=None,
-            autoresolve=enums.AutoResolve.FullResolve):
+            autoresolve=enums.AutoResolve.FullResolve, debug=False):
         self.appname = appname
         self.logger = utils.get_logger("%s_Dataframe" % appname)
         self.instrument = instrument
+        self.debug = debug
 
         if self.instrument:
             self.instrument_done = False
@@ -59,7 +60,7 @@ class Dataframe(object):
         self.socket_server = SocketServer(
             self.appname, server_port,
             self.pull_call_back, self.push_call_back, self.confirm_pull_req,
-            self.instrument_record)
+            self.instrument_record, debug=self.debug)
 
         self.socket_connector = SocketConnector(
             self.appname, details, self.details, types,
@@ -77,7 +78,7 @@ class Dataframe(object):
         # This is the dataframe's versioned graph.
         self.versioned_heap = FullStateVersionManager(
             self.appname, types, dump_graph,
-            self.instrument_record, resolver, autoresolve)
+            self.instrument_record, resolver, autoresolve, debug=self.debug)
         self.write_lock = RLock()
         self.socket_server.start()
         if self.socket_connector.has_parent_connection:

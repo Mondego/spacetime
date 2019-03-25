@@ -38,7 +38,7 @@ def get_app(func, types, producer,
                 self, dataframe=None, server_port=0,
                 instrument=None, dump_graph=None,
                 connection_as=ConnectionStyle.TSocket, resolver=None,
-                autoresolve=AutoResolve.FullResolve):
+                autoresolve=AutoResolve.FullResolve, debug=False):
             self.appname = "{0}_{1}".format(func.__name__, str(uuid4()))
             self.producer = producer
             self.getter_setter = getter_setter
@@ -61,6 +61,7 @@ def get_app(func, types, producer,
             self.autoresolve = autoresolve
             super().__init__()
             self.daemon = False
+            self.debug = debug
 
         def run(self):
             # Create the dataframe.
@@ -94,7 +95,9 @@ def get_app(func, types, producer,
                 instrument=self.instrument,
                 dump_graph=self.dump_graph,
                 resolver=None,
-                autoresolve=self.autoresolve)
+                autoresolve=self.autoresolve,
+                debug=self.debug)
+
             #print(self.appname, self.all_types, details, df.details)
             return df
     return App
@@ -122,7 +125,7 @@ def Node(
         Getter=list(), Setter=list(), Deleter=list(),
         instrument=None, dump_graph=None,
         connection_as=ConnectionStyle.TSocket, resolver=None,
-        autoresolve=AutoResolve.FullResolve):
+        autoresolve=AutoResolve.FullResolve, debug=False):
     app_cls = get_app(
         target, set(Types), set(Producer), set(GetterSetter),
         set(Getter), set(Setter), set(Deleter))
@@ -130,4 +133,4 @@ def Node(
         dataframe=dataframe, server_port=server_port,
         instrument=instrument, dump_graph=dump_graph,
         connection_as=connection_as, resolver=None,
-        autoresolve=autoresolve)
+        autoresolve=autoresolve, debug=debug)

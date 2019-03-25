@@ -4,11 +4,11 @@ import os
 from uuid import uuid4
 from abc import ABCMeta, abstractmethod
 from multiprocessing import Process, Queue
-from spacetime.managers.version_graph import Graph
+from spacetime.managers.version_graph import VersionGraphProcess,Graph
 import spacetime.utils.utils as utils
 from spacetime.utils.enums import Event, AutoResolve
 import time
-from copy import deepcopy
+
 
 class VersionManager(object):
     __metaclass__ = ABCMeta
@@ -303,7 +303,7 @@ class VersionManager(object):
                 app_to_state, state_to_app))
         # Clean up states.
 
-        graph.maintain(state_to_app, merge_func)
+        graph.maintain(state_to_app, app_to_state, merge_func)
         if self.dump_graphs:
             self.dump(self.dump_graphs, graph)
 
@@ -318,19 +318,26 @@ class VersionManager(object):
         count = len(os.listdir(folder))
         open(os.path.join(folder, "heap{}.dot".format(count)), "w").write(gstr)
 
+
 class FullStateVersionManager(VersionManager):
     def __init__(
             self, appname, types,
             dump_graph=None, instrument_record=None, resolver=None, 
-            autoresolve=AutoResolve.FullResolve):
+            autoresolve=AutoResolve.FullResolve, debug=False):
         self.types = types
         self.type_map = {tp.__r_meta__.name: tp for tp in types}
-        self.version_graph = Graph()
+        self.debug = debug
         self.state_to_app = dict()
         self.app_to_state = dict()
         self.logger = utils.get_logger("%s_FullStateVersionManager" % appname)
         self.dump_graphs = dump_graph
         self.instrument_record = instrument_record
+        self.version_graph_head = "ROOT"
+        if self.debug:
+            self.version_graph = VersionGraphProcess(appname)
+        else:
+            self.version_graph = Graph()
+
         self.resolver = resolver
         self.autoresolve = autoresolve
 
@@ -346,13 +353,14 @@ class FullStateVersionManager(VersionManager):
             self.version_graph.continue_chain(
                 start_v, end_v, package, self.appname != self.appname)
 
-        if start_v != self.version_graph.head.current:
+        if start_v != self.version_graph_head:
             if self.autoresolve is AutoResolve.FullResolve:
                 self.resolve_conflict(start_v, end_v, package, from_external)
             elif self.autoresolve is AutoResolve.BranchConflicts:
                 self.version_graph.continue_chain(start_v, end_v, package)
         else:
             self.version_graph.continue_chain(start_v, end_v, package)
+            self.version_graph_head = end_v
         self.maintain(appname, end_v)
         return True
 
@@ -363,22 +371,24 @@ class FullStateVersionManager(VersionManager):
 
     def retrieve_data_nomaintain(self, version):
         merged = dict()
-        if version not in self.version_graph.nodes:
-            return merged, [version, version]
+        
         for delta in self.version_graph[version:]:
             merged = utils.merge_state_delta(merged, delta)
-        return merged, [version, self.version_graph.head.current]
+        if not merged:
+            return merged, [version, version]
+        return merged, [version, self.version_graph_head]
 
     def data_sent_confirmed(self, app, version):
         if version[0] != version[1]:
             self.maintain(app, version[1])
 
     def resolve_conflict(self, start_v, end_v, package, from_external):
-        new_v = self.version_graph.head.current
+        new_v = self.version_graph_head
         change, _ = self.retrieve_data_nomaintain(start_v)
         t_new_merge, t_conflict_merge = self.operational_transform(
             start_v, change, package, from_external)
         merge_v = str(uuid4())
+        self.version_graph_head = merge_v
         self.version_graph.continue_chain(start_v, end_v, package)
         self.version_graph.continue_chain(new_v, merge_v, t_new_merge)
         self.version_graph.continue_chain(end_v, merge_v, t_conflict_merge)
@@ -403,6 +413,3 @@ class FullStateVersionManager(VersionManager):
         super().maintain(
             self.state_to_app, self.app_to_state,
             self.version_graph, appname, end_v, utils.merge_state_delta)
-        if self.instrument_record:
-            self.instrument_record.put(
-                ("MEMORY", "{0}\t{1}\t{2}\n".format(time.time(), len(self.version_graph.nodes), len(self.version_graph.edges))))

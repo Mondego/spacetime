@@ -27,9 +27,9 @@ class RtypesTable(object):
         converted = convert(dim_obj.dim_type, value)
         if oid in self.store_as_temp:
             self.store_as_temp[oid][dimname] = converted
-
-        # Write to local state map.
-        self.object_table[oid][dimname] = convert(dim_obj.dim_type, value)
+        else:
+            # Write to local state map.
+            self.object_table[oid][dimname] = convert(dim_obj.dim_type, value)
         return oid
 
     def set_primarykey(self, oid, dimname, dim_obj, value):
@@ -55,10 +55,13 @@ class RtypesTable(object):
 
 
     def get(self, oid, dimname, dim_obj):
+        if oid in self.store_as_temp and dimname in self.store_as_temp[oid]:
+            return unconvert(self.store_as_temp[oid][dimname], dim_obj.dim_type)
         if oid not in self.object_table and dimname not in self.object_table[oid]:
             # Value has not been assigned.
             raise AttributeError("{0} has not been assigned a value.".format(dimname))
         # return value from local table.
+        
         return unconvert(self.object_table[oid][dimname], dim_obj.dim_type)
 
     def delete_obj(self, oid):

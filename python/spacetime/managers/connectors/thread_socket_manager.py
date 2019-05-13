@@ -79,7 +79,10 @@ class ServingClient(Thread):
             self.logger.debug(
                 "processing connection from %s, %d", self.address[0], self.address[1])
             # Get content length.
-            content_length = unpack("!L", self.client_sock.recv(4))[0]
+            raw_cl = self.client_sock.recv(4)
+            if not raw_cl:
+                break
+            content_length = unpack("!L", raw_cl)[0]
             done = self.incoming_connection(self.client_sock, self.address, content_length)
         self.client_sock.close()
         self.delete_client(self)

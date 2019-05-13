@@ -1,6 +1,7 @@
 import asyncio
 import cbor
 import os
+import sys
 from uuid import uuid4
 from abc import ABCMeta, abstractmethod
 from multiprocessing import Process, Queue
@@ -118,10 +119,11 @@ class VersionManager(object):
                 # Choose the New as other apps might have started work
                 # on this object.
                 obj_merge = dict()
-                obj_conf_merge = self.dim_diff(conf_obj_change, new_obj_change)
+                obj_conf_merge = self.dim_diff(dtpname, conf_obj_change, new_obj_change)
         elif event_new is Event.New and event_conf is Event.Modification:
             # This has to be an error. How did an object get modified if
             # the object was not there at start.
+            print (oid, start, new_obj_change, conf_obj_change, from_external)
             raise RuntimeError(
                 "Divergent modification received when object was"
                 " created in the main line.")
@@ -162,7 +164,7 @@ class VersionManager(object):
                     new_obj_change, conf_obj_change)
             else:
                 # LWW strategy
-                obj_merge = self.dim_diff(new_obj_change, conf_obj_change)
+                obj_merge = self.dim_diff(dtpname, new_obj_change, conf_obj_change)
                 obj_conf_merge = self.dim_not_present(
                     conf_obj_change, new_obj_change)
 
@@ -231,8 +233,8 @@ class VersionManager(object):
                 Event.Modification if original is not None else Event.New)
 
             del dtype.__r_table__.store_as_temp[oid]
-            return (self.dim_diff(new_obj_change, changes),
-                    self.dim_diff(conf_obj_changes, changes))
+            return (self.dim_diff(dtpname, new_obj_change, changes),
+                    self.dim_diff(dtpname, conf_obj_changes, changes))
         else:
             # Object was deleted.
             return (
@@ -253,7 +255,7 @@ class VersionManager(object):
         dtype.__r_table__.store_as_temp[oid] = dict()
         return obj
 
-    def dim_diff(self, original, new):
+    def dim_diff(self, dtpname, original, new):
         # return dims that are in new but not in/different in the original.
         change = {"dims": dict(), "types": dict()}
         if not (original and "dims" in original):
@@ -267,6 +269,7 @@ class VersionManager(object):
                 change["dims"][dim] = new["dims"][dim]
         change["types"].update(original["types"])
         change["types"].update(new["types"])
+        change["types"][dtpname] = Event.Modification
         return change
 
     def dim_not_present(self, original, new):
@@ -322,7 +325,8 @@ class FullStateVersionManager(VersionManager):
     def __init__(
             self, appname, types,
             dump_graph=None, instrument_record=None, resolver=None, 
-            autoresolve=AutoResolve.FullResolve):
+            autoresolve=AutoResolve.FullResolve, mem_instrument=False):
+        self.appname = appname
         self.types = types
         self.type_map = {tp.__r_meta__.name: tp for tp in types}
         self.version_graph = Graph()
@@ -333,6 +337,15 @@ class FullStateVersionManager(VersionManager):
         self.instrument_record = instrument_record
         self.resolver = resolver
         self.autoresolve = autoresolve
+        self.mem_instrument = mem_instrument
+        if mem_instrument:
+            self.mem_usage = list()
+            self.record_mem_usage()
+
+    def record_mem_usage(self):
+        self.mem_usage.append(
+            (time.time(), len(self.version_graph.edges),
+             sum(sys.getsizeof(cbor.dumps(e.payload)) for e in self.version_graph.edges.values())))
 
     def set_app_marker(self, appname, end_v):
         self.state_to_app.setdefault(end_v, set()).add(appname)
@@ -344,7 +357,7 @@ class FullStateVersionManager(VersionManager):
             return True
         if self.autoresolve is AutoResolve.BranchExternalPush:
             self.version_graph.continue_chain(
-                start_v, end_v, package, self.appname != self.appname)
+                start_v, end_v, package, appname != self.appname)
 
         if start_v != self.version_graph.head.current:
             if self.autoresolve is AutoResolve.FullResolve:
@@ -353,7 +366,11 @@ class FullStateVersionManager(VersionManager):
                 self.version_graph.continue_chain(start_v, end_v, package)
         else:
             self.version_graph.continue_chain(start_v, end_v, package)
+        if self.mem_instrument:
+            self.record_mem_usage()
         self.maintain(appname, end_v)
+        if self.mem_instrument:
+            self.record_mem_usage()
         return True
 
     def retrieve_data(self, appname, version):
@@ -372,6 +389,9 @@ class FullStateVersionManager(VersionManager):
     def data_sent_confirmed(self, app, version):
         if version[0] != version[1]:
             self.maintain(app, version[1])
+            if self.mem_instrument:
+                self.record_mem_usage()
+        
 
     def resolve_conflict(self, start_v, end_v, package, from_external):
         new_v = self.version_graph.head.current

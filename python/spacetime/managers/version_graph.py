@@ -128,12 +128,10 @@ class Graph(object):
                 node.prev_master, node.next_master, new_payload)
         else:
             # Figure out how to avoid this computation.
-            assert (
-                self.edges[
-                    (node.prev_master,
-                     node.next_master)].payload == new_payload,
-                (self.edges[
-                    (node.prev_master, node.next_master)].payload, new_payload))
+            assert self.edges[(node.prev_master,
+                               node.next_master)].payload == new_payload, (
+                   self.edges[(node.prev_master, node.next_master)].payload,
+                   new_payload)
         if self.nodes[node.prev_master].next_master == node.current:
             self.nodes[node.prev_master].next_master = node.next_master
         self.nodes[node.prev_master].all_next.add(node.next_master)

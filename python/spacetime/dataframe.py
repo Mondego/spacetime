@@ -32,7 +32,8 @@ class Dataframe(object):
             self, appname, types, details=None, server_port=0,
             connection_as=enums.ConnectionStyle.TSocket,
             instrument=None, dump_graph=None, resolver=None,
-            autoresolve=enums.AutoResolve.FullResolve):
+            autoresolve=enums.AutoResolve.FullResolve,
+            mem_instrument=False):
         self.appname = appname
         self.logger = utils.get_logger("%s_Dataframe" % appname)
         self.instrument = instrument
@@ -77,7 +78,7 @@ class Dataframe(object):
         # This is the dataframe's versioned graph.
         self.versioned_heap = FullStateVersionManager(
             self.appname, types, dump_graph,
-            self.instrument_record, resolver, autoresolve)
+            self.instrument_record, resolver, autoresolve, mem_instrument)
         self.write_lock = RLock()
         self.socket_server.start()
         if self.socket_connector.has_parent_connection:
@@ -102,7 +103,10 @@ class Dataframe(object):
                 ifile.flush()
                 os.fsync(ifile.fileno())
 
-
+    def _mem_usage(self):
+        if self.versioned_heap.mem_instrument:
+            return self.versioned_heap.mem_usage
+        return list()
 
     def _create_package(self, appname, diff, start_version):
         return appname, [start_version, diff.version], diff

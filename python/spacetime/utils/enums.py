@@ -7,6 +7,9 @@ class TransferFields(object):
     Data = 1
     RequestType = 2
     Versions = 3
+    Wait = 4
+    WaitTimeout = 5
+    Status = 6
 
 class Event(object):
     New = 0
@@ -28,3 +31,9 @@ class AutoResolve(object):
     FullResolve = 0
     BranchConflicts = 1
     BranchExternalPush = 2
+
+class StatusCode(object):
+    Success = 200
+
+    GeneralException = 400
+    Timeout = 401

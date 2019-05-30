@@ -322,6 +322,10 @@ class VersionManager(object):
         open(os.path.join(folder, "heap{}.dot".format(count)), "w").write(gstr)
 
 class FullStateVersionManager(VersionManager):
+    @property
+    def head(self):
+        return self.version_graph.head.current
+
     def __init__(
             self, appname, types,
             dump_graph=None, instrument_record=None, resolver=None, 

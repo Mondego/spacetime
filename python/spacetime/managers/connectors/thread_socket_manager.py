@@ -29,11 +29,13 @@ def send_all(con, data):
         data = data[sent:]
 
 def guarded(func):
-    def guarded_func(self, *args):
+    def guarded_func(self, *args, **kwargs):
         if self.server_connection is None:
             return False
         try:
-            return func(self, *args)
+            return func(self, *args, **kwargs)
+        except TimeoutError:
+            raise
         except Exception:
             self.server_connection = None
             self.shutdown = True
@@ -73,20 +75,24 @@ class ServingClient(Thread):
         self.daemon = True
 
     def run(self):
-        done = False
-        while not done:
-            # Unpack message length
-            self.logger.debug(
-                "processing connection from %s, %d", self.address[0], self.address[1])
-            # Get content length.
-            raw_cl = self.client_sock.recv(4)
-            if not raw_cl:
-                break
-            content_length = unpack("!L", raw_cl)[0]
-            done = self.incoming_connection(self.client_sock, self.address, content_length)
-        self.client_sock.close()
-        self.delete_client(self)
-        self.logger.debug("Incoming Connection closed.")
+        try:
+            done = False
+            while not done:
+                # Unpack message length
+                self.logger.debug(
+                    "processing connection from %s, %d",
+                    self.address[0], self.address[1])
+                # Get content length.
+                raw_cl = self.client_sock.recv(4)
+                if not raw_cl:
+                    break
+                content_length = unpack("!L", raw_cl)[0]
+                done = self.incoming_connection(
+                    self.client_sock, self.address, content_length)
+            self.client_sock.close()
+            self.logger.debug("Incoming Connection closed.")
+        finally:
+            self.delete_client(self)
 
 
     @instrument_func("handle_client")
@@ -103,30 +109,52 @@ class ServingClient(Thread):
             req_app = data[enums.TransferFields.AppName]
             # Versions
             versions = data[enums.TransferFields.Versions]
+            wait = (
+                data[enums.TransferFields.Wait]
+                if enums.TransferFields.Wait in data else
+                False)
             # Received push request.
             if data[enums.TransferFields.RequestType] is enums.RequestType.Push:
                 self.logger.debug("Processing push request.")
                 # Actual payload
                 package = data[enums.TransferFields.Data]
                 # Send bool status back.
-                con.send(pack("!?", True))
+                if not wait:
+                    con.send(pack("!?", True))
                 self.push_call_back(req_app, versions, package)
+                if wait:
+                    con.send(pack("!?", True))
                 self.logger.debug("Push complete. sent back ack.")
             # Received pull request.
             elif data[enums.TransferFields.RequestType] is enums.RequestType.Pull:
                 self.logger.debug("Processing pull request.")
-                dict_to_send, new_versions = self.pull_call_back(req_app, versions)
-                self.logger.debug("Pull call back complete. sending back data.")
-                data_to_send = cbor.dumps({
-                    enums.TransferFields.AppName: self.port,
-                    enums.TransferFields.Data: dict_to_send,
-                    enums.TransferFields.Versions: new_versions})
-                con.send(pack("!L", len(data_to_send)))
-                self.logger.debug("Pull complete. sent back data.")
-                send_all(con, data_to_send)
-                if unpack("!?", con.recv(1))[0]:
-                    self.confirm_pull_req(req_app, new_versions)
-                    self.logger.debug("Pull completed successfully. Recved ack.")
+                timeout = data[enums.TransferFields.WaitTimeout] if wait else 0
+                try:
+                    dict_to_send, new_versions = self.pull_call_back(
+                        req_app, versions, wait=wait, timeout=timeout)
+                    self.logger.debug(
+                        "Pull call back complete. sending back data.")
+                    data_to_send = cbor.dumps({
+                        enums.TransferFields.AppName: self.port,
+                        enums.TransferFields.Data: dict_to_send,
+                        enums.TransferFields.Versions: new_versions,
+                        enums.TransferFields.Status: enums.StatusCode.Success})
+                    con.send(pack("!L", len(data_to_send)))
+                    self.logger.debug("Pull complete. sent back data.")
+                    send_all(con, data_to_send)
+                    if unpack("!?", con.recv(1))[0]:
+                        self.confirm_pull_req(req_app, new_versions)
+                        self.logger.debug(
+                            "Pull completed successfully. Recved ack.")
+                except TimeoutError:
+                    self.logger.debug(
+                        "Pull call back timed out. sending back timeout.")
+                    data_to_send = cbor.dumps({
+                        enums.TransferFields.AppName: self.port,
+                        enums.TransferFields.Status: enums.StatusCode.Timeout})
+                    con.send(pack("!L", len(data_to_send)))
+                    self.logger.debug("Pull complete. sent back data.")
+                    send_all(con, data_to_send)
             return False
         except Exception as e:
             print (e)
@@ -135,6 +163,10 @@ class ServingClient(Thread):
 
 
 class TSocketServer(Thread):
+    @property
+    def client_count(self):
+        return len(self.clients)
+
     def __init__(self, appname, server_port, pull_call_back, push_call_back, confirm_pull_req, instrument_q):
         self.appname = appname
         # Logger for SocketManager
@@ -232,12 +264,14 @@ class TSocketConnector(object):
     # @instrument("socket_pull_req")
     @instrument_func("fetch")
     @guarded
-    def pull_req(self):
+    def pull_req(self, wait=False, timeout=0):
         try:
             data = cbor.dumps({
                 enums.TransferFields.AppName: self.appname,
                 enums.TransferFields.RequestType: enums.RequestType.Pull,
-                enums.TransferFields.Versions: self.parent_version
+                enums.TransferFields.Versions: self.parent_version,
+                enums.TransferFields.Wait: wait,
+                enums.TransferFields.WaitTimeout: timeout,
             })
             self.logger.debug(
                 "Client Connection successful, sending data (pull req)")
@@ -249,6 +283,13 @@ class TSocketConnector(object):
             resp = receive_data(self.server_connection, content_length)
             data = cbor.loads(resp)
             self.logger.debug("Data received (pull req).")
+            if (wait 
+                    and timeout > 0 
+                    and data[enums.TransferFields.Status] 
+                        == enums.StatusCode.Timeout):
+                raise TimeoutError(
+                    "No new version received in time {0}".format(
+                        timeout))
             # Versions
             new_versions = data[enums.TransferFields.Versions]
             # Actual payload
@@ -258,6 +299,8 @@ class TSocketConnector(object):
             self.logger.debug("Ack sent (pull req)")
             self.parent_version = self.get_new_version(new_versions)
             return package, new_versions
+        except TimeoutError:
+            raise
         except Exception as e:
             print ("PULL", e)
             print(traceback.format_exc())
@@ -266,13 +309,14 @@ class TSocketConnector(object):
     # @instrument("socket_push_req")
     @instrument_func("send_push")
     @guarded
-    def push_req(self, diff_data, version):
+    def push_req(self, diff_data, version, wait=False):
         try:
             package = {
                 enums.TransferFields.AppName: self.appname,
                 enums.TransferFields.RequestType: enums.RequestType.Push,
                 enums.TransferFields.Versions: version,
-                enums.TransferFields.Data: diff_data
+                enums.TransferFields.Data: diff_data,
+                enums.TransferFields.Wait: wait
             }
             data = cbor.dumps(package)
             self.server_connection.send(pack("!L", len(data)))

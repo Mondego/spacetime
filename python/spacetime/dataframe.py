@@ -22,6 +22,9 @@ class Dataframe(object):
     def shutdown(self):
         return self._shutdown
 
+    @property
+    def client_count(self):
+        return self.socket_server.client_count
 
     def write_stats(self):
         if self.instrument_record:
@@ -59,7 +62,7 @@ class Dataframe(object):
 
         self.socket_server = SocketServer(
             self.appname, server_port,
-            self.pull_call_back, self.push_call_back, self.confirm_pull_req,
+            self.fetch_call_back, self.push_call_back, self.confirm_fetch_req,
             self.instrument_record)
 
         self.socket_connector = SocketConnector(
@@ -111,6 +114,18 @@ class Dataframe(object):
     def _create_package(self, appname, diff, start_version):
         return appname, [start_version, diff.version], diff
 
+    def _check_updated_since(self, version, timeout):
+        # TODO: Using a time loop for now. Should improve it later.
+        stime = time.perf_counter()
+        while version == self.versioned_heap.head:
+            time.sleep(0.1)
+            #print ("Server", timeout, version, self.versioned_heap.head)
+            if timeout > 0 and (time.perf_counter() - stime) > timeout:
+                raise TimeoutError(
+                    "No new version received in time {0}".format(
+                        timeout))
+
+
     # Object Create Add and Delete
     def add_one(self, dtype, obj):
         '''Adds one object to the staging.'''
@@ -144,14 +159,20 @@ class Dataframe(object):
 
     @instrument_func("checkout")
     def checkout(self):
-        data, versions = self.versioned_heap.retrieve_data(
-            self.appname,
-            self.local_heap.version)
+        with self.write_lock:
+            data, versions = self.versioned_heap.retrieve_data(
+                self.appname,
+                self.local_heap.version)
         if self.local_heap.receive_data(data, versions):
             # Can be carefully made Async.
             with self.write_lock:
                 self.versioned_heap.data_sent_confirmed(
                     self.appname, versions)
+
+    @instrument_func("checkout_await")
+    def checkout_await(self, timeout=0):
+        self._check_updated_since(self.local_heap.version, timeout)
+        self.checkout()
 
     @instrument_func("commit")
     def commit(self):
@@ -191,6 +212,27 @@ class Dataframe(object):
                     self.versioned_heap.data_sent_confirmed(
                         "SOCKETPARENT", version)
                 self.logger.debug("Push request registered.")
+    
+    @instrument_func("push_await")
+    def push_await(self):
+        if self.socket_connector.has_parent_connection:
+            self.logger.debug("Push request started.")
+            with self.write_lock:
+                data, version = self.versioned_heap.retrieve_data(
+                    "SOCKETPARENT", self.socket_connector.parent_version)
+                if version[0] == version[1]:
+                    self.logger.debug(
+                        "Push not required, "
+                        "parent already has the information.")
+                    return
+
+            if self.socket_connector.push_req(
+                    data, version, wait=True):
+                self.logger.debug("Push request completed.")
+                with self.write_lock:
+                    self.versioned_heap.data_sent_confirmed(
+                        "SOCKETPARENT", version)
+                self.logger.debug("Push request registered.")
 
     @instrument_func("fetch")
     def fetch(self):
@@ -204,16 +246,41 @@ class Dataframe(object):
                     version, package)
             self.logger.debug("Pull request applied.")
 
+    @instrument_func("fetch_await")
+    def fetch_await(self, timeout=0):
+        if self.socket_connector.has_parent_connection:
+            self.logger.debug("Pull request started.")
+            try:
+                package, version = self.socket_connector.pull_req(
+                    wait=True, timeout=timeout)
+            except TimeoutError:
+                self.logger.debug("Timed out fetch request.")
+                raise
+            self.logger.debug("Pull request completed.")
+            with self.write_lock:
+                self.versioned_heap.receive_data(
+                    "SOCKETPARENT",
+                    version, package)
+            self.logger.debug("Pull request applied.")
+
+
     @instrument_func("pull")
     def pull(self):
         self.fetch()
         self.checkout()
 
+    @instrument_func("pull_await")
+    def pull_await(self, timeout=0):
+        self.fetch_await(timeout=timeout)
+        self.checkout()
+
     # Functions that respond to external requests
 
-    @instrument_func("accept_pull")
-    def pull_call_back(self, appname, version):
+    @instrument_func("accept_fetch")
+    def fetch_call_back(self, appname, version, wait=False, timeout=0):
         try:
+            if wait:
+                self._check_updated_since(version, timeout)
             with self.write_lock:
                 return self.versioned_heap.retrieve_data(appname, version)
         except Exception as e:
@@ -221,8 +288,8 @@ class Dataframe(object):
             print(traceback.format_exc())
             raise
 
-    @instrument_func("confirm_pull")
-    def confirm_pull_req(self, appname, version):
+    @instrument_func("confirm_fetch")
+    def confirm_fetch_req(self, appname, version):
         try:
             with self.write_lock:
                 self.versioned_heap.data_sent_confirmed(

@@ -1,5 +1,6 @@
 from uuid import uuid4
 from multiprocessing import Process, Queue
+from threading import Thread
 
 from spacetime.dataframe import Dataframe
 from spacetime.utils.enums import VersionBy, ConnectionStyle, AutoResolve
@@ -15,9 +16,9 @@ def get_details(dataframe):
         "Do not know how to connect to dataframe with given data", dataframe)
 
 def get_app(func, types, producer,
-            getter_setter, getter, setter, deleter):
+            getter_setter, getter, setter, deleter, threading=False):
 
-    class App(Process):
+    class App(Thread if threading else Process):
         @property
         def type_map(self):
             return {
@@ -147,6 +148,7 @@ def Node(
         dataframe=None, server_port=0,
         Types=list(), Producer=list(), GetterSetter=list(),
         Getter=list(), Setter=list(), Deleter=list(),
+        threading=False,
         instrument=None, dump_graph=None,
         connection_as=ConnectionStyle.TSocket, resolver=None,
         autoresolve=AutoResolve.FullResolve, mem_instrument=False):
@@ -154,7 +156,7 @@ def Node(
         appname = "{0}_{1}".format(target.__name__, str(uuid4()))
     app_cls = get_app(
         target, set(Types), set(Producer), set(GetterSetter),
-        set(Getter), set(Setter), set(Deleter))
+        set(Getter), set(Setter), set(Deleter), threading=threading)
     return app_cls(
         appname, dataframe=dataframe, server_port=server_port,
         instrument=instrument, dump_graph=dump_graph,

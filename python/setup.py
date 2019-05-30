@@ -25,7 +25,8 @@ setup(
     version='2.1.0',
 
     description='Spacetime Node Framework',
-    long_description=long_description,
+    long_description='This is the implementation of spacetime and relational types in Python. See https://github.com/Mondego/spacetime',
+    long_description_content_type="text/markdown",
 
     # The project's main homepage.
     url='https://github.com/Mondego/spacetime',
@@ -51,7 +52,9 @@ setup(
         'Intended Audience :: Science/Research',
 
         'Topic :: Software Development :: Libraries',
-        'Topic :: Software Development :: Libraries :: Node Frameworks',
+        'Topic :: Software Development :: Libraries :: Application Frameworks',
+        'Topic :: Software Development :: Libraries :: Application Frameworks',
+        'Topic :: System :: Distributed Computing',
 
         # Pick your license as you wish (should match "license" above)
         'License :: OSI Approved :: MIT License',

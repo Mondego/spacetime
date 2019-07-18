@@ -1,0 +1,4 @@
+Logging:
+A new node registers with the server:producer_efbeef7b-6dcb-45d9-a1b0-57cd0686863e
+The port assigned to this node is 57462
+no of nodes that have registered with the server is 1

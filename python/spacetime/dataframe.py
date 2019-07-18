@@ -13,6 +13,8 @@ import spacetime.utils.enums as enums
 import spacetime.utils.utils as utils
 from spacetime.utils.utils import instrument_func
 
+from spacetime.managers.connectors.debugger_socket_manager import DebuggerSocketServer, DebuggerSocketConnector
+
 class Dataframe(object):
     @property
     def details(self):
@@ -36,7 +38,7 @@ class Dataframe(object):
             connection_as=enums.ConnectionStyle.TSocket,
             instrument=None, dump_graph=None, resolver=None,
             autoresolve=enums.AutoResolve.FullResolve,
-            mem_instrument=False):
+            mem_instrument=False, use_debugger_sockets=False):
         self.appname = appname
         self.logger = utils.get_logger("%s_Dataframe" % appname)
         self.instrument = instrument
@@ -51,30 +53,13 @@ class Dataframe(object):
             self.instrument_record = None
 
         self._shutdown = False
-        if connection_as == enums.ConnectionStyle.TSocket:
-            SocketServer, SocketConnector = TSocketServer, TSocketConnector
-        elif connection_as == enums.ConnectionStyle.NPSocket:
-            SocketServer, SocketConnector = NPSocketServer, NPSocketConnector
-        elif connection_as == enums.ConnectionStyle.AIOSocket:
-            SocketServer, SocketConnector = AIOSocketServer, AIOSocketConnector
-        else:
-            raise NotImplementedError()
-
-        self.socket_server = SocketServer(
-            self.appname, server_port,
-            self.fetch_call_back, self.push_call_back, self.confirm_fetch_req,
-            self.instrument_record)
-
-        self.socket_connector = SocketConnector(
-            self.appname, details, self.details, types,
-            self.instrument_record)
-
         self.types = types
         self.type_map = {
             tp.__r_meta__.name: tp for tp in self.types}
-        
+
         # THis is the local snapshot.
         self.local_heap = ManagedHeap(types)
+        self.write_lock = RLock()
 
         self.versioned_heap = None
 
@@ -82,10 +67,37 @@ class Dataframe(object):
         self.versioned_heap = FullStateVersionManager(
             self.appname, types, dump_graph,
             self.instrument_record, resolver, autoresolve, mem_instrument)
-        self.write_lock = RLock()
-        self.socket_server.start()
-        if self.socket_connector.has_parent_connection:
-            self.pull()
+        if use_debugger_sockets:
+            self.socket_server = DebuggerSocketServer(self.appname, server_port)
+            self.socket_connector = None
+            if details:
+                self.socket_connector = DebuggerSocketConnector(self.appname, details)
+
+            self.socket_server.start()
+        else:
+            if connection_as == enums.ConnectionStyle.TSocket:
+                SocketServer, SocketConnector = TSocketServer, TSocketConnector
+            elif connection_as == enums.ConnectionStyle.NPSocket:
+                SocketServer, SocketConnector = NPSocketServer, NPSocketConnector
+            elif connection_as == enums.ConnectionStyle.AIOSocket:
+                SocketServer, SocketConnector = AIOSocketServer, AIOSocketConnector
+            else:
+                raise NotImplementedError()
+
+            self.socket_server = SocketServer(
+            self.appname, server_port,
+            self.fetch_call_back, self.push_call_back, self.confirm_fetch_req,
+            self.instrument_record)
+
+            self.socket_connector = SocketConnector(
+            self.appname, details, self.details, types,
+            self.instrument_record)
+
+
+
+            self.socket_server.start()
+            if self.socket_connector.has_parent_connection:
+                self.pull()
 
     # Suppport Functions
 
@@ -181,6 +193,7 @@ class Dataframe(object):
             with self.write_lock:
                 succ = self.versioned_heap.receive_data(
                     self.appname, versions, data, from_external=False)
+                self.garbage_collect(self.appname, versions[1])
             if succ:
                 self.local_heap.data_sent_confirmed(versions)
 
@@ -244,6 +257,7 @@ class Dataframe(object):
                 self.versioned_heap.receive_data(
                     "SOCKETPARENT",
                     version, package)
+                self.garbage_collect("SOCKETPARENT", version[1])
             self.logger.debug("Pull request applied.")
 
     @instrument_func("fetch_await")
@@ -261,6 +275,7 @@ class Dataframe(object):
                 self.versioned_heap.receive_data(
                     "SOCKETPARENT",
                     version, package)
+                self.garbage_collect("SOCKETPARENT", version[1])
             self.logger.debug("Pull request applied.")
 
 
@@ -303,9 +318,14 @@ class Dataframe(object):
     def push_call_back(self, appname, versions, data):
         try:
             with self.write_lock:
-                return self.versioned_heap.receive_data(
+                return_value = self.versioned_heap.receive_data(
                     appname, versions, data)
+                self.garbage_collect(appname, versions[1])
+                return return_value
         except Exception as e:
             print (e)
             print(traceback.format_exc())
             raise
+
+    def garbage_collect(self, appname, end_v):
+        self.versioned_heap.maintain(appname,end_v)

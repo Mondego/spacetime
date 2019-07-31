@@ -213,6 +213,7 @@ class TSocketServer(Thread):
         while True:
             try:
                 con, addr = self.sync_socket.accept()
+                print("socket", con, addr)
                 self.logger.debug(
                     "Recv connection from %s, %d",
                     addr[0], addr[1])

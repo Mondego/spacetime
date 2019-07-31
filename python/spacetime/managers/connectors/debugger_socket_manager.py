@@ -12,6 +12,7 @@ class DebuggerSocketServer(Thread):
         self.sync_socket = self.setup_socket(self.port)
         self.data = cbor.dumps({enums.TransferFields.ParentAppName: self.appname})
         super().__init__()
+        self.daemon = True
 
 
     def setup_socket(self, server_port):
@@ -21,12 +22,14 @@ class DebuggerSocketServer(Thread):
         # sync_socket.settimeout(2)
         sync_socket.bind(("", server_port))
         sync_socket.listen()
+        print(self.appname, " has started listening on port", server_port)
         return sync_socket
 
     def run(self):
         while True:
             try:
                 con, addr = self.sync_socket.accept()
+                print ( "Recv connection from %s, %d",addr[0], addr[1])
                 con.send(pack("!L", len(self.data)))
                 con.sendall(self.data)
                 if unpack("!?", con.recv(1))[0]:

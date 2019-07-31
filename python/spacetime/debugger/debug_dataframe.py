@@ -1,15 +1,55 @@
 from spacetime.dataframe import Dataframe
 from threading import Thread
-from spacetime.debugger.debugger_types import CommitObj,FetchObj, AcceptFetchObj
+from spacetime.debugger.debugger_types import CommitObj,FetchObj, AcceptFetchObj, CheckoutObj, PushObj, AcceptPushObj
 from spacetime.managers.connectors.debugger_socket_manager import DebuggerSocketServer, DebuggerSocketConnector
 import traceback
 import cbor
 
-class DebugDataframe(Thread):
+class DebugDataframe(object):
 
     @property
     def details(self):
         return self.application_df.details
+
+    def listen_func(self):
+        while True:
+            self.debugger_df.pull()
+            for tp in [AcceptFetchObj, AcceptPushObj]:
+                new_obj = self.debugger_df.read_all(tp)
+                for obj in new_obj:
+                        if isinstance(obj, AcceptFetchObj):
+                            if obj.state == obj.AcceptFetchState.START:
+                                print("calling fetch call back")
+                                data, version_change = self.fetch_call_back(obj.requestor_node, obj.from_version)
+                                obj.delta = cbor.dumps(data)
+                                obj.to_version = version_change[1]
+                                obj.complete_SEND()
+                                print("completed fetch call back")
+                            elif obj.state == obj.AcceptFetchState.GCSTART:
+                                print("Requestee starting garbage collect")
+                                self.confirm_fetch_req(obj.requestor_node, [obj.from_version, obj.to_version])
+                                print("Requestee completed garbage collect")
+                                obj.complete_GC()
+                        if isinstance(obj, AcceptPushObj):
+                            if obj.state == obj.AcceptPushState.START:
+                                print("calling push call back")
+                                self.push_call_back(obj.sender_node,[obj.from_version, obj.to_version],obj.delta_dict)
+                                obj.complete_RECEIVE()
+                                print("completed push call back")
+
+                            if obj.state == obj.AcceptPushState.GCSTART:
+                                print("Receiver starting garbage collect")
+                                try:
+                                    with self.application_df.write_lock:
+                                        self.application_df.garbage_collect(obj.sender_node, obj.to_version)
+                                        print("Receiver completed garbage collect")
+                                except Exception as e:
+                                    print(e)
+                                    print(traceback.format_exc())
+                                    raise
+                            self.debugger_df.commit()
+                            self.debugger_df.push()
+
 
     def __init__(self, df, appname, types, server_port, parent_details):
         print(appname, types, server_port, parent_details)
@@ -23,29 +63,9 @@ class DebugDataframe(Thread):
             self.parent_app_name = self.application_df.socket_connector.get_parent_app_name()
         print("Parent App Name", self.parent_app_name)
         self.from_version = "ROOT"
-        self.existing_obj = dict()
-        super().__init__()
-        self.daemon = True
-        super().run()
-
-    def run(self):
-        while True:
-            self.debugger_df.pull()
-            for tp in [AcceptFetchObj]:
-                new_obj = self.debugger_df.read_all(eval(tp))
-                for obj in new_obj:
-                        if isinstance(obj, AcceptFetchObj):
-                            if obj.state == obj.AcceptFetchState.START:
-                                data, version_change = self.fetch_call_back(obj.requestor_node, obj.from_version)
-                                obj.delta = data
-                                obj.to_version = version_change[1]
-                                obj.complete_SEND()
-                            elif obj.state == obj.AcceptFetchState.GCSTART:
-                                self.application_df.garbage_collect(obj.requestor_node, obj.to_version)
-                                obj.complete_GC()
-                            self.debugger_df.commit()
-                            self.debugger_df.push()
-
+        self.listening_thread = Thread(target=self.listen_func, daemon=True)
+        print(appname, self.listening_thread.getName())
+        self.listening_thread.start()
 
 
     def add_one(self, dtype, obj):
@@ -67,9 +87,44 @@ class DebugDataframe(Thread):
     def delete_all(self, dtype):
         self.application_df.delete_all(dtype)
 
+    def checkout(self):
+        print("the node wants to checkout")
+        checkoutObj = CheckoutObj(self.application_df.appname, self.application_df.local_heap.version, "", None)
+        self.debugger_df.add_one(CheckoutObj, checkoutObj)
+        self.debugger_df.commit()
+        self.debugger_df.push()
+        while checkoutObj.state != checkoutObj.CheckoutState.START: #Wait till the CDN gives the command to start
+            print("Waiting for CDN to give permission to start checkout", checkoutObj.state)
+            self.debugger_df.pull()
+        print("Received permission from CDN to start checkout")
+        with self.application_df.write_lock:
+            data, versions = self.application_df.versioned_heap.retrieve_data(
+                checkoutObj.node,
+                checkoutObj.from_version)
+        result = self.application_df.local_heap.receive_data(data, versions)
+        if result:
+            checkoutObj.delta = cbor.dumps(data)
+            checkoutObj.to_version = versions[1]
+            checkoutObj.complete_checkout()
+            print("Checkout completed")
+            self.debugger_df.commit()
+            self.debugger_df.push()
+            while checkoutObj.state != checkoutObj.CheckoutState.GCSTART:  # Wait till the CDN gives the command to start GC
+                # print("Waiting for CDN to give the go ahead for GC", checkoutObj.state)
+                self.debugger_df.pull()
+            print("Go ahead from CDN to start GC")
+            with self.application_df.write_lock:
+                if checkoutObj.from_version != checkoutObj.to_version:
+                    self.application_df.garbage_collect(checkoutObj.node, checkoutObj.to_version)
+                checkoutObj.complete_GC()  # To Let the CDN know GC is complete
+                print("GC is Complete")
+                self.debugger_df.commit()
+                self.debugger_df.push()
+
+
+
     def commit(self):
         print("the node wants to commit")
-
         data, versions = self.application_df.local_heap.retreive_data()
         commitObj = CommitObj(self.application_df.appname, versions[0], versions[1], cbor.dumps(data))
         self.debugger_df.add_one(CommitObj, commitObj)
@@ -77,7 +132,6 @@ class DebugDataframe(Thread):
         self.debugger_df.push()
         while commitObj.state != commitObj.CommitState.START: #Wait till the CDN gives the command to start
             print("Waiting for CDN to give go ahead to start commit", commitObj.state)
-            print(commitObj.state)
             self.debugger_df.pull()
         print(" Go ahead from CDN to start commit")
         if versions:
@@ -107,12 +161,46 @@ class DebugDataframe(Thread):
     def sync(self):
          self.application_df.sync()
 
+    def push(self):
+        if self.parent_app_name:
+            print("Node creates a push object")
+            pushObj = PushObj(self.application_df.appname, self.parent_app_name, "", "", b"")
+            self.debugger_df.add_one(PushObj, pushObj)
+            self.debugger_df.commit()
+            self.debugger_df.push()
+            while pushObj.state != pushObj.PushState.START:  # Wait till the CDN gives the command to start
+                #print("Node is waiting for CDN to give the go ahead to start push")
+                self.debugger_df.pull()
+            with self.application_df.write_lock:
+                data, version = self.application_df.versioned_heap.retrieve_data(
+                    "SOCKETPARENT", self.from_version)
+                if version[0] == version[1]:
+                    return
+                pushObj.from_version, pushObj.to_version = version[0], version[1]
+                pushObj.delta = cbor.dumps(data)
+                pushObj.completed_FETCHDELTA()
+                self.debugger_df.commit()
+                self.debugger_df.push()
+            while pushObj.state != pushObj.PushState.GCSTART:
+                self.debugger_df.pull()
+            print("Sender starting garbage collect")
+            with self.application_df.write_lock:
+                if pushObj.from_version != pushObj.to_version:
+                    self.application_df.garbage_collect(
+                        "SOCKETPARENT", pushObj.to_version)
+
+
+
     def fetch(self):
-        if self.application_df.socket_connector.has_parent_connection:
-            fetchObj = FetchObj(self.application_df.appname, self.parent_app_name, self.from_version, None, None, "")
-            self.debugger_df.add_one(fetchObj, FetchObj)
+        if self.parent_app_name:
+            print("Node creates a fetch object")
+            fetchObj = FetchObj(self.application_df.appname, self.parent_app_name, self.from_version, "", b"")
+            self.debugger_df.add_one(FetchObj, fetchObj)
+            self.debugger_df.commit()
+            self.debugger_df.push()
             while fetchObj.state != fetchObj.FetchState.START:  # Wait till the CDN gives the command to start
-                self.debugger_df.pull_await()
+                #print("Node is waiting for CDN to give the go ahead to start fetch")
+                self.debugger_df.pull()
             package, to_version = fetchObj.delta_dict, fetchObj.to_version
             with self.application_df.write_lock:
               succ =  self.application_df.versioned_heap.receive_data(
@@ -122,9 +210,11 @@ class DebugDataframe(Thread):
                   fetchObj.complete_FETCH()
                   self.debugger_df.commit()
                   self.debugger_df.push()
-                  while fetchObj.state != fetchObj.CommitState.GCSTART:  # Wait till the CDN gives the command to start GC
-                    self.debugger_df.pull_await()
-                  self.application_df.garbage_collect(self.application_df.appname, fetchObj.to_version)
+                  while fetchObj.state != fetchObj.FetchState.GCSTART:  # Wait till the CDN gives the command to start GC
+                    self.debugger_df.pull()
+                  print("Requestor starting garbage collect")
+                  self.application_df.garbage_collect("SOCKETPARENT", fetchObj.to_version)
+                  print("Requestor completed garbage collect")
                   fetchObj.complete_GC()  # To Let the CDN know GC is complete
                   self.from_version = fetchObj.to_version
                   self.debugger_df.commit()
@@ -139,6 +229,24 @@ class DebugDataframe(Thread):
             print(traceback.format_exc())
             raise
 
+    def confirm_fetch_req(self, appname, version):
+        try:
+            with self.application_df.write_lock:
+                if version[0] != version[1]:
+                    self.application_df.garbage_collect(appname, version[1])
+        except Exception as e:
+            print (e)
+            print(traceback.format_exc())
+            raise
 
-
-
+    def push_call_back(self, appname, versions, data):
+        try:
+            with self.application_df.write_lock:
+                return_value = self.application_df.versioned_heap.receive_data(
+                    appname, versions, data)
+                #self.garbage_collect(appname, versions[1])
+                return return_value
+        except Exception as e:
+            print (e)
+            print(traceback.format_exc())
+            raise

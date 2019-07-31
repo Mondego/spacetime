@@ -1,4 +1,454 @@
 Logging:
-A new node registers with the server:producer_efbeef7b-6dcb-45d9-a1b0-57cd0686863e
-The port assigned to this node is 57462
+A new node registers with the server:producer_cf340d5b-ac13-4614-a487-7404aa92e958
+The port assigned to this node is 52231
 no of nodes that have registered with the server is 1
+A new node registers with the server:producer_19b7d823-ee82-43ec-b8a9-aba0cfc32bf8
+The port assigned to this node is 52240
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_110a7ab0-4913-48cb-a155-1f76352692fb
+The port assigned to this node is 52251
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_eadf6903-00d6-49cb-b425-284bf7c92185
+The port assigned to this node is 52264
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_2bfb3d8c-ff50-4e13-ab68-0ad57261b978
+The port assigned to this node is 52277
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_176c7947-819d-4815-8eb2-f50b7e302a23
+The port assigned to this node is 52290
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_2f5af62f-bbd4-4404-a5db-f6efd729fdc8
+The port assigned to this node is 52303
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_028b1b6b-47b0-4640-9eb0-cb318eeb83e3
+The port assigned to this node is 52313
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_95b709c4-14d3-4bae-9f06-a6f1f80b747e
+The port assigned to this node is 52322
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_bcda8f22-591e-460d-a904-bd1481c18624
+The port assigned to this node is 52332
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_48f9ebae-6add-4e1a-a3fc-b03653992507
+The port assigned to this node is 52356
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_3e3de040-1587-4b6b-b498-e637ce8af242
+The port assigned to this node is 52401
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_9c413568-8c76-4168-a88e-6ab74889799b
+The port assigned to this node is 52412
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_3aa205c2-ee1c-49bf-a179-a96ae82557a1
+The port assigned to this node is 52423
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_cb1930be-64aa-4d0d-9642-36f70e92a869
+The port assigned to this node is 52433
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_91b8e7ea-c602-42cc-9d8a-09a753175a9a
+The port assigned to this node is 52441
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_68ab5951-b6eb-42e0-ac9a-03c1bdba4ca8
+The port assigned to this node is 52453
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_ac9a7018-5dd0-4ede-82a7-241cb2270a60
+The port assigned to this node is 52469
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_a80f504b-c2ab-410e-b5da-4182bbfd95e9
+The port assigned to this node is 52479
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_a02b9e55-c8f0-4979-8351-beb14dad8590
+The port assigned to this node is 52495
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_c0199fea-ac61-48ee-beda-1ee46c9785e6
+The port assigned to this node is 52505
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_b21cb6dd-bad7-4457-b28d-64298bb333dc
+The port assigned to this node is 52584
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_b2f6a6b1-47e0-4b6c-9cab-5eb17bdeb4a7
+The port assigned to this node is 52599
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_5bf422f2-0998-49b4-9579-121919b998e3
+The port assigned to this node is 52608
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_927d1cec-e543-4ef3-abcb-61c9e5d32050
+The port assigned to this node is 52616
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_486717a8-1557-4b71-a2d9-f8ea32ef3e0f
+The port assigned to this node is 52635
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_4a0e63e7-a955-4e3d-ac99-426e010f92a9
+The port assigned to this node is 52658
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_7c5518e2-0fac-413c-bc41-c57cb798b990
+The port assigned to this node is 52672
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_90aeaf10-30f9-4a83-8730-717cd187bc82
+The port assigned to this node is 52680
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_f2328ffc-2afa-49ee-a6d9-09a00b52ee7f
+The port assigned to this node is 52689
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_12d33636-1d6e-4d6b-86c0-bcd87ef1eb83
+The port assigned to this node is 52698
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_43bf50c7-61c1-4f02-ac11-e8e15b3825c0
+The port assigned to this node is 52709
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_f4d43253-ccd3-4817-838a-028c04491cd0
+The port assigned to this node is 52887
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_66f871c9-02ab-4452-a138-ce318dca5fdb
+The port assigned to this node is 58386
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_2a1f1e18-5a9f-4dfe-9218-c30cec874241
+The port assigned to this node is 58429
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_92ac2536-2a81-4a3c-a299-2cf7347148a2
+The port assigned to this node is 58439
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_0edf04c9-3a38-4454-886f-83743a99d201
+The port assigned to this node is 58461
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_8f348ea8-ae21-4161-9f81-54a296afbee0
+The port assigned to this node is 58472
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_c8c3bea6-de19-42cf-8562-3b8f10c8f2c7
+The port assigned to this node is 58477
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_cf3e5b6c-c95d-4add-9ed9-45e9b6555b3d
+The port assigned to this node is 58495
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_23636d76-a8f9-4712-bb4a-cfb3104169ee
+The port assigned to this node is 58500
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_0690b875-0dc0-49f5-8951-f3ba323aa4a2
+The port assigned to this node is 58517
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_0fe36fbe-8873-480b-8ffb-00802225b7fc
+The port assigned to this node is 58522
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_f4e8c5ad-160a-4d65-8b73-8bbe27e19378
+The port assigned to this node is 58541
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_9c896b15-f1cb-4c87-a6cd-e7f2b9059814
+The port assigned to this node is 58546
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_74804c3c-9d58-412d-8838-2b9d00e72362
+The port assigned to this node is 58562
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_3d36f931-2941-4c99-812b-73e82e3ab1d7
+The port assigned to this node is 58567
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_63a45358-560c-4d42-9c3a-73bbd2120ed7
+The port assigned to this node is 58580
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_a86b7f84-bbde-42d0-bc67-ee4232c79889
+The port assigned to this node is 58585
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_d2aa23b5-5505-46e8-8917-c76d760f92f2
+The port assigned to this node is 58609
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_04c76414-0231-4637-b890-908033ba6aae
+The port assigned to this node is 58614
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_5207ae75-4d35-4f18-973b-46b8083446c6
+The port assigned to this node is 58630
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_98979a94-b97e-4b28-9383-6724050799af
+The port assigned to this node is 58635
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_45795bdc-2739-4783-87a2-99ac1379fadb
+The port assigned to this node is 58646
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_fec88679-c921-4292-bec7-65320b9e95a3
+The port assigned to this node is 58651
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_4450c8a3-564e-4902-b119-ccc9551797da
+The port assigned to this node is 58664
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_0bc27247-d833-4173-911c-801adc024113
+The port assigned to this node is 58669
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_8fe03ea9-90a8-44fe-a29b-d0547dd57948
+The port assigned to this node is 58682
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_4f2712ad-8942-4345-b894-86247a51fd6f
+The port assigned to this node is 58687
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_5b2e6eab-c69b-4672-ae24-8ddcd5b1da2d
+The port assigned to this node is 58699
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_4cb733f5-eb7c-472d-ab38-59fcec2058af
+The port assigned to this node is 58705
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_d96bd775-826e-46c4-a3a1-986f01836aae
+The port assigned to this node is 58733
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_ba6936db-cddc-4363-af68-3fd6d25993f4
+The port assigned to this node is 58738
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_c57ab7f4-482c-4ab9-875e-d939fe1312d0
+The port assigned to this node is 58753
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_e591d214-c5ee-400f-a639-4cf647c700eb
+The port assigned to this node is 58758
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_48390311-f969-4fc9-9a78-528d7d8ba016
+The port assigned to this node is 58771
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_c0929d97-66e8-4af8-8ef3-4672da1ab939
+The port assigned to this node is 58776
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_27313ad2-7f12-4819-8d54-836d1aaf14eb
+The port assigned to this node is 58786
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_675e22e8-ca49-4880-ab98-a887ef20d469
+The port assigned to this node is 58791
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_8f2189eb-8898-4a02-8e3e-cfd43603f80e
+The port assigned to this node is 58802
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_c1d6794b-bf62-462c-a734-783108a34776
+The port assigned to this node is 58808
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_ff84f52a-007c-4c83-9a82-e044a39d1721
+The port assigned to this node is 58822
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_676c777b-8f50-41ee-ad80-889e70226750
+The port assigned to this node is 58827
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_943f5af7-83a1-4603-ab00-d840099ddffc
+The port assigned to this node is 58838
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_1fde4749-af94-47fc-9baf-c4adef25a0e2
+The port assigned to this node is 58844
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_6519063a-3ee8-48e3-b900-561b144b7be9
+The port assigned to this node is 58853
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_f0524a46-ee62-4f9e-8cd2-8042f0f5344e
+The port assigned to this node is 58858
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_34194672-4a1f-432c-9fb6-2a5ea8aff58c
+The port assigned to this node is 58908
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_c262ba3a-d435-438f-81e8-a8e42fb8842d
+The port assigned to this node is 58913
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_33939b99-803d-4824-a6b7-439affc1a954
+The port assigned to this node is 58923
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_a4f93748-a814-483c-889e-b92cd8594e7a
+The port assigned to this node is 58928
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_47f5563f-d98a-40a3-ba31-bed6bd32690e
+The port assigned to this node is 58945
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_2229c02b-3f05-4a5d-b207-95fe11b39b64
+The port assigned to this node is 58951
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_23b0fb65-26ca-4f62-9ab8-0b5dd2a5ef81
+The port assigned to this node is 58964
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_8cfdc554-43e7-46db-af6f-e26c5b15156c
+The port assigned to this node is 58970
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_4de0977e-6acd-46b3-91a6-78598aebfb8d
+The port assigned to this node is 58979
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_d2777a59-97ed-416b-9b17-a7b1c0b05931
+The port assigned to this node is 58984
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_74c9c150-45bc-4233-8ba5-14c7044d044a
+The port assigned to this node is 50172
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_e1ddeeaa-27b9-4ca2-b38f-dc67e768e59e
+The port assigned to this node is 50177
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_b1dd72c5-611e-45f8-aa35-97ac6c510aca
+The port assigned to this node is 50189
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_c6408b08-efc7-4990-9114-334e5a4f3e9a
+The port assigned to this node is 50194
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_c9932ede-b480-4891-8f59-5a8df75af7f1
+The port assigned to this node is 50210
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_60587904-9373-43e7-a96b-7ec94c6389a8
+The port assigned to this node is 50215
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_633f9cce-5d2e-4553-bef9-1b4abb3ceb00
+The port assigned to this node is 50229
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_6ceb6759-9bdc-40d8-8bdc-21985aad4a05
+The port assigned to this node is 50234
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_06678a41-d015-4e02-b939-ee665f0ee5a0
+The port assigned to this node is 50245
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_0e4d667c-b879-46b1-8248-18a05aa226bc
+The port assigned to this node is 50250
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_bfcec6f5-4516-493b-9e13-f5ec34ccbfc6
+The port assigned to this node is 50263
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_c00a1fae-3682-4752-85a5-e94cb47e262a
+The port assigned to this node is 50268
+no of nodes that have registered with the server is 2
+A new node registers with the server:producer_1f52cb97-7629-4fdd-9cb9-aafb19888b26
+The port assigned to this node is 50281
+no of nodes that have registered with the server is 1
+A new node registers with the server:consumer_a4404b2b-0c24-4c4a-a55c-db00cdf07cd3
+The port assigned to this node is 50286
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_9cf52723-f81c-4e20-bed0-ece1be0aaa89
+The port assigned to this node is 59966
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_f15ddabf-20c3-482a-86f2-e3797a0bf9de
+The port assigned to this node is 59971
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_95a6e13c-43b9-493a-8360-2287a5110b39
+The port assigned to this node is 59982
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_eddb191c-07b7-45aa-886c-94898159ad21
+The port assigned to this node is 59988
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_d145c2c5-9cd3-47ce-a53d-2cafc01572b3
+The port assigned to this node is 59996
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_753c4334-c7ff-447e-93fa-c8a6c249cb24
+The port assigned to this node is 60001
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_5cb9e2f6-36d3-4894-ae72-8d18b7d1bde6
+The port assigned to this node is 60010
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_3cff6432-d68f-432b-a239-33c42accd68c
+The port assigned to this node is 60015
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_372a8c64-263e-495f-a63e-674cd4c09423
+The port assigned to this node is 60031
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_2cd05ba7-8c48-4d90-9cdc-af777ffdf101
+The port assigned to this node is 60036
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_b92769ab-9b2b-43b0-a9a4-2108a75141b8
+The port assigned to this node is 60051
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_40941ce9-0303-43dc-a48a-af8012ab3c02
+The port assigned to this node is 60056
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_ba1d7201-8e97-44d7-ac45-8cdf3efaf2c3
+The port assigned to this node is 60066
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_1ea3f131-483e-4372-a9a1-7f131edbaae2
+The port assigned to this node is 60072
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_ff5ef2c4-e694-4720-ad55-a068570bedaf
+The port assigned to this node is 61104
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_99b65740-5e15-4274-a84e-798ef0a2cd86
+The port assigned to this node is 61109
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_2dd14699-fff0-4a57-a7f4-7c9626b87fbf
+The port assigned to this node is 61163
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_c7bd9835-6823-4a43-8462-4573dfe48634
+The port assigned to this node is 61168
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_9e0eacce-945a-466d-b4fc-62de30619fda
+The port assigned to this node is 61197
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_d1d41953-1942-411e-a55d-60c8b389e269
+The port assigned to this node is 61202
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_e71c6975-188f-4745-8f99-f44e6c82e976
+The port assigned to this node is 61217
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_4e6986a8-5e26-4e99-abdb-9f468502f2b5
+The port assigned to this node is 61222
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_483461a2-f77c-4ea3-9653-36c704160899
+The port assigned to this node is 61233
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_a331ebd3-31bb-4e9b-b632-171fda8df85e
+The port assigned to this node is 61238
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_94f5fbd6-5f6c-4815-aaa1-199e5597ecfc
+The port assigned to this node is 61250
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_86502c4a-9337-4464-a70e-740fac8388c6
+The port assigned to this node is 61256
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_247ba3bd-3456-44bb-9e5c-25e21f197e47
+The port assigned to this node is 61277
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_b5a0f243-b1b1-4dc9-894e-d5c50eec5098
+The port assigned to this node is 61282
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_99970bd4-289a-4149-863c-50c88bbdfefb
+The port assigned to this node is 61369
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_471553c2-e7ad-4881-b459-d750fe4894c3
+The port assigned to this node is 61374
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_fae2dfb2-ff12-4f52-a480-bdf044cd1924
+The port assigned to this node is 61420
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_9c95ac31-97df-4531-9268-cecbe28556bb
+The port assigned to this node is 61425
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_50f8588b-c147-4eb4-81a8-be4dfbbf816c
+The port assigned to this node is 61449
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_350afc20-e2d1-447e-a085-f65221f37d60
+The port assigned to this node is 61454
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_edb455c0-9482-4bf6-837e-d110dea44ad4
+The port assigned to this node is 61467
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_04c4e227-0038-4621-8d33-11dffa1ba1c1
+The port assigned to this node is 61472
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_1ada59e1-7fc2-4899-ae72-b043ace34a7e
+The port assigned to this node is 61484
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_81883729-c3f4-473d-885f-9bdd0ac56d33
+The port assigned to this node is 61489
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_30d1a8e6-ed42-4f2f-ada6-10b2ebb33bc8
+The port assigned to this node is 61500
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_89103249-af24-4bfd-9703-e4d546899cde
+The port assigned to this node is 61505
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_875ac56f-922a-4242-bc04-5fafc1be5369
+The port assigned to this node is 61519
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_09b113b1-5248-4654-bc91-27ddb4c957ef
+The port assigned to this node is 61524
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_9b01b588-8824-4c85-a3c6-20d9e40950fa
+The port assigned to this node is 61537
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_56433d00-8b08-4c7e-9636-e3491fc08125
+The port assigned to this node is 61542
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_9236077d-dcd5-43e7-b7ef-8ba59459643c
+The port assigned to this node is 61555
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_002fa966-6c91-4d41-b081-d9abe58c0e10
+The port assigned to this node is 61560
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_b8157c5d-8b84-4a4b-9227-09cad5fb5959
+The port assigned to this node is 62273
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_fdf542fe-8c56-427b-a4a4-83f0758ae0cc
+The port assigned to this node is 62278
+no of nodes that have registered with the server is 2
+A new node registers with the server:consumer_9e074fb5-8549-415a-b0a5-de8b122199af
+The port assigned to this node is 62303
+no of nodes that have registered with the server is 1
+A new node registers with the server:producer_8a42709b-bfe0-412a-8700-2931b2209ec0
+The port assigned to this node is 62309
+no of nodes that have registered with the server is 2

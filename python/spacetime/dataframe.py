@@ -1,7 +1,9 @@
 from multiprocessing import RLock, Queue, Process
-from threading import Thread
+from threading import Thread, Event
+import queue
 import traceback
 import time
+
 
 from spacetime.managers.connectors.np_socket_manager import NPSocketServer, NPSocketConnector
 from spacetime.managers.connectors.asyncio_socket_manager import AIOSocketServer, AIOSocketConnector
@@ -62,6 +64,9 @@ class Dataframe(object):
         self.write_lock = RLock()
 
         self.versioned_heap = None
+        self.communication_queue = queue.Queue()
+        self.communication_thread = Thread(target=self.communication_run)
+        self.communication_thread.start()
 
         # This is the dataframe's versioned graph.
         self.versioned_heap = FullStateVersionManager(
@@ -72,7 +77,6 @@ class Dataframe(object):
             self.socket_connector = None
             if details:
                 self.socket_connector = DebuggerSocketConnector(self.appname, details)
-
             self.socket_server.start()
         else:
             if connection_as == enums.ConnectionStyle.TSocket:
@@ -93,11 +97,21 @@ class Dataframe(object):
             self.appname, details, self.details, types,
             self.instrument_record)
 
-
-
             self.socket_server.start()
+            print(self.appname, self.socket_server.getName())
             if self.socket_connector.has_parent_connection:
                 self.pull()
+
+    def communication_run(self):
+        while True:
+            req = self.communication_queue.get()
+            if req[0] == "FETCH":
+                self._execute_fetch()
+                req[1].set()
+
+            elif req[0] == "PUSH":
+                self._execute_push()
+                req[1].set()
 
     # Suppport Functions
 
@@ -206,8 +220,13 @@ class Dataframe(object):
         return True
 
     # Push and Pull
-    @instrument_func("push")
     def push(self):
+        e = Event()
+        self.communication_queue.put(("PUSH", e))
+        e.wait()
+
+    @instrument_func("push")
+    def _execute_push(self):
         if self.socket_connector.has_parent_connection:
             self.logger.debug("Push request started.")
             with self.write_lock:
@@ -247,8 +266,13 @@ class Dataframe(object):
                         "SOCKETPARENT", version)
                 self.logger.debug("Push request registered.")
 
-    @instrument_func("fetch")
     def fetch(self):
+        e = Event()
+        self.communication_queue.put(("FETCH", e))
+        e.wait()
+
+    @instrument_func("fetch")
+    def _execute_fetch(self):
         if self.socket_connector.has_parent_connection:
             self.logger.debug("Pull request started.")
             package, version = self.socket_connector.pull_req()

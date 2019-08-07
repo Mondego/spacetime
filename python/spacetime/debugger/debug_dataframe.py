@@ -1,6 +1,7 @@
 from spacetime.dataframe import Dataframe
 from threading import Thread
-from spacetime.debugger.debugger_types import CommitObj,FetchObj, AcceptFetchObj, CheckoutObj, PushObj, AcceptPushObj
+from spacetime.debugger.debugger_types import CommitObj,FetchObj, AcceptFetchObj, CheckoutObj, PushObj, AcceptPushObj, \
+    DNode, DEdge
 from spacetime.managers.connectors.debugger_socket_manager import DebuggerSocketServer, DebuggerSocketConnector
 import traceback
 import cbor
@@ -43,6 +44,7 @@ class DebugDataframe(object):
                                     with self.application_df.write_lock:
                                         self.application_df.garbage_collect(obj.sender_node, obj.to_version)
                                         print("Receiver completed garbage collect")
+                                        obj.complete_GC()
                                 except Exception as e:
                                     print(e)
                                     print(traceback.format_exc())
@@ -120,8 +122,6 @@ class DebugDataframe(object):
                 print("GC is Complete")
                 self.debugger_df.commit()
                 self.debugger_df.push()
-
-
 
     def commit(self):
         print("the node wants to commit")

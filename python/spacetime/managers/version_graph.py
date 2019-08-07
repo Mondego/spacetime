@@ -1,7 +1,17 @@
 from multiprocessing import RLock
+
+from rtypes import pcc_set, primarykey, dimension, merge
+
+import uuid
 from copy import deepcopy
 
+#@pcc_set
 class Node(object):
+
+    #oid = primarykey(str)
+    #current = dimension(str)
+    #is_master = dimension(bool)
+
     def __eq__(self, other):
         return other.current == self.current
 
@@ -9,6 +19,7 @@ class Node(object):
         return hash(self.current)
 
     def __init__(self, current, is_master):
+        self.oid = str(uuid.uuid4())
         self.current = current
         self.prev_master = None
         self.next_master = None
@@ -26,9 +37,16 @@ class Node(object):
             self.prev_master = version
         self.all_prev.add(version)
 
-
+#@pcc_set
 class Edge(object):
+
+    #oid = primarykey(str)
+    #from_node = dimension(str)
+    #to_node = dimension(str)
+    #payload = dimension(dict)
+
     def __init__(self, from_node, to_node, payload):
+        self.oid = str(uuid.uuid4())
         self.from_node = from_node
         self.to_node = to_node
         self.payload = payload

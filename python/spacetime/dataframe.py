@@ -71,7 +71,7 @@ class Dataframe(object):
         # This is the dataframe's versioned graph.
         self.versioned_heap = FullStateVersionManager(
             self.appname, types, dump_graph,
-            self.instrument_record, resolver, autoresolve, mem_instrument)
+            self.instrument_record, resolver, autoresolve, mem_instrument, debug=use_debugger_sockets)
         if use_debugger_sockets:
             self.socket_server = DebuggerSocketServer(self.appname, server_port)
             self.socket_connector = None

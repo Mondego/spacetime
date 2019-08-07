@@ -329,7 +329,7 @@ class FullStateVersionManager(VersionManager):
     def __init__(
             self, appname, types,
             dump_graph=None, instrument_record=None, resolver=None, 
-            autoresolve=AutoResolve.FullResolve, mem_instrument=False):
+            autoresolve=AutoResolve.FullResolve, mem_instrument=False, debug=False):
         self.appname = appname
         self.types = types
         self.type_map = {tp.__r_meta__.name: tp for tp in types}
@@ -342,6 +342,7 @@ class FullStateVersionManager(VersionManager):
         self.resolver = resolver
         self.autoresolve = autoresolve
         self.mem_instrument = mem_instrument
+        self.debug = debug
         if mem_instrument:
             self.mem_usage = list()
             self.record_mem_usage()
@@ -375,7 +376,10 @@ class FullStateVersionManager(VersionManager):
         self.maintain(appname, end_v)
         if self.mem_instrument:
             self.record_mem_usage()
+        if self.debug:
+            return self.version_graph.nodes, self.version_graph.edges
         return True
+
 
     def retrieve_data(self, appname, version):
         data, version_change = self.retrieve_data_nomaintain(version)

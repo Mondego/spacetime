@@ -1,6 +1,6 @@
 from uuid import uuid4
 from rtypes.utils.converter import convert, unconvert
-
+import json
 
 class RtypesTable(object):
     def __init__(self, cls):
@@ -14,7 +14,12 @@ class RtypesTable(object):
         return self.object_table[oid]
 
     def set(self, oid, dimname, dim_obj, value):
-        if not isinstance(value, dim_obj.dim_type):
+        dict_json_match = dim_obj.dim_type == json and isinstance(value, dict)
+        if not dict_json_match and (dim_obj.dim_type == json and not isinstance(value, dict)):
+            raise TypeError(
+                "{0} is not of type {1}".format(
+                    repr(value), dim_obj.dim_type.__name__))
+        elif not dict_json_match and not isinstance(value, dim_obj.dim_type):
             # No ducktyping :D
             raise TypeError(
                 "{0} is not of type {1}".format(
@@ -57,9 +62,13 @@ class RtypesTable(object):
     def get(self, oid, dimname, dim_obj):
         if oid in self.store_as_temp and dimname in self.store_as_temp[oid]:
             return unconvert(self.store_as_temp[oid][dimname], dim_obj.dim_type)
-        if oid not in self.object_table and dimname not in self.object_table[oid]:
-            # Value has not been assigned.
-            raise AttributeError("{0} has not been assigned a value.".format(dimname))
+        try:
+            if oid not in self.object_table or dimname not in self.object_table[oid]:
+                # Value has not been assigned.
+                raise AttributeError("{0} has not been assigned a value.".format(dimname))
+        except Exception:
+            print(oid, dimname, self.object_table, dim_obj.dim_type, self.obj_type)
+            raise
         # return value from local table.
         
         return unconvert(self.object_table[oid][dimname], dim_obj.dim_type)

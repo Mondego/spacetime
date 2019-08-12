@@ -329,11 +329,11 @@ class FullStateVersionManager(VersionManager):
     def __init__(
             self, appname, types,
             dump_graph=None, instrument_record=None, resolver=None, 
-            autoresolve=AutoResolve.FullResolve, mem_instrument=False, debug=False):
+            autoresolve=AutoResolve.FullResolve, mem_instrument=False, debug=None):
         self.appname = appname
         self.types = types
         self.type_map = {tp.__r_meta__.name: tp for tp in types}
-        self.version_graph = Graph()
+        self.version_graph = Graph(debug)
         self.state_to_app = dict()
         self.app_to_state = dict()
         self.logger = utils.get_logger("%s_FullStateVersionManager" % appname)
@@ -356,6 +356,9 @@ class FullStateVersionManager(VersionManager):
         self.state_to_app.setdefault(end_v, set()).add(appname)
 
     def receive_data(self, appname, versions, package, from_external=True):
+        new_nodes =list()
+        new_edges = list()
+        modified_edges = list()
         start_v, end_v = versions
         if start_v == end_v:
             # The versions are the same, lets ignore.
@@ -376,8 +379,6 @@ class FullStateVersionManager(VersionManager):
         self.maintain(appname, end_v)
         if self.mem_instrument:
             self.record_mem_usage()
-        if self.debug:
-            return self.version_graph.nodes, self.version_graph.edges
         return True
 
 

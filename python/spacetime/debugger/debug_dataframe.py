@@ -55,8 +55,10 @@ class DebugDataframe(object):
 
     def __init__(self, df, appname, types, server_port, parent_details):
         print(appname, types, server_port, parent_details)
+        self.dnodes = list()
+        self.dedges = list()
         self.application_df = Dataframe(appname, types, details=parent_details, server_port=server_port,
-                                        use_debugger_sockets=True)
+                                        use_debugger_sockets=df)
         print("application dataframe details", self.application_df.details)
         self.debugger_df = df
         print("debugger dataframe details", self.debugger_df.details)
@@ -250,3 +252,5 @@ class DebugDataframe(object):
             print (e)
             print(traceback.format_exc())
             raise
+
+

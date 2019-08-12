@@ -385,8 +385,8 @@ class DNode(object):
     current = dimension(str)
     is_master = dimension(bool)
 
-    def __init__(self, current, is_master):
-        self.oid = str(uuid.uuid4())
+    def __init__(self, oid,current, is_master):
+        self.oid = oid
         self.current = current
         self.is_master = is_master
 
@@ -398,8 +398,8 @@ class DEdge(object):
     to_node = dimension(str)
     payload = dimension(dict)
 
-    def __init__(self, from_node, to_node, payload):
-        self.oid = str(uuid.uuid4())
+    def __init__(self, oid, from_node, to_node, payload):
+        self.oid = oid
         self.from_node = from_node
         self.to_node = to_node
         self.payload = payload

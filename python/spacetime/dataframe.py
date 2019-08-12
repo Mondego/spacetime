@@ -40,7 +40,7 @@ class Dataframe(object):
             connection_as=enums.ConnectionStyle.TSocket,
             instrument=None, dump_graph=None, resolver=None,
             autoresolve=enums.AutoResolve.FullResolve,
-            mem_instrument=False, use_debugger_sockets=False):
+            mem_instrument=False, use_debugger_sockets=None):
         self.appname = appname
         self.logger = utils.get_logger("%s_Dataframe" % appname)
         self.instrument = instrument

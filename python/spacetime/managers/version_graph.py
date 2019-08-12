@@ -2,15 +2,15 @@ from multiprocessing import RLock
 
 from rtypes import pcc_set, primarykey, dimension, merge
 
-import uuid
+import uuid, json
 from copy import deepcopy
 
-#@pcc_set
+@pcc_set
 class Node(object):
 
-    #oid = primarykey(str)
-    #current = dimension(str)
-    #is_master = dimension(bool)
+    oid = primarykey(str)
+    current = dimension(str)
+    is_master = dimension(bool)
 
     def __eq__(self, other):
         return other.current == self.current
@@ -18,7 +18,7 @@ class Node(object):
     def __hash__(self):
         return hash(self.current)
 
-    def __init__(self, current, is_master):
+    def __init__(self, current, is_master, debug):
         self.oid = str(uuid.uuid4())
         self.current = current
         self.prev_master = None
@@ -26,6 +26,8 @@ class Node(object):
         self.all_prev = set()
         self.all_next = set()
         self.is_master = is_master
+        if debug:
+            debug.add_one(Node, self)
 
     def set_next(self, version):
         if self.next_master is None:
@@ -37,27 +39,30 @@ class Node(object):
             self.prev_master = version
         self.all_prev.add(version)
 
-#@pcc_set
+@pcc_set
 class Edge(object):
 
-    #oid = primarykey(str)
-    #from_node = dimension(str)
-    #to_node = dimension(str)
-    #payload = dimension(dict)
+    oid = primarykey(str)
+    from_node = dimension(str)
+    to_node = dimension(str)
+    payload = dimension(json)
 
-    def __init__(self, from_node, to_node, payload):
+    def __init__(self, from_node, to_node, payload, debug):
         self.oid = str(uuid.uuid4())
         self.from_node = from_node
         self.to_node = to_node
         self.payload = payload
+        if debug:
+            debug.add_one(Edge, self)
 
 
 class Graph(object):
-    def __init__(self):
-        self.tail = Node("ROOT", True)
+    def __init__(self, debug=None):
+        self.tail = Node("ROOT", True, debug)
         self.head = self.tail
         self.nodes = {"ROOT": self.tail}
         self.edges = dict()
+        self.debug = debug
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -91,14 +96,14 @@ class Graph(object):
     def continue_chain(
             self, from_version, to_version, package, force_branch=False):
         from_version_node = self.nodes.setdefault(
-            from_version, Node(from_version, from_version == self.head.current))
+            from_version, Node(from_version, from_version == self.head.current, self.debug))
 
         to_version_node = self.nodes.setdefault(
             to_version, Node(
-                to_version, (not force_branch) and from_version == self.head.current))
+                to_version, (not force_branch) and from_version == self.head.current, self.debug))
         to_version_node.set_prev(from_version)
 
-        edge = Edge(from_version, to_version, package)
+        edge = Edge(from_version, to_version, package, self.debug)
         self.edges[(from_version, to_version)] = edge
 
         from_version_node.set_next(to_version)
@@ -143,7 +148,7 @@ class Graph(object):
             return
         if (node.prev_master, node.next_master) not in self.edges:
             self.edges[(node.prev_master, node.next_master)] = Edge(
-                node.prev_master, node.next_master, new_payload)
+                node.prev_master, node.next_master, new_payload, self.debug)
         else:
             # Figure out how to avoid this computation.
             assert self.edges[(node.prev_master,
@@ -177,19 +182,19 @@ class Graph(object):
 
     def maintain(self, state_to_ref, merger_function):
         # Delete edges that are useless.
-        c = deepcopy(self.nodes), deepcopy(self.edges)
+        # c = deepcopy(self.nodes), deepcopy(self.edges)
         self.maintain_edges()
         # Merge nodes that are chaining without anyone looking at them
         # First divergent.
         self.maintain_nodes(state_to_ref, merger_function, False)
         # The master line.
         self.maintain_nodes(state_to_ref, merger_function, True)
-        if any(n.prev_master is None and n.current != "ROOT" for n in self.nodes.values()):
-            self.nodes, self.edges = c
-            self.maintain_edges()
-            # Merge nodes that are chaining without anyone looking at them
-            # First divergent.
-            self.maintain_nodes(state_to_ref, merger_function, False)
-            # The master line.
-            self.maintain_nodes(state_to_ref, merger_function, True)
-        return
+        # if any(n.prev_master is None and n.current != "ROOT" for n in self.nodes.values()):
+        #     self.nodes, self.edges = c
+        #     self.maintain_edges()
+        #     # Merge nodes that are chaining without anyone looking at them
+        #     # First divergent.
+        #     self.maintain_nodes(state_to_ref, merger_function, False)
+        #     # The master line.
+        #     self.maintain_nodes(state_to_ref, merger_function, True)
+        # return

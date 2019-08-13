@@ -3,7 +3,7 @@ from threading import Thread, Condition
 import traceback
 import time
 
-from readerwriterlock.rwlock import RWLockRead
+from readerwriterlock.rwlock import RWLockRead as RWLock
 
 from spacetime.managers.connectors.np_socket_manager import NPSocketServer, NPSocketConnector
 from spacetime.managers.connectors.asyncio_socket_manager import AIOSocketServer, AIOSocketConnector
@@ -78,7 +78,7 @@ class Dataframe(object):
         
         # THis is the local snapshot.
         self.local_heap = ManagedHeap(types)
-        self.write_lock = RWLockRead()
+        self.write_lock = RWLock()
         self.versioned_heap = None
 
         # This is the dataframe's versioned graph.
@@ -167,9 +167,8 @@ class Dataframe(object):
                 self.local_heap.version)
         if self.local_heap.receive_data(data, versions):
             # Can be carefully made Async.
-            with self.write_lock.gen_wlock():
-                self.versioned_heap.data_sent_confirmed(
-                    self.appname, versions)
+            self.versioned_heap.data_sent_confirmed(
+                self.appname, versions)
 
     @instrument_func("checkout_await")
     def checkout_await(self, timeout=0):
@@ -186,8 +185,7 @@ class Dataframe(object):
             with self.graph_change_event:
                 self.graph_change_event.notify_all()
             if succ:
-                with self.write_lock.gen_wlock():
-                    self.local_heap.data_sent_confirmed(versions)
+                self.local_heap.data_sent_confirmed(versions)
 
     def sync(self):
         self.commit()
@@ -213,9 +211,8 @@ class Dataframe(object):
 
             if self.socket_connector.push_req(data, version):
                 self.logger.debug("Push request completed.")
-                with self.write_lock.gen_wlock():
-                    self.versioned_heap.data_sent_confirmed(
-                        "SOCKETPARENT", version)
+                self.versioned_heap.data_sent_confirmed(
+                    "SOCKETPARENT", version)
                 self.logger.debug("Push request registered.")
     
     @instrument_func("push_await")
@@ -234,9 +231,8 @@ class Dataframe(object):
             if self.socket_connector.push_req(
                     data, version, wait=True):
                 self.logger.debug("Push request completed.")
-                with self.write_lock.gen_wlock():
-                    self.versioned_heap.data_sent_confirmed(
-                        "SOCKETPARENT", version)
+                self.versioned_heap.data_sent_confirmed(
+                    "SOCKETPARENT", version)
                 self.logger.debug("Push request registered.")
 
     @instrument_func("fetch")
@@ -300,8 +296,7 @@ class Dataframe(object):
     @instrument_func("confirm_fetch")
     def confirm_fetch_req(self, appname, version):
         try:
-            with self.write_lock.gen_wlock():
-                self.versioned_heap.data_sent_confirmed(appname, version)
+            self.versioned_heap.data_sent_confirmed(appname, version)
         except Exception as e:
             print (e)
             print(traceback.format_exc())

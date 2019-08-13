@@ -287,25 +287,29 @@ class VersionManager(object):
         change["types"].update(new["types"])
         return change
 
-    def maintain(
-            self, state_to_app, app_to_state,
-            graph, appname, end_v):
+    def update_refs(
+        self, state_to_app, app_to_state,
+        appname, end_v):
         # reset the state markers.
         state_to_app.setdefault(end_v, set()).add(appname)
         if appname in app_to_state:
             if app_to_state[appname] == end_v:
                 self.logger.debug("Don't need to maintain.")
-                return
+                return False
             old_v = app_to_state[appname]
             state_to_app[old_v].remove(appname)
             if not state_to_app[old_v]:
                 del state_to_app[old_v]
         app_to_state[appname] = end_v
+        return True
+        
+    def maintain(
+            self, state_to_app, app_to_state,
+            graph, appname, end_v):
         self.logger.debug(
             "Maintaining with {0}, {1}".format(
                 app_to_state, state_to_app))
         # Clean up states.
-
         graph.maintain(state_to_app, utils.merge_state_delta)
         if self.dump_graphs:
             self.dump(self.dump_graphs, graph)
@@ -393,7 +397,10 @@ class FullStateVersionManager(VersionManager):
 
     def data_sent_confirmed(self, app, version):
         if version[0] != version[1]:
-            self.maintain(app, version[1])
+            super().update_refs(
+                self.state_to_app, self.app_to_state,
+                app, version[1])
+            #self.maintain(app, version[1])
             if self.mem_instrument:
                 self.record_mem_usage()
         
@@ -425,9 +432,12 @@ class FullStateVersionManager(VersionManager):
                     break
 
     def maintain(self, appname, end_v):
-        super().maintain(
+        if super().update_refs(
             self.state_to_app, self.app_to_state,
-            self.version_graph, appname, end_v)
+            appname, end_v):
+            super().maintain(
+                self.state_to_app, self.app_to_state,
+                self.version_graph, appname, end_v)
         if self.instrument_record:
             self.instrument_record.put(
                 ("MEMORY", "{0}\t{1}\t{2}\n".format(time.time(), len(self.version_graph.nodes), len(self.version_graph.edges))))

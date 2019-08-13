@@ -289,7 +289,7 @@ class VersionManager(object):
 
     def maintain(
             self, state_to_app, app_to_state,
-            graph, appname, end_v, merge_func):
+            graph, appname, end_v):
         # reset the state markers.
         state_to_app.setdefault(end_v, set()).add(appname)
         if appname in app_to_state:
@@ -306,7 +306,7 @@ class VersionManager(object):
                 app_to_state, state_to_app))
         # Clean up states.
 
-        graph.maintain(state_to_app, merge_func)
+        graph.maintain(state_to_app, utils.merge_state_delta)
         if self.dump_graphs:
             self.dump(self.dump_graphs, graph)
 
@@ -386,9 +386,10 @@ class FullStateVersionManager(VersionManager):
         merged = dict()
         if version not in self.version_graph.nodes:
             return merged, [version, version]
-        for delta in self.version_graph[version:]:
+        next_version = version
+        for next_version, delta in self.version_graph[version:]:
             merged = utils.merge_state_delta(merged, delta)
-        return merged, [version, self.version_graph.head.current]
+        return merged, [version, next_version]
 
     def data_sent_confirmed(self, app, version):
         if version[0] != version[1]:
@@ -410,7 +411,7 @@ class FullStateVersionManager(VersionManager):
 
     def _read_dimension_at(self, version, dtype, oid, dimname):
         dtpname = dtype.__r_meta__.name
-        for change in self.version_graph[version::-1]:
+        for _, change in self.version_graph[version::-1]:
             if dtpname in change and oid in change[dtpname]:
                 if ("dims" in change[dtpname][oid]
                         and dimname in change[dtpname][oid]["dims"]):
@@ -426,7 +427,7 @@ class FullStateVersionManager(VersionManager):
     def maintain(self, appname, end_v):
         super().maintain(
             self.state_to_app, self.app_to_state,
-            self.version_graph, appname, end_v, utils.merge_state_delta)
+            self.version_graph, appname, end_v)
         if self.instrument_record:
             self.instrument_record.put(
                 ("MEMORY", "{0}\t{1}\t{2}\n".format(time.time(), len(self.version_graph.nodes), len(self.version_graph.edges))))

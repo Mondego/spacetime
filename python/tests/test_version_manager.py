@@ -1,5 +1,6 @@
 from uuid import uuid4
 import unittest
+import time
 
 from spacetime.managers.version_manager import FullStateVersionManager
 from rtypes.types.pcc_set import pcc_set
@@ -148,6 +149,7 @@ class TestFullStateVersionManager(unittest.TestCase):
         self.assertEqual(package1, edge1.payload)
 
         vm.receive_data("TEST_APP", ["0", "1"], package2)
+        #time.sleep(0.01)
         node2 = vg.head
         self.assertEqual("1", node2.current)
         self.assertEqual("ROOT", node2.prev_master)
@@ -250,7 +252,7 @@ class TestFullStateVersionManager(unittest.TestCase):
         vm.receive_data("TEST_APP2", ["0", "1"], package2)
         vm.receive_data("TEST_APP1", ["0", "2"], package4)
         vm.data_sent_confirmed("TEST_APP1", ["0", vg.head.current])
-
+        #time.sleep(0.01)
         self.assertSetEqual(
             set(["ROOT", "1", vg.head.current]), set(vg.nodes.keys()))
         self.check_nodes(
@@ -272,7 +274,7 @@ class TestFullStateVersionManager(unittest.TestCase):
              ("1", vg.head.current, package4)])
 
         vm.data_sent_confirmed("TEST_APP2", ["0", vg.head.current])
-
+        #time.sleep(0.01)
         self.assertSetEqual(
             set(["ROOT", vg.head.current]), set(vg.nodes.keys()))
         self.check_nodes(

@@ -33,7 +33,6 @@ class Edge(object):
         self.to_node = to_node
         self.payload = payload
 
-
 class Graph(object):
     def __init__(self):
         self.tail = Node("ROOT", True)
@@ -57,6 +56,8 @@ class Graph(object):
                 end = self.tail
             else:
                 end = self.head
+
+            # Start and end are concurrent safe as it cannot be GCed yet.
             current = start
             while current != end:
                 if step_reverse:
@@ -65,26 +66,31 @@ class Graph(object):
                 else:
                     edge = self.edges[(current.current, current.next_master)]
                     current = self.nodes[current.next_master]
-                yield edge.payload
+                yield current.current, edge.payload
             return
         else:
             raise RuntimeError("Cannot deal with non slice operators.")
 
     def continue_chain(
             self, from_version, to_version, package, force_branch=False):
+        # The only thing that read would need is the head and that is changed
+        # last. So this is concurrent safe.
+        # Existing nodes and edges are not deleted here.
         from_version_node = self.nodes.setdefault(
             from_version, Node(from_version, from_version == self.head.current))
 
         to_version_node = self.nodes.setdefault(
             to_version, Node(
-                to_version, (not force_branch) and from_version == self.head.current))
+                to_version,
+                (not force_branch) and from_version == self.head.current))
+                
         to_version_node.set_prev(from_version)
 
         edge = Edge(from_version, to_version, package)
         self.edges[(from_version, to_version)] = edge
 
         from_version_node.set_next(to_version)
-        if from_version == self.head.current:
+        if from_version_node == self.head:
             self.head = to_version_node
         return
 
@@ -110,34 +116,44 @@ class Graph(object):
 
 
     def merge_node(self, node, merger_function):
-        del self.nodes[node.current]
+        '''Node has to be deleted.'''
+
+        # new_payload is the merged diff that bypasses this node.
         old_change = self.edges[(node.prev_master, node.current)].payload
         new_change = self.edges[(node.current, node.next_master)].payload
         new_payload = merger_function(old_change, new_change)
-
-        del self.edges[(node.prev_master, node.current)]
-        del self.edges[(node.current, node.next_master)]
         self.nodes[node.prev_master].all_next.remove(node.current)
         self.nodes[node.next_master].all_prev.remove(node.current)
-        if (self.nodes[node.prev_master].is_master
+        
+        if not (self.nodes[node.prev_master].is_master
                 and self.nodes[node.next_master].is_master and not node.is_master):
-            # This is a branch, that can be deleted.
-            return
-        if (node.prev_master, node.next_master) not in self.edges:
-            self.edges[(node.prev_master, node.next_master)] = Edge(
-                node.prev_master, node.next_master, new_payload)
-        else:
-            # Figure out how to avoid this computation.
-            assert self.edges[(node.prev_master,
-                               node.next_master)].payload == new_payload, (
-                   self.edges[(node.prev_master, node.next_master)].payload,
-                   new_payload)
-        if self.nodes[node.prev_master].next_master == node.current:
-            self.nodes[node.prev_master].next_master = node.next_master
-        self.nodes[node.prev_master].all_next.add(node.next_master)
-        if self.nodes[node.next_master].prev_master == node.current:
-            self.nodes[node.next_master].prev_master = node.prev_master
-        self.nodes[node.next_master].all_prev.add(node.prev_master)
+            # This is not a branch.
+            
+        
+            if (node.prev_master, node.next_master) not in self.edges:
+                # We add this edge.
+                self.edges[(node.prev_master, node.next_master)] = Edge(
+                    node.prev_master, node.next_master, new_payload)
+            else:
+                # Figure out how to avoid this computation.
+                assert self.edges[(node.prev_master,
+                                    node.next_master)].payload == new_payload, (
+                        self.edges[(node.prev_master, node.next_master)].payload,
+                        new_payload)
+            
+            if self.nodes[node.prev_master].next_master == node.current:
+                self.nodes[node.prev_master].next_master = node.next_master
+            self.nodes[node.prev_master].all_next.add(node.next_master)
+            if self.nodes[node.next_master].prev_master == node.current:
+                self.nodes[node.next_master].prev_master = node.prev_master
+            self.nodes[node.next_master].all_prev.add(node.prev_master)
+        # Else it is a branch.
+        # Either way, now that all the edges have been updated clearly.
+        # we can delete the edges as any reads will now not use the nodes and 
+        # edges that are being deleted. .
+        del self.edges[(node.prev_master, node.current)]
+        del self.nodes[node.current]
+        del self.edges[(node.current, node.next_master)]
 
     def maintain_nodes(self, state_to_ref, merger_function, master):
         mark_for_merge = set()
@@ -159,19 +175,11 @@ class Graph(object):
 
     def maintain(self, state_to_ref, merger_function):
         # Delete edges that are useless.
-        c = deepcopy(self.nodes), deepcopy(self.edges)
+        # Concurrency safe as these edges will never be accessed.
         self.maintain_edges()
         # Merge nodes that are chaining without anyone looking at them
         # First divergent.
         self.maintain_nodes(state_to_ref, merger_function, False)
         # The master line.
         self.maintain_nodes(state_to_ref, merger_function, True)
-        if any(n.prev_master is None and n.current != "ROOT" for n in self.nodes.values()):
-            self.nodes, self.edges = c
-            self.maintain_edges()
-            # Merge nodes that are chaining without anyone looking at them
-            # First divergent.
-            self.maintain_nodes(state_to_ref, merger_function, False)
-            # The master line.
-            self.maintain_nodes(state_to_ref, merger_function, True)
         return

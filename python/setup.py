@@ -22,7 +22,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='2.1.0',
+    version='2.1.1',
 
     description='Spacetime Node Framework',
     long_description='This is the implementation of spacetime and relational types in Python. See https://github.com/Mondego/spacetime',
@@ -79,7 +79,7 @@ setup(
     # your project is installed. For an analysis of "install_requires" vs pip's
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=['cbor'],
+    install_requires=['cbor', 'readerwriterlock'],
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). You can install these using the following syntax,

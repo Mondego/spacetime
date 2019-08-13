@@ -2,7 +2,7 @@ from uuid import uuid4
 import unittest
 
 from spacetime.managers.version_graph import Graph
-
+from spacetime.utils.utils import merge_state_delta
 
 class TestGraph(unittest.TestCase):
     def test_graph_init(self):

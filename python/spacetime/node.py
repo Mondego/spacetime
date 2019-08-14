@@ -69,7 +69,7 @@ def get_app(func, types, producer,
             self.instrument = instrument
             self.dump_graph = dump_graph
             self.connection_as = connection_as
-            self.resolver = None
+            self.resolver = resolver
             self.autoresolve = autoresolve
             self._ret_value = Queue()
             self.mem_instrument = mem_instrument
@@ -119,7 +119,7 @@ def get_app(func, types, producer,
                 connection_as=self.connection_as,
                 instrument=self.instrument,
                 dump_graph=self.dump_graph,
-                resolver=None,
+                resolver=self.resolver,
                 autoresolve=self.autoresolve,
                 mem_instrument=self.mem_instrument)
             #print(self.appname, self.all_types, details, df.details)
@@ -160,5 +160,5 @@ def Node(
     return app_cls(
         appname, dataframe=dataframe, server_port=server_port,
         instrument=instrument, dump_graph=dump_graph,
-        connection_as=connection_as, resolver=None,
+        connection_as=connection_as, resolver=resolver,
         autoresolve=autoresolve, mem_instrument=mem_instrument)

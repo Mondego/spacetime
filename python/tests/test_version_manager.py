@@ -2,7 +2,7 @@ from uuid import uuid4
 import unittest
 import time
 
-from spacetime.managers.version_manager import FullStateVersionManager
+from spacetime.managers.version_manager import VersionManager
 from rtypes.types.pcc_set import pcc_set
 from rtypes.attributes import dimension, primarykey
 from rtypes.utils.enums import Datatype
@@ -109,7 +109,7 @@ package5 = {
     }
 }
 
-class TestFullStateVersionManager(unittest.TestCase):
+class TestVersionManager(unittest.TestCase):
     def check_nodes(self, nodes, values):
         for curr, prev_m, next_m, all_prev, all_next, is_master in values:
             self.assertTrue(curr in nodes)
@@ -130,12 +130,12 @@ class TestFullStateVersionManager(unittest.TestCase):
             self.assertEqual(package, edge.payload)
 
     def test_vm_init(self):
-        vm = FullStateVersionManager("TEST", [Car])
+        vm = VersionManager("TEST", [Car])
         self.assertListEqual([Car], vm.types)
         self.assertDictEqual({Car.__r_meta__.name: Car}, vm.type_map)
 
     def test_vm_receive_data1(self):
-        vm = FullStateVersionManager("TEST", [Car])
+        vm = VersionManager("TEST", [Car])
         vg = vm.version_graph
 
         vm.receive_data("TEST_APP", ["ROOT", "0"], package1)
@@ -160,7 +160,7 @@ class TestFullStateVersionManager(unittest.TestCase):
         self.assertEqual(package3, edge2.payload)
 
     def test_vm_receive_data2(self):
-        vm = FullStateVersionManager("TEST", [Car])
+        vm = VersionManager("TEST", [Car])
         vg = vm.version_graph
 
         vm.receive_data("TEST_APP1", ["ROOT", "0"], package1)
@@ -214,7 +214,7 @@ class TestFullStateVersionManager(unittest.TestCase):
              ("2", node3.current, package2)])
         
     def test_vm_retrieve_data1(self):
-        vm = FullStateVersionManager("TEST", [Car])
+        vm = VersionManager("TEST", [Car])
         vg = vm.version_graph
 
         vm.receive_data("TEST_APP1", ["ROOT", "0"], package1)
@@ -246,7 +246,7 @@ class TestFullStateVersionManager(unittest.TestCase):
         self.assertListEqual(["2", vg.head.current], r_versions6)
 
     def test_vm_retrieve_data2(self):
-        vm = FullStateVersionManager("TEST", [Car])
+        vm = VersionManager("TEST", [Car])
         vg = vm.version_graph
         vm.receive_data("TEST_APP1", ["ROOT", "0"], package1)
         vm.receive_data("TEST_APP2", ["0", "1"], package2)
@@ -254,40 +254,60 @@ class TestFullStateVersionManager(unittest.TestCase):
         vm.data_sent_confirmed("TEST_APP1", ["0", vg.head.current])
         #time.sleep(0.01)
         self.assertSetEqual(
-            set(["ROOT", "1", vg.head.current]), set(vg.nodes.keys()))
+            set(["ROOT", "0", "1", "2", vg.head.current]), set(vg.nodes.keys()))
         self.check_nodes(
             vg.nodes,
-            [("ROOT", None, "1", set(), set(["1"]), True),
-             ("1", "ROOT", vg.head.current,
-              set(["ROOT"]), set([vg.head.current]), True),
-             (vg.head.current, "1", None, set(["1"]), set(), True)])
+            [("ROOT", None, "0", set(), set(["0"]), True),
+             ("0", "ROOT", "1", set(["ROOT"]), set(["1", "2"]), True),
+             ("1", "0", vg.head.current, set(["0"]), set([vg.head.current]), True),
+             ("2", "0", vg.head.current, set(["0"]), set([vg.head.current]), False),
+             (vg.head.current, "1", None, set(["1", "2"]), set(), True)])
 
         self.assertSetEqual(
             set([
-                ("ROOT", "1"),
-                ("1", vg.head.current)]),
+                ("ROOT", "0"),
+                ("0", "1"),
+                ("0", "2"),
+                ("1", vg.head.current),
+                ("2", vg.head.current)]),
             set(vg.edges.keys()))
         
         self.check_edges(
             vg.edges,
-            [("ROOT", "1", package3),
-             ("1", vg.head.current, package4)])
+            [("ROOT", "0", package1),
+             ("0", "1", package2),
+             ("0", "2", package4),
+             ("1", vg.head.current, package4),
+             ("2", vg.head.current, package2)])
 
         vm.data_sent_confirmed("TEST_APP2", ["0", vg.head.current])
         #time.sleep(0.01)
         self.assertSetEqual(
-            set(["ROOT", vg.head.current]), set(vg.nodes.keys()))
+            set(["ROOT", "0", "1", "2", vg.head.current]), set(vg.nodes.keys()))
         self.check_nodes(
             vg.nodes,
-            [("ROOT", None, vg.head.current,
-              set(), set([vg.head.current]), True),
-             (vg.head.current, "ROOT", None, set(["ROOT"]), set(), True)])
+            [("ROOT", None, "0", set(), set(["0"]), True),
+             ("0", "ROOT", "1", set(["ROOT"]), set(["1", "2"]), True),
+             ("1", "0", vg.head.current, set(["0"]), set([vg.head.current]), True),
+             ("2", "0", vg.head.current, set(["0"]), set([vg.head.current]), False),
+             (vg.head.current, "1", None, set(["1", "2"]), set(), True)])
 
         self.assertSetEqual(
-            set([("ROOT", vg.head.current)]),
+            set([
+                ("ROOT", "0"),
+                ("0", "1"),
+                ("0", "2"),
+                ("1", vg.head.current),
+                ("2", vg.head.current)]),
             set(vg.edges.keys()))
         
-        self.check_edges(vg.edges, [("ROOT", vg.head.current, package5)])
+        self.check_edges(
+            vg.edges,
+            [("ROOT", "0", package1),
+             ("0", "1", package2),
+             ("0", "2", package4),
+             ("1", vg.head.current, package4),
+             ("2", vg.head.current, package2)])
 
 
 if __name__ == "__main__":

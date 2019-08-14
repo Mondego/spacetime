@@ -642,15 +642,15 @@ class Counter(object):
         self.oid = oid
         self.count = 0
     
-    @merge
-    def merge_func(original, yours, theirs):
-        original.count = (yours.count + theirs.count) - original.count
-        return original
+    
+def counter_merge_func(original, yours, theirs):
+    original.count = (yours.count + theirs.count) - original.count
+    return original
 
 
 
 def server_df3(send_q, recv_q, server_ready, client_ready):
-    df = Dataframe("SERVER_TEST3", [Counter])
+    df = Dataframe("SERVER_TEST3", [Counter], resolver={Counter: counter_merge_func})
     send_q.put(df.details)
     client_name = recv_q.get()
     # The server goes first.
@@ -707,7 +707,7 @@ def server_df3(send_q, recv_q, server_ready, client_ready):
 
 def client_df3(send_q, recv_q, server_ready, client_ready):
     server_name = recv_q.get()
-    df = Dataframe("CLIENT_TEST", [Counter], details=server_name)
+    df = Dataframe("CLIENT_TEST", [Counter], details=server_name, resolver={Counter: counter_merge_func})
     send_q.put(df.details)
     #print ("Client at start:", df.versioned_heap.version_graph.nodes.keys())
     # Waiting at point C1
@@ -759,7 +759,7 @@ def client_df3(send_q, recv_q, server_ready, client_ready):
 
 
 def server_df4(send_q, recv_q, server_ready, client_ready):
-    df = Dataframe("SERVER_TEST4", [Car, Counter])
+    df = Dataframe("SERVER_TEST4", [Car, Counter], resolver={Counter: counter_merge_func})
     send_q.put(df.details)
     client_name = recv_q.get()
     # The server goes first.
@@ -817,7 +817,7 @@ def server_df4(send_q, recv_q, server_ready, client_ready):
 
 def client_df4(send_q, recv_q, server_ready, client_ready):
     server_name = recv_q.get()
-    df = Dataframe("CLIENT_TEST", [Counter], details=server_name)
+    df = Dataframe("CLIENT_TEST", [Counter], details=server_name, resolver={Counter: counter_merge_func})
     send_q.put(df.details)
     #print ("Client at start:", df.versioned_heap.version_graph.nodes.keys())
     # Waiting at point C1
@@ -1043,7 +1043,7 @@ class ClassWithCounter(object):
         self.counter = Counter(oid)
 
 def server_df6(send_q, recv_q, server_ready, client_ready):
-    df = Dataframe("SERVER_TEST6", [ClassWithCounter, Counter])
+    df = Dataframe("SERVER_TEST6", [ClassWithCounter, Counter], resolver={Counter: counter_merge_func})
     send_q.put(df.details)
     client_name = recv_q.get()
     # The server goes first.
@@ -1065,7 +1065,7 @@ def server_df6(send_q, recv_q, server_ready, client_ready):
 
 def client_df6(send_q, recv_q, server_ready, client_ready):
     server_name = recv_q.get()
-    df = Dataframe("CLIENT_TEST", [ClassWithCounter, Counter], details=server_name)
+    df = Dataframe("CLIENT_TEST", [ClassWithCounter, Counter], details=server_name, resolver={Counter: counter_merge_func})
     send_q.put(df.details)
     # Waiting at point C1
     server_ready.wait()
@@ -1095,12 +1095,12 @@ class Blocker(object):
         self.oid = oid
         self.prop = 0
 
-    @merge
-    def merge_func(original, yours, theirs):
-        return theirs
+
+def blocker_merge_func(original, yours, theirs):
+    return theirs
 
 def server_df7(send_q, recv_q, server_ready, client_ready):
-    df = Dataframe("SERVER_TEST7", [Blocker])
+    df = Dataframe("SERVER_TEST7", [Blocker], resolver={Blocker: blocker_merge_func})
     send_q.put(df.details)
     client_name = recv_q.get()
     # The server goes first.
@@ -1167,7 +1167,7 @@ def server_df7(send_q, recv_q, server_ready, client_ready):
 
 def client_df7(send_q, recv_q, server_ready, client_ready):
     server_name = recv_q.get()
-    df = Dataframe("CLIENT_TEST", [Blocker], details=server_name)
+    df = Dataframe("CLIENT_TEST", [Blocker], details=server_name, resolver={Blocker: blocker_merge_func})
     send_q.put(df.details)
     #print ("Client at start:", df.versioned_heap.version_graph.nodes.keys())
     # Waiting at point C1

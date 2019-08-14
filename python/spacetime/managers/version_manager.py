@@ -11,31 +11,23 @@ from spacetime.utils.enums import Event, AutoResolve
 import time
 from copy import deepcopy
 
-class VersionManager(object):
-    __metaclass__ = ABCMeta
+class VersionManager():
+    @property
+    def head(self):
+        return self.version_graph.head.current
 
-    @abstractmethod
-    def __init__(self, appname, types, dump_graph=None):
+    def __init__(
+            self, appname, types,
+            resolver=None, autoresolve=AutoResolve.FullResolve):
+        self.appname = appname
         self.types = types
         self.type_map = {tp.__r_meta__.name: tp for tp in types}
+        self.version_graph = Graph()
+        self.state_to_app = dict()
+        self.app_to_state = dict()
         self.logger = utils.get_logger("%s_VersionManager" % appname)
-        self.dump_graphs = dump_graph
-
-    @abstractmethod
-    def receive_data(self, appname, versions, package, from_external=True):
-        pass
-
-    @abstractmethod
-    def retrieve_data(self, appname, version):
-        pass
-
-    @abstractmethod
-    def data_sent_confirmed(self, app, version):
-        pass
-
-    @abstractmethod
-    def _read_dimension_at(self, version, dtype, oid, dimname):
-        pass
+        self.resolver = resolver
+        self.autoresolve = autoresolve
 
     def operational_transform(
             self, start, new_path, conflict_path, from_external):
@@ -94,14 +86,13 @@ class VersionManager(object):
         dtype = self.type_map[dtpname]
         obj_merge = dict()
         obj_conf_merge = dict()
-
         # dtpname event determines the base type's changes.
         event_new = new_obj_change["types"][dtpname]
         event_conf = conf_obj_change["types"][dtpname]
         if event_new is Event.New and event_conf is Event.New:
             # Both paths have created a new object.
             # Resolve that.
-            if dtype.__r_meta__.merge is not None:
+            if self.resolver and dtype in self.resolver:
                 new = self.make_temp_obj(
                         start, dtype, oid, with_change=new_obj_change)  # new
                 conflicting = self.make_temp_obj(
@@ -148,7 +139,7 @@ class VersionManager(object):
         elif (event_new is Event.Modification
                   and event_conf is Event.Modification):
             # resolve between two different modifications.
-            if dtype.__r_meta__.merge is not None:
+            if self.resolver and dtype in self.resolver:
                 new = self.make_temp_obj(
                         start, dtype, oid, with_change=new_obj_change)  # new
                 conflicting = self.make_temp_obj(
@@ -171,7 +162,7 @@ class VersionManager(object):
         elif event_new is Event.Modification and event_conf is Event.Delete:
             # resolve between an app modifyinbg it,
             # and another app deleting the object.
-            if dtype.__r_meta__.merge is not None:
+            if self.resolver and dtype in self.resolver:
                 new = self.make_temp_obj(
                         start, dtype, oid, with_change=new_obj_change)  # new
                 conflicting = None,  # conflicting
@@ -197,7 +188,7 @@ class VersionManager(object):
         elif event_new is Event.Delete and event_conf is Event.Modification:
             # resolve between an app modifyinbg it,
             # and another app deleting the object.
-            if dtype.__r_meta__.merge is not None:
+            if self.resolver and dtype in self.resolver:
                 new = None,  # new
                 conflicting = self.make_temp_obj(
                         start, dtype, oid,
@@ -223,7 +214,7 @@ class VersionManager(object):
     def resolve_with_custom_merge(
             self, dtype, oid, original, new, conflicting,
             new_obj_change, conf_obj_changes):
-        obj = dtype.__r_meta__.merge(original, new, conflicting)  # conflicting
+        obj = self.resolver[dtype](original, new, conflicting)  # conflicting
         dtpname = dtype.__r_meta__.name
         if obj:
             obj.__r_temp__.update(dtype.__r_table__.store_as_temp[oid])
@@ -287,74 +278,20 @@ class VersionManager(object):
         change["types"].update(new["types"])
         return change
 
-    def update_refs(
-        self, state_to_app, app_to_state,
-        appname, end_v):
+    def update_refs(self, appname, end_v):
         # reset the state markers.
-        state_to_app.setdefault(end_v, set()).add(appname)
-        if appname in app_to_state:
-            if app_to_state[appname] == end_v:
+        self.state_to_app.setdefault(end_v, set()).add(appname)
+        if appname in self.app_to_state:
+            if self.app_to_state[appname] == end_v:
                 self.logger.debug("Don't need to maintain.")
                 return False
-            old_v = app_to_state[appname]
-            state_to_app[old_v].remove(appname)
-            if not state_to_app[old_v]:
-                del state_to_app[old_v]
-        app_to_state[appname] = end_v
+            old_v = self.app_to_state[appname]
+            self.state_to_app[old_v].remove(appname)
+            if not self.state_to_app[old_v]:
+                del self.state_to_app[old_v]
+        self.app_to_state[appname] = end_v
         return True
         
-    def maintain(
-            self, state_to_app, app_to_state,
-            graph, appname, end_v):
-        self.logger.debug(
-            "Maintaining with {0}, {1}".format(
-                app_to_state, state_to_app))
-        # Clean up states.
-        graph.maintain(state_to_app, utils.merge_state_delta)
-        if self.dump_graphs:
-            self.dump(self.dump_graphs, graph)
-
-    def dump(self, folder, graph):
-        g = ["DiGraph G{"]
-        for node in graph.nodes:
-            g.append("\t\"{0}\"[color={1}];".format(node[:4], "red" if graph.nodes[node].is_master else "blue"))
-        for key in graph.edges:
-            g.append("\t\"{0}\" -> \"{1}\";".format(key[0][:4], key[1][:4]))
-        g.append("}")
-        gstr = "\n".join(g)
-        count = len(os.listdir(folder))
-        open(os.path.join(folder, "heap{}.dot".format(count)), "w").write(gstr)
-
-class FullStateVersionManager(VersionManager):
-    @property
-    def head(self):
-        return self.version_graph.head.current
-
-    def __init__(
-            self, appname, types,
-            dump_graph=None, instrument_record=None, resolver=None, 
-            autoresolve=AutoResolve.FullResolve, mem_instrument=False):
-        self.appname = appname
-        self.types = types
-        self.type_map = {tp.__r_meta__.name: tp for tp in types}
-        self.version_graph = Graph()
-        self.state_to_app = dict()
-        self.app_to_state = dict()
-        self.logger = utils.get_logger("%s_FullStateVersionManager" % appname)
-        self.dump_graphs = dump_graph
-        self.instrument_record = instrument_record
-        self.resolver = resolver
-        self.autoresolve = autoresolve
-        self.mem_instrument = mem_instrument
-        if mem_instrument:
-            self.mem_usage = list()
-            self.record_mem_usage()
-
-    def record_mem_usage(self):
-        self.mem_usage.append(
-            (time.time(), len(self.version_graph.edges),
-             sum(sys.getsizeof(cbor.dumps(e.payload)) for e in self.version_graph.edges.values())))
-
     def set_app_marker(self, appname, end_v):
         self.state_to_app.setdefault(end_v, set()).add(appname)
 
@@ -374,11 +311,8 @@ class FullStateVersionManager(VersionManager):
                 self.version_graph.continue_chain(start_v, end_v, package)
         else:
             self.version_graph.continue_chain(start_v, end_v, package)
-        if self.mem_instrument:
-            self.record_mem_usage()
+
         self.maintain(appname, end_v)
-        if self.mem_instrument:
-            self.record_mem_usage()
         return True
 
     def retrieve_data(self, appname, version):
@@ -397,13 +331,8 @@ class FullStateVersionManager(VersionManager):
 
     def data_sent_confirmed(self, app, version):
         if version[0] != version[1]:
-            super().update_refs(
-                self.state_to_app, self.app_to_state,
-                app, version[1])
+            self.update_refs(app, version[1])
             #self.maintain(app, version[1])
-            if self.mem_instrument:
-                self.record_mem_usage()
-        
 
     def resolve_conflict(self, start_v, end_v, package, from_external):
         new_v = self.version_graph.head.current
@@ -432,12 +361,5 @@ class FullStateVersionManager(VersionManager):
                     break
 
     def maintain(self, appname, end_v):
-        if super().update_refs(
-            self.state_to_app, self.app_to_state,
-            appname, end_v):
-            super().maintain(
-                self.state_to_app, self.app_to_state,
-                self.version_graph, appname, end_v)
-        if self.instrument_record:
-            self.instrument_record.put(
-                ("MEMORY", "{0}\t{1}\t{2}\n".format(time.time(), len(self.version_graph.nodes), len(self.version_graph.edges))))
+        if self.update_refs(appname, end_v):
+            self.version_graph.maintain(self.state_to_app, utils.merge_state_delta)

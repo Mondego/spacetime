@@ -8,7 +8,7 @@ from readerwriterlock.rwlock import RWLockRead as RWLock
 from spacetime.managers.connectors.np_socket_manager import NPSocketServer, NPSocketConnector
 from spacetime.managers.connectors.asyncio_socket_manager import AIOSocketServer, AIOSocketConnector
 from spacetime.managers.connectors.thread_socket_manager import TSocketServer, TSocketConnector
-from spacetime.managers.version_manager import FullStateVersionManager
+from spacetime.managers.version_manager import VersionManager
 from spacetime.managers.managed_heap import ManagedHeap
 from spacetime.managers.diff import Diff
 import spacetime.utils.enums as enums
@@ -82,9 +82,8 @@ class Dataframe(object):
         self.versioned_heap = None
 
         # This is the dataframe's versioned graph.
-        self.versioned_heap = FullStateVersionManager(
-            self.appname, types, dump_graph,
-            self.instrument_record, resolver, autoresolve, mem_instrument)
+        self.versioned_heap = VersionManager(
+            self.appname, types, resolver, autoresolve)
         self.socket_server.start()
         if self.socket_connector.has_parent_connection:
             self.pull()

@@ -3,8 +3,6 @@ from threading import Thread, Condition
 import traceback
 import time
 
-from readerwriterlock.rwlock import RWLockRead as RWLock
-
 from spacetime.managers.connectors.np_socket_manager import NPSocketServer, NPSocketConnector
 from spacetime.managers.connectors.asyncio_socket_manager import AIOSocketServer, AIOSocketConnector
 from spacetime.managers.connectors.thread_socket_manager import TSocketServer, TSocketConnector
@@ -78,7 +76,6 @@ class Dataframe(object):
         
         # THis is the local snapshot.
         self.local_heap = ManagedHeap(types)
-        self.write_lock = RWLock()
         self.versioned_heap = None
 
         # This is the dataframe's versioned graph.
@@ -106,11 +103,6 @@ class Dataframe(object):
                 ifile.write(record)
                 ifile.flush()
                 os.fsync(ifile.fileno())
-
-    def _mem_usage(self):
-        if self.versioned_heap.mem_instrument:
-            return self.versioned_heap.mem_usage
-        return list()
 
     def _create_package(self, appname, diff, start_version):
         return appname, [start_version, diff.version], diff
@@ -160,10 +152,9 @@ class Dataframe(object):
 
     @instrument_func("checkout")
     def checkout(self):
-        with self.write_lock.gen_rlock():
-            data, versions = self.versioned_heap.retrieve_data(
-                self.appname,
-                self.local_heap.version)
+        data, versions = self.versioned_heap.retrieve_data(
+            self.appname,
+            self.local_heap.version)
         if self.local_heap.receive_data(data, versions):
             # Can be carefully made Async.
             self.versioned_heap.data_sent_confirmed(
@@ -178,9 +169,8 @@ class Dataframe(object):
     def commit(self):
         data, versions = self.local_heap.retreive_data()
         if versions:
-            with self.write_lock.gen_wlock():
-                succ = self.versioned_heap.receive_data(
-                    self.appname, versions, data, from_external=False)
+            succ = self.versioned_heap.receive_data(
+                self.appname, versions, data, from_external=False)
             with self.graph_change_event:
                 self.graph_change_event.notify_all()
             if succ:
@@ -199,9 +189,8 @@ class Dataframe(object):
     def push(self):
         if self.socket_connector.has_parent_connection:
             self.logger.debug("Push request started.")
-            with self.write_lock.gen_rlock():
-                data, version = self.versioned_heap.retrieve_data(
-                    "SOCKETPARENT", self.socket_connector.parent_version)
+            data, version = self.versioned_heap.retrieve_data(
+                "SOCKETPARENT", self.socket_connector.parent_version)
             if version[0] == version[1]:
                 self.logger.debug(
                     "Push not required, "
@@ -218,9 +207,8 @@ class Dataframe(object):
     def push_await(self):
         if self.socket_connector.has_parent_connection:
             self.logger.debug("Push request started.")
-            with self.write_lock.gen_rlock():
-                data, version = self.versioned_heap.retrieve_data(
-                    "SOCKETPARENT", self.socket_connector.parent_version)
+            data, version = self.versioned_heap.retrieve_data(
+                "SOCKETPARENT", self.socket_connector.parent_version)
             if version[0] == version[1]:
                 self.logger.debug(
                     "Push not required, "
@@ -240,10 +228,9 @@ class Dataframe(object):
             self.logger.debug("Pull request started.")
             package, version = self.socket_connector.pull_req()
             self.logger.debug("Pull request completed.")
-            with self.write_lock.gen_wlock():
-                self.versioned_heap.receive_data(
-                    "SOCKETPARENT",
-                    version, package)
+            self.versioned_heap.receive_data(
+                "SOCKETPARENT",
+                version, package)
             self.logger.debug("Pull request applied.")
             with self.graph_change_event:
                 self.graph_change_event.notify_all()
@@ -259,10 +246,9 @@ class Dataframe(object):
                 self.logger.debug("Timed out fetch request.")
                 raise
             self.logger.debug("Pull request completed.")
-            with self.write_lock.gen_wlock():
-                self.versioned_heap.receive_data(
-                    "SOCKETPARENT",
-                    version, package)
+            self.versioned_heap.receive_data(
+                "SOCKETPARENT",
+                version, package)
             self.logger.debug("Pull request applied.")
             with self.graph_change_event:
                 self.graph_change_event.notify_all()
@@ -285,8 +271,7 @@ class Dataframe(object):
         try:
             if wait:
                 self._check_updated_since(version, timeout)
-            with self.write_lock.gen_rlock():
-                return self.versioned_heap.retrieve_data(appname, version)
+            return self.versioned_heap.retrieve_data(appname, version)
         except Exception as e:
             print (e)
             print(traceback.format_exc())
@@ -304,8 +289,7 @@ class Dataframe(object):
     @instrument_func("accept_push")
     def push_call_back(self, appname, versions, data):
         try:
-            with self.write_lock.gen_wlock():
-                resp = self.versioned_heap.receive_data(appname, versions, data)
+            resp = self.versioned_heap.receive_data(appname, versions, data)
             with self.graph_change_event:
                 self.graph_change_event.notify_all()
             return resp

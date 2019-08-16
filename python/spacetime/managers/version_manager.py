@@ -5,11 +5,12 @@ import sys
 from uuid import uuid4
 from abc import ABCMeta, abstractmethod
 from multiprocessing import Process, Queue
+from threading import RLock
 from spacetime.managers.version_graph import Graph
 import spacetime.utils.utils as utils
 from spacetime.utils.enums import Event, AutoResolve
 import time
-from copy import deepcopy
+from readerwriterlock.rwlock import RWLockRead as RWLock
 
 class VersionManager():
     @property
@@ -28,6 +29,8 @@ class VersionManager():
         self.logger = utils.get_logger("%s_VersionManager" % appname)
         self.resolver = resolver
         self.autoresolve = autoresolve
+        self.write_lock = RWLock()
+        
 
     def operational_transform(
             self, start, new_path, conflict_path, from_external):
@@ -300,30 +303,22 @@ class VersionManager():
         if start_v == end_v:
             # The versions are the same, lets ignore.
             return True
-        if self.autoresolve is AutoResolve.BranchExternalPush:
-            self.version_graph.continue_chain(
-                start_v, end_v, package, appname != self.appname)
-
-        if start_v != self.version_graph.head.current:
-            if self.autoresolve is AutoResolve.FullResolve:
-                self.resolve_conflict(start_v, end_v, package, from_external)
-            elif self.autoresolve is AutoResolve.BranchConflicts:
-                self.version_graph.continue_chain(start_v, end_v, package)
-        else:
-            self.version_graph.continue_chain(start_v, end_v, package)
-
-        self.maintain(appname, end_v)
+        with self.write_lock.gen_wlock():
+            if self.autoresolve is AutoResolve.BranchExternalPush:
+                self.version_graph.continue_chain(
+                    start_v, end_v, package, appname != self.appname)
+            self.resolve_conflict(start_v, end_v, package, from_external)
+            self.maintain(appname, end_v)
         return True
 
     def retrieve_data(self, appname, version):
-        data, version_change = self.retrieve_data_nomaintain(version)
+        with self.write_lock.gen_rlock():
+            data, version_change = self.retrieve_data_nomaintain(version)
         self.set_app_marker(appname, version_change[1])
         return data, version_change
 
     def retrieve_data_nomaintain(self, version):
         merged = dict()
-        if version not in self.version_graph.nodes:
-            return merged, [version, version]
         next_version = version
         for next_version, delta in self.version_graph[version:]:
             merged = utils.merge_state_delta(merged, delta)
@@ -335,15 +330,17 @@ class VersionManager():
             #self.maintain(app, version[1])
 
     def resolve_conflict(self, start_v, end_v, package, from_external):
-        new_v = self.version_graph.head.current
-        change, _ = self.retrieve_data_nomaintain(start_v)
-        t_new_merge, t_conflict_merge = self.operational_transform(
-            start_v, change, package, from_external)
-        merge_v = str(uuid4())
-        self.version_graph.continue_chain(start_v, end_v, package)
-        self.version_graph.continue_chain(new_v, merge_v, t_new_merge)
-        self.version_graph.continue_chain(end_v, merge_v, t_conflict_merge)
-        return
+        change, versions = self.retrieve_data_nomaintain(start_v)
+        new_v = versions[1]
+        if new_v == start_v or self.autoresolve is AutoResolve.BranchConflicts:
+            self.version_graph.continue_chain(start_v, end_v, package)
+        elif change:
+            t_new_merge, t_conflict_merge = self.operational_transform(
+                start_v, change, package, from_external)
+            merge_v = str(uuid4())
+            self.version_graph.continue_chain(start_v, end_v, package)
+            self.version_graph.continue_chain(new_v, merge_v, t_new_merge)
+            self.version_graph.continue_chain(end_v, merge_v, t_conflict_merge)
 
     def _read_dimension_at(self, version, dtype, oid, dimname):
         dtpname = dtype.__r_meta__.name

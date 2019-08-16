@@ -1,6 +1,3 @@
-from multiprocessing import RLock
-from copy import deepcopy
-
 class Node(object):
     def __eq__(self, other):
         return other.current == self.current

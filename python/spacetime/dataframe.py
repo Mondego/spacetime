@@ -1,4 +1,4 @@
-from multiprocessing import Queue, Process, RLock
+from multiprocessing import Queue, Process
 from threading import Thread, Condition
 import traceback
 import time
@@ -41,14 +41,7 @@ class Dataframe(object):
         self.logger = utils.get_logger("%s_Dataframe" % appname)
         self.instrument = instrument
 
-        if self.instrument:
-            self.instrument_done = False
-            self.instrument_record = Queue()
-            self.instrument_writer = Process(target=self._save_instruments)
-            self.instrument_writer.daemon = True
-            self.instrument_writer.start()
-        else:
-            self.instrument_record = None
+        self.instrument_record = None
 
         self._shutdown = False
         if connection_as == enums.ConnectionStyle.TSocket:
@@ -73,14 +66,14 @@ class Dataframe(object):
         self.types = types
         self.type_map = {
             tp.__r_meta__.name: tp for tp in self.types}
-        
+
         # THis is the local snapshot.
         self.local_heap = ManagedHeap(types)
         self.versioned_heap = None
 
         # This is the dataframe's versioned graph.
         self.versioned_heap = VersionManager(
-            self.appname, types, resolver, autoresolve)
+            self.appname, types, resolver, autoresolve, instrument=instrument)
         self.socket_server.start()
         if self.socket_connector.has_parent_connection:
             self.pull()
@@ -267,11 +260,13 @@ class Dataframe(object):
     # Functions that respond to external requests
 
     @instrument_func("accept_fetch")
-    def fetch_call_back(self, appname, version, wait=False, timeout=0):
+    def fetch_call_back(
+            self, appname, version, req_types, wait=False, timeout=0):
         try:
             if wait:
                 self._check_updated_since(version, timeout)
-            return self.versioned_heap.retrieve_data(appname, version)
+            return self.versioned_heap.retrieve_data(
+                appname, version, req_types)
         except Exception as e:
             print (e)
             print(traceback.format_exc())

@@ -129,9 +129,11 @@ class ServingClient(Thread):
             elif data[enums.TransferFields.RequestType] is enums.RequestType.Pull:
                 self.logger.debug("Processing pull request.")
                 timeout = data[enums.TransferFields.WaitTimeout] if wait else 0
+                req_types = data[enums.TransferFields.Types]
                 try:
                     dict_to_send, new_versions = self.pull_call_back(
-                        req_app, versions, wait=wait, timeout=timeout)
+                        req_app, versions, req_types,
+                        wait=wait, timeout=timeout)
                     self.logger.debug(
                         "Pull call back complete. sending back data.")
                     data_to_send = cbor.dumps({
@@ -167,7 +169,9 @@ class TSocketServer(Thread):
     def client_count(self):
         return len(self.clients)
 
-    def __init__(self, appname, server_port, pull_call_back, push_call_back, confirm_pull_req, instrument_q):
+    def __init__(
+            self, appname, server_port,
+            pull_call_back, push_call_back, confirm_pull_req, instrument_q):
         self.appname = appname
         # Logger for SocketManager
         self.logger = utils.get_logger("%s_SocketManager" % appname)
@@ -190,6 +194,7 @@ class TSocketServer(Thread):
         self.shutdown = False
 
         self.port = (addr if addr != "0.0.0.0" else "127.0.0.1", port)
+
         self.instrument_record = instrument_q
         self.clients = set()
         super().__init__()
@@ -244,6 +249,10 @@ class TSocketConnector(object):
         # Logger for SocketManager
         self.logger = utils.get_logger("%s_SocketConnector" % self.appname)
         self.instrument_record = instrument_q
+        self.tpnames = {
+            tp.__r_meta__.name: tp.__r_meta__.name_chain
+            for tp in types
+        }
         self.server_connection = self.connect_to_parent()
 
     def connect_to_parent(self):
@@ -272,6 +281,7 @@ class TSocketConnector(object):
                 enums.TransferFields.Versions: self.parent_version,
                 enums.TransferFields.Wait: wait,
                 enums.TransferFields.WaitTimeout: timeout,
+                enums.TransferFields.Types: self.tpnames
             })
             self.logger.debug(
                 "Client Connection successful, sending data (pull req)")

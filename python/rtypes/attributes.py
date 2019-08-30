@@ -1,14 +1,17 @@
-class Dimension(object):
+class Dimension():
     def __init__(self, dim_type, is_primary):
         self.dim_type = dim_type
         self.is_primary = is_primary
 
-class MergeFunction(object):
-    def __init__(self, func):
-        self.func = func
 
-    def __call__(self, original, modified, conflicting):
-        return self.func(original, modified, conflicting)
+class PredicateFunction():
+    def __init__(self, func, dims):
+        self.func = func
+        self.dims = dims
+
+    def __call__(self, *args):
+        return self.func(*args)
+
 
 def dimension(dim_type):
     return Dimension(dim_type, False)
@@ -16,5 +19,10 @@ def dimension(dim_type):
 def primarykey(dim_type):
     return Dimension(dim_type, True)
 
-def merge(func):
-    return MergeFunction(func)
+
+class predicate():
+    def __init__(self, *dims):
+        self.dims = dims
+
+    def __call__(self, func):
+        return PredicateFunction(func, self.dims)

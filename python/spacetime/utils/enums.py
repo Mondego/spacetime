@@ -10,6 +10,7 @@ class TransferFields(object):
     Wait = 4
     WaitTimeout = 5
     Status = 6
+    Types = 7
 
 class Event(object):
     New = 0

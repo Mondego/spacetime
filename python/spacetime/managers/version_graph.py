@@ -1,3 +1,4 @@
+from readerwriterlock.rwlock import RWLockWrite as RWLock
 class Node(object):
     def __eq__(self, other):
         return other.current == self.current
@@ -12,6 +13,7 @@ class Node(object):
         self.all_prev = set()
         self.all_next = set()
         self.is_master = is_master
+        self.write_lock = RWLock()
 
     def set_next(self, version):
         if self.next_master is None:

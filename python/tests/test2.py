@@ -2,7 +2,7 @@ from multiprocessing import Process, Event as MPEvent, Queue
 import unittest
 import time
 
-from rtypes import pcc_set, primarykey, dimension, merge
+from rtypes import pcc_set, primarykey, dimension
 from rtypes.utils.enums import Datatype
 
 from spacetime import Dataframe

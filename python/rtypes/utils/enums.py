@@ -16,3 +16,4 @@ class Datatype(object):
 
 class Rtype(object):
     SET = "set"
+    SUBSET = "subset"

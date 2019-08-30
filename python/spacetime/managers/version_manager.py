@@ -10,7 +10,8 @@ from spacetime.managers.version_graph import Graph
 import spacetime.utils.utils as utils
 from spacetime.utils.enums import Event, AutoResolve
 import time
-from readerwriterlock.rwlock import RWLockRead as RWLock
+from readerwriterlock.rwlock import RWLockFair as RWLock
+from multiprocessing import Lock
 
 class VersionManager():
     @property
@@ -19,10 +20,15 @@ class VersionManager():
 
     def __init__(
             self, appname, types,
-            resolver=None, autoresolve=AutoResolve.FullResolve):
+            resolver=None, autoresolve=AutoResolve.FullResolve,
+            instrument=None):
         self.appname = appname
         self.types = types
         self.type_map = {tp.__r_meta__.name: tp for tp in types}
+        self.tpnames = {
+            tp.__r_meta__.name: tp.__r_meta__.name_chain
+            for tp in self.types
+        }
         self.version_graph = Graph()
         self.state_to_app = dict()
         self.app_to_state = dict()
@@ -30,7 +36,7 @@ class VersionManager():
         self.resolver = resolver
         self.autoresolve = autoresolve
         self.write_lock = RWLock()
-        
+        self.instrument = instrument
 
     def operational_transform(
             self, start, new_path, conflict_path, from_external):
@@ -140,14 +146,14 @@ class VersionManager():
                 "Divergent deletion received when"
                 " object was created in the main line.")
         elif (event_new is Event.Modification
-                  and event_conf is Event.Modification):
+              and event_conf is Event.Modification):
             # resolve between two different modifications.
             if self.resolver and dtype in self.resolver:
                 new = self.make_temp_obj(
-                        start, dtype, oid, with_change=new_obj_change)  # new
+                    start, dtype, oid, with_change=new_obj_change)  # new
                 conflicting = self.make_temp_obj(
-                        start, dtype, oid,
-                        with_change=conf_obj_change)  # conflicting
+                    start, dtype, oid,
+                    with_change=conf_obj_change)  # conflicting
                 yours = new if from_external else conflicting
                 theirs = conflicting if from_external else new
                 obj_merge, obj_conf_merge = self.resolve_with_custom_merge(
@@ -158,7 +164,8 @@ class VersionManager():
                     new_obj_change, conf_obj_change)
             else:
                 # LWW strategy
-                obj_merge = self.dim_diff(dtpname, new_obj_change, conf_obj_change)
+                obj_merge = self.dim_diff(
+                    dtpname, new_obj_change, conf_obj_change)
                 obj_conf_merge = self.dim_not_present(
                     conf_obj_change, new_obj_change)
 
@@ -167,8 +174,8 @@ class VersionManager():
             # and another app deleting the object.
             if self.resolver and dtype in self.resolver:
                 new = self.make_temp_obj(
-                        start, dtype, oid, with_change=new_obj_change)  # new
-                conflicting = None,  # conflicting
+                    start, dtype, oid, with_change=new_obj_change)  # new
+                conflicting = (None,)  # conflicting
                 yours = new if from_external else conflicting
                 theirs = conflicting if from_external else new
                 obj_merge, obj_conf_merge = self.resolve_with_custom_merge(
@@ -192,10 +199,10 @@ class VersionManager():
             # resolve between an app modifyinbg it,
             # and another app deleting the object.
             if self.resolver and dtype in self.resolver:
-                new = None,  # new
+                new = (None,)  # new
                 conflicting = self.make_temp_obj(
-                        start, dtype, oid,
-                         with_change=conf_obj_change)  # conflicting
+                    start, dtype, oid,
+                    with_change=conf_obj_change)  # conflicting
                 yours = new if from_external else conflicting
                 theirs = conflicting if from_external else theirs
                 obj_merge, obj_conf_merge = self.resolve_with_custom_merge(
@@ -236,7 +243,7 @@ class VersionManager():
                 {"types": {dtpname: Event.Delete}})
 
     def make_temp_obj(self, version, dtype, oid, with_change=dict()):
-        obj = utils._container()
+        obj = utils.container()
         obj.__class__ = dtype
         obj.__r_oid__ = oid
         obj.__r_temp__ = {
@@ -298,30 +305,66 @@ class VersionManager():
     def set_app_marker(self, appname, end_v):
         self.state_to_app.setdefault(end_v, set()).add(appname)
 
-    def receive_data(self, appname, versions, package, from_external=True):
-        start_v, end_v = versions
-        if start_v == end_v:
-            # The versions are the same, lets ignore.
+    def receive_data(self, appname, versions, recv_diff, from_external=True):
+        if self.instrument:
+            self.instrument.enable()
+        try:
+            start_v, end_v = versions
+            if start_v == end_v:
+                # The versions are the same, lets ignore.
+                return True
+            package = {
+                tpname: recv_diff[tpname]
+                for tpname in self.type_map
+                if tpname in recv_diff
+            }
+            with self.write_lock.gen_wlock():
+                if self.autoresolve is AutoResolve.BranchExternalPush:
+                    self.version_graph.continue_chain(
+                        start_v, end_v, package, appname != self.appname)
+                self.resolve_conflict(start_v, end_v, package, from_external)
+                self.maintain(appname, end_v)
+            
             return True
-        with self.write_lock.gen_wlock():
-            if self.autoresolve is AutoResolve.BranchExternalPush:
-                self.version_graph.continue_chain(
-                    start_v, end_v, package, appname != self.appname)
-            self.resolve_conflict(start_v, end_v, package, from_external)
-            self.maintain(appname, end_v)
-        return True
+        finally:
+            if self.instrument:
+                self.instrument.disable()
 
-    def retrieve_data(self, appname, version):
-        with self.write_lock.gen_rlock():
-            data, version_change = self.retrieve_data_nomaintain(version)
-        self.set_app_marker(appname, version_change[1])
-        return data, version_change
+    def process_req_types(self, req_types):
+        if req_types is None:
+            return self.tpnames
+        final_tpnames = list()
+        for tp_group in req_types.values():
+            for tpname in tp_group:
+                if tpname in self.type_map:
+                    final_tpnames.append(tpname)
+                    break
+        return final_tpnames
 
-    def retrieve_data_nomaintain(self, version):
+    def retrieve_data(self, appname, version, req_types=None):
+        if self.instrument:
+            self.instrument.enable()
+        try:
+            with self.write_lock.gen_rlock():
+                data, version_change = self.retrieve_data_nomaintain(
+                    version, req_types)
+            self.set_app_marker(appname, version_change[1])
+            return data, version_change
+        finally:
+            if self.instrument:
+                self.instrument.disable()
+
+    def retrieve_data_nomaintain(self, version, req_types=None):
+        obtainable_types = self.process_req_types(req_types)
         merged = dict()
         next_version = version
         for next_version, delta in self.version_graph[version:]:
-            merged = utils.merge_state_delta(merged, delta)
+            package = {
+                tpname: delta[tpname]
+                for tpname in obtainable_types
+                if tpname in delta
+            }
+            merged = utils.merge_state_delta(merged, package)
         return merged, [version, next_version]
 
     def data_sent_confirmed(self, app, version):

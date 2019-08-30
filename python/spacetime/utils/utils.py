@@ -1,11 +1,12 @@
 import logging
 import os
 import time
+import cbor
 
 from spacetime.utils.enums import Event
-from copy import deepcopy
+#from copy import deepcopy
 
-class _container(object):
+class container(object):
     pass
 
 
@@ -27,13 +28,18 @@ def get_logger(name):
     #logger.addHandler(ch)
     return logger
 
+def deepcopy(the_dict):
+    # This is faster than actual deepcopy.
+    #return the_dict
+    return cbor.loads(cbor.dumps(the_dict))
+
 def merge_state_delta(old_change, newer_change, delete_it=False):
     merged = dict()
     if old_change == dict():
         return deepcopy(newer_change)
     for dtpname in old_change:
         if dtpname not in newer_change:
-            merged[dtpname] = deepcopy(old_change[dtpname])
+            merged[dtpname] = (old_change[dtpname])
         else:
             merged[dtpname] = merge_objectlist_deltas(
                 dtpname, old_change[dtpname], newer_change[dtpname],
@@ -43,23 +49,11 @@ def merge_state_delta(old_change, newer_change, delete_it=False):
             merged[dtpname] = deepcopy(newer_change[dtpname])
     return merged
 
-def get_merge_objectlist_delta(dtpname):
-    def curry_func(old_change, new_change, delete_it=False):
-        return merge_objectlist_deltas(
-            dtpname, old_change, new_change, delete_it=False)
-    return curry_func
-
-def get_merge_object_delta(dtpname):
-    def curry_func(old_change, new_change):
-        return merge_object_delta(
-            dtpname, old_change, new_change)
-    return curry_func
-
 def merge_objectlist_deltas(dtpname, old_change, new_change, delete_it=False):
     merged = dict()
     for oid in old_change:
         if oid not in new_change:
-            merged[oid] = deepcopy(old_change[oid])
+            merged[oid] = (old_change[oid])
         else:
             if delete_it and new_change[oid]["types"][dtpname] is Event.Delete:
                 # Do not include this object in the merged changes if
@@ -98,8 +92,8 @@ def merge_object_delta(dtpname, old_change, new_change):
         raise RuntimeError(
             "Not sure why the new change does not have modification.")
     if old_change["types"][dtpname] is Event.Delete:
-        return deepcopy(old_change)
-    dim_change = deepcopy(old_change["dims"])
+        return (old_change)
+    dim_change = (old_change["dims"])
     dim_change.update(new_change["dims"])
     type_change = dict()
     for tpname, old_event in old_change["types"].items():
@@ -127,7 +121,7 @@ def merge_object_delta(dtpname, old_change, new_change):
     return {"types": type_change, "dims": dim_change}
 
 def make_obj(dtype, oid):
-    obj = _container()
+    obj = container()
     obj.__class__ = dtype
     obj.__r_oid__ = oid
     return obj

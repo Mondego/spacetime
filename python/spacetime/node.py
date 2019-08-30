@@ -1,6 +1,7 @@
 from uuid import uuid4
 from multiprocessing import Process, Queue
 from threading import Thread
+import cProfile
 
 from spacetime.dataframe import Dataframe
 from spacetime.utils.enums import VersionBy, ConnectionStyle, AutoResolve
@@ -78,6 +79,9 @@ def get_app(func, types, producer,
 
         def run(self):
             # Create the dataframe.
+            self.cr = None
+            if self.instrument:
+                self.cr = cProfile.Profile()
             dataframe = self._create_dataframe()
             self._port_fetcher.put(dataframe.details)
             # Fork the dataframe for initialization of app.
@@ -87,6 +91,9 @@ def get_app(func, types, producer,
             # Merge the final changes back to the dataframe.
             dataframe.commit()
             dataframe.push()
+            if self.instrument:
+                self.cr.create_stats()
+                self.cr.dump_stats(self.instrument)
 
         def _start(self, *args, **kwargs):
             self.args = args
@@ -117,11 +124,11 @@ def get_app(func, types, producer,
                 details=self.dataframe_details,
                 server_port=self.server_port,
                 connection_as=self.connection_as,
-                instrument=self.instrument,
                 dump_graph=self.dump_graph,
                 resolver=self.resolver,
                 autoresolve=self.autoresolve,
-                mem_instrument=self.mem_instrument)
+                mem_instrument=self.mem_instrument,
+                instrument=self.cr)
             #print(self.appname, self.all_types, details, df.details)
             return df
     return App

@@ -1,2 +1,3 @@
 from rtypes.types.pcc_set import pcc_set
-from rtypes.attributes import dimension, primarykey, merge
+from rtypes.types.subset import subset
+from rtypes.attributes import dimension, primarykey, predicate

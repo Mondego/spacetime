@@ -8,7 +8,7 @@ except ModuleNotFoundError:
     HASNUMPY = False
 
 
-class _container(object):
+class container(object):
     pass
 
 def convert(dim_type, value):
@@ -91,7 +91,7 @@ def unconvert(value, dim_type, df=None):
         if df:
             obj = df.read_one(dim_type, value["value"])
         if not obj:
-            obj = _container()
+            obj = container()
             obj.__r_oid__ = value["value"]
             obj.__class__ = dim_type
         return obj

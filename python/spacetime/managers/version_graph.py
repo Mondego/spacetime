@@ -1,4 +1,6 @@
-from readerwriterlock.rwlock import RWLockWrite as RWLock
+from spacetime.utils.rwlock import RWLockWrite as RWLock
+
+
 class Node(object):
     def __eq__(self, other):
         return other.current == self.current
@@ -40,35 +42,124 @@ class Graph(object):
         self.edges = dict()
 
     def __getitem__(self, key):
-        if isinstance(key, slice):
-            step_reverse = ((key.step is not None) and (key.step < 0))
-            if key.start:
-                start = self.nodes[key.start]
-            elif step_reverse:
-                start = self.head
-            else:
-                start = self.tail
-
-            if key.stop:
-                end = self.nodes[key.stop]
-            elif step_reverse:
-                end = self.tail
-            else:
-                end = self.head
-
-            # Start and end are concurrent safe as it cannot be GCed yet.
-            current = start
-            while current != end:
-                if step_reverse:
-                    edge = self.edges[(current.prev_master, current.current)]
-                    current = self.nodes[current.prev_master]
-                else:
-                    edge = self.edges[(current.current, current.next_master)]
-                    current = self.nodes[current.next_master]
-                yield current.current, edge.payload
-            return
-        else:
+        if not isinstance(key, slice):
             raise RuntimeError("Cannot deal with non slice operators.")
+        step_reverse = ((key.step is not None) and (key.step < 0))
+
+        if key.start:
+            start = self.nodes[key.start]
+        elif step_reverse:
+            start = self.head
+        else:
+            start = self.tail
+
+        if key.stop:
+            end, endlock = self._get_node(key.stop)
+        elif step_reverse:
+            end, endlock = self._get_tail()
+        else:
+            end, endlock = self._get_head()
+
+        if start == end:
+            endlock.release()
+            return
+        # Start and end are concurrent safe as it cannot be GCed yet.
+        current = start
+        current_lock = current.write_lock.gen_rlock().acquire()
+        while current != end:
+            if step_reverse:
+                edge, prev_master, prev_lock,  = self._get_prev_edge(current, end)
+                current_lock.release()
+                current = prev_master
+                current_lock = prev_lock
+            else:
+                edge, next_master, next_lock = self._get_next_edge(current, end)
+                current_lock.release()
+                if not step_reverse and next_master == end:
+                    assert next_lock is None, (current.current, current.next_master, self.head.current, end.current, key.start)
+
+                current_lock = next_lock
+                current = next_master
+            yield current.current, edge.payload
+        if not step_reverse:
+            assert current_lock is None, (current.current, self.head.current, end.current, key.start)
+        endlock.release()
+
+    def _get_node(self, version):
+        while True:
+            try:
+                lock = self.nodes[version].write_lock.gen_rlock().acquire()
+            except KeyError:
+                continue
+            try:
+                return self.nodes[version], lock
+            except KeyError:
+                # Dammit! Our bad luck we cannot use this edge.
+                # Good news is that it has been maintained and hence is better now!.
+                # So try again.
+                lock.release()
+                continue
+
+    def _get_tail(self):
+        return self.tail, self.tail.write_lock.gen_rlock().acquire()
+
+    def _get_head(self):
+        while True:
+            try:
+                version = self.head.current
+                lock = self.nodes[version].write_lock.gen_rlock().acquire()
+            except KeyError:
+                continue
+            try:
+                return self.nodes[version], lock
+            except KeyError:
+                # Dammit! Our bad luck we cannot use this edge.
+                # Good news is that it has been maintained and hence is better now!.
+                # So try again.
+                lock.release()
+                continue
+
+    def _get_prev_edge(self, current, end):
+        while True:
+            try:
+                prev_master = current.prev_master
+                if prev_master == end.current:
+                    # No need to acquire the lock, its already been acquired.
+                    return self.edges[(prev_master, current.current)], self.nodes[prev_master], None
+                
+                lock = self.nodes[
+                    prev_master].write_lock.gen_rlock().acquire()
+            except KeyError:
+                continue
+            try:
+                return self.edges[(prev_master, current.current)], self.nodes[prev_master], lock
+            except KeyError:
+                # Dammit! Our bad luck we cannot use this edge.
+                # Good news is that it has been maintained and hence is better now!.
+                # So try again.
+                lock.release()
+                continue
+
+    def _get_next_edge(self, current, end):
+        while True:
+            try:
+                next_master = current.next_master
+                if next_master == end.current:
+                    # No need to acquire the lock, its already been acquired.
+                    return self.edges[(current.current, next_master)], self.nodes[next_master], None
+                lock = self.nodes[next_master].write_lock.gen_rlock().acquire()
+            except KeyError:
+                continue
+            try:
+                return self.edges[(current.current, next_master)], self.nodes[next_master], lock
+            except KeyError:
+                # Dammit! Our bad luck we cannot use this edge.
+                # Good news is that it has been maintained and hence is better now!.
+                # So try again.
+                lock.release()
+                continue
+
+
 
     def continue_chain(
             self, from_version, to_version, package, force_branch=False):
@@ -109,9 +200,10 @@ class Graph(object):
                         edges_to_del.add((start.current, node_v))
                         start.next_master = end.current
         for start, end in edges_to_del:
-            del self.edges[(start, end)]
-            self.nodes[start].all_next.remove(end)
-            self.nodes[end].all_prev.remove(start)
+            with self.nodes[end].write_lock.gen_wlock():
+                del self.edges[(start, end)]
+                self.nodes[start].all_next.remove(end)
+                self.nodes[end].all_prev.remove(start)
 
 
     def merge_node(self, node, merger_function):
@@ -150,9 +242,10 @@ class Graph(object):
         # Either way, now that all the edges have been updated clearly.
         # we can delete the edges as any reads will now not use the nodes and 
         # edges that are being deleted. .
-        del self.edges[(node.prev_master, node.current)]
-        del self.nodes[node.current]
-        del self.edges[(node.current, node.next_master)]
+        with node.write_lock.gen_wlock():
+            del self.edges[(node.prev_master, node.current)]
+            del self.nodes[node.current]
+            del self.edges[(node.current, node.next_master)]
 
     def maintain_nodes(self, state_to_ref, merger_function, master):
         mark_for_merge = set()

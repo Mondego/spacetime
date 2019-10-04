@@ -216,7 +216,7 @@ class Dataframe(object):
                 self.logger.debug("Push request registered.")
 
     @instrument_func("fetch")
-    def fetch(self):
+    def fetch(self, instrument=False):
         if self.socket_connector.has_parent_connection:
             self.logger.debug("Pull request started.")
             package, version = self.socket_connector.pull_req()
@@ -227,6 +227,8 @@ class Dataframe(object):
             self.logger.debug("Pull request applied.")
             with self.graph_change_event:
                 self.graph_change_event.notify_all()
+            if instrument:
+                return package
 
     @instrument_func("fetch_await")
     def fetch_await(self, timeout=0):
@@ -248,9 +250,11 @@ class Dataframe(object):
 
 
     @instrument_func("pull")
-    def pull(self):
-        self.fetch()
+    def pull(self, instrument=False):
+        delta = self.fetch(instrument=instrument)
         self.checkout()
+        if instrument:
+            return delta
 
     @instrument_func("pull_await")
     def pull_await(self, timeout=0):

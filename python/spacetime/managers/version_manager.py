@@ -10,8 +10,8 @@ from spacetime.managers.version_graph import Graph
 import spacetime.utils.utils as utils
 from spacetime.utils.enums import Event, AutoResolve
 import time
-from readerwriterlock.rwlock import RWLockFair as RWLock
-from multiprocessing import Lock
+from spacetime.utils.rwlock import RWLockFair as RWLock
+from multiprocessing import RLock
 
 class VersionManager():
     @property
@@ -35,7 +35,7 @@ class VersionManager():
         self.logger = utils.get_logger("%s_VersionManager" % appname)
         self.resolver = resolver
         self.autoresolve = autoresolve
-        self.write_lock = RWLock()
+        self.write_lock = RLock()
         self.instrument = instrument
 
     def operational_transform(
@@ -318,7 +318,7 @@ class VersionManager():
                 for tpname in self.type_map
                 if tpname in recv_diff
             }
-            with self.write_lock.gen_wlock():
+            with self.write_lock:
                 if self.autoresolve is AutoResolve.BranchExternalPush:
                     self.version_graph.continue_chain(
                         start_v, end_v, package, appname != self.appname)
@@ -345,9 +345,8 @@ class VersionManager():
         if self.instrument:
             self.instrument.enable()
         try:
-            with self.write_lock.gen_rlock():
-                data, version_change = self.retrieve_data_nomaintain(
-                    version, req_types)
+            data, version_change = self.retrieve_data_nomaintain(
+                version, req_types)
             self.set_app_marker(appname, version_change[1])
             return data, version_change
         finally:
@@ -358,13 +357,17 @@ class VersionManager():
         obtainable_types = self.process_req_types(req_types)
         merged = dict()
         next_version = version
-        for next_version, delta in self.version_graph[version:]:
-            package = {
-                tpname: delta[tpname]
-                for tpname in obtainable_types
-                if tpname in delta
-            }
-            merged = utils.merge_state_delta(merged, package)
+        try:
+            for next_version, delta in self.version_graph[version:]:
+                package = {
+                    tpname: delta[tpname]
+                    for tpname in obtainable_types
+                    if tpname in delta
+                }
+                merged = utils.merge_state_delta(merged, package)
+        except KeyError:
+            print (self.state_to_app, self.app_to_state)
+            raise
         return merged, [version, next_version]
 
     def data_sent_confirmed(self, app, version):

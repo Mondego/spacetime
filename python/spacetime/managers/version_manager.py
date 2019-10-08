@@ -175,7 +175,7 @@ class VersionManager():
             if self.resolver and dtype in self.resolver:
                 new = self.make_temp_obj(
                     start, dtype, oid, with_change=new_obj_change)  # new
-                conflicting = (None,)  # conflicting
+                conflicting = None  # conflicting
                 yours = new if from_external else conflicting
                 theirs = conflicting if from_external else new
                 obj_merge, obj_conf_merge = self.resolve_with_custom_merge(
@@ -199,7 +199,7 @@ class VersionManager():
             # resolve between an app modifyinbg it,
             # and another app deleting the object.
             if self.resolver and dtype in self.resolver:
-                new = (None,)  # new
+                new = None  # new
                 conflicting = self.make_temp_obj(
                     start, dtype, oid,
                     with_change=conf_obj_change)  # conflicting

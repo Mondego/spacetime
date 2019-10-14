@@ -1,7 +1,9 @@
 from spacetime import Node, Dataframe, DebugDataframe
 from rtypes import pcc_set, primarykey, dimension, merge
-from spacetime import Register, server_func, CommitObj, AcceptFetchObj, FetchObj, CheckoutObj, PushObj, AcceptPushObj, Vertex, Edge
+from spacetime import Register, server_func, CommitObj, AcceptFetchObj, FetchObj, CheckoutObj, PushObj, \
+    AcceptPushObj, Vertex, Edge, Parent
 import time
+
 @pcc_set
 class Foo:
     y = primarykey(int)
@@ -12,30 +14,33 @@ class Foo:
     def __str__(self):
         return "Foo_"+ str(self.y)
 
+
 def producer(df):
-    for y in range(1):
+    y = 0
+    while True:
         df.add_one(Foo, Foo(y))
         df.commit()
         df.push()
-        time.sleep(10)
+        y += 1
 
 def consumer(df):
     time.sleep(5)
     foos = list()
-    df.checkout()
-    foos = df.read_all(Foo)
-    print("in consumer")
-    print(foos)
-    for foo in foos:
-        print(foo)
+    while True:
+        df.checkout()
+        foos = df.read_all(Foo)
+        print("in consumer")
+        print(foos)
+        for foo in foos:
+            print("Consumer received",foo)
 
 def main():
 
-    n=1
+    n = 2
 
     #To start central debugger node
     debugger_server = Node(server_func, Types=[Register, CommitObj, AcceptFetchObj, FetchObj, CheckoutObj,
-                                               AcceptPushObj, PushObj, Vertex, Edge], server_port=30000)
+                                               AcceptPushObj, PushObj, Vertex, Edge, Parent], server_port=30000)
 
     debugger_server.start_async()
     print("Debugger server started")

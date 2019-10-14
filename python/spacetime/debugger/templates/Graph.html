@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<head>
+<style>
+g.head > rect {
+  fill: #98FB98; //#ADD8E6;
+}
+text {
+  font-weight: 300;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  text-align: center;
+}
+.node rect {
+  stroke:#000000;//#333;// #999;
+  fill: #fff;
+  stroke-width: 2.5px;
+}
+//.edgePath path {
+  //stroke:#000000; //#333;
+  //stroke-width: 2px;
+//}
+.edgePath path.path {
+  stroke: #333;
+  fill: none;
+  stroke-width: 1.5px;
+}
+.node text {
+  pointer-events: none;
+}
+/* This styles the title of the tooltip */
+.tipsy .name {
+  font-size: 1.5em;
+  font-weight: bold;
+  color: #000000;
+  margin: 0;
+}
+/* This styles the body of the tooltip */
+.tipsy .description {
+  font-size: 1.2em;
+}
+.tipsy { font-size: 10px; position: absolute; padding: 5px; z-index: 100000; }
+.tipsy-inner { background-color: #D3D3D3; color: #FFF; max-width: 400px; padding: 5px 8px 4px 8px; text-align: center; }
+ </style>
+     <script src="https://d3js.org/d3.v4.min.js"></script>
+    <script src="https://dagrejs.github.io/project/dagre-d3/latest/dagre-d3.js"></script>
+    <script type="text/javascript" src="http://code.jquery.com/jquery-1.6.2.min.js"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='jquery.tipsy.js') }}"></script>
+    <link href= "{{ url_for('static', filename = 'tipsy.css') }}" rel="stylesheet" type="text/css" />
+    <link href= "{{ url_for('static', filename = 'bootstrap.min.css') }}" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+
+<div class="container">
+<h2 class="jumbotron" style="text-align: center">Spacetime Debugger</h2>
+
+<div class="row">
+<div class="col-lg-6">
+    <h3 style="text-align: center">Topology</h3>
+    <svg id="svg-canvas" width=960 height=600 ></svg>
+<script>
+    // Create the input graph
+var g = new dagreD3.graphlib.Graph()
+  .setGraph({})
+  .setDefaultEdgeLabel(function() { return {}; });
+var graph ={{graph_view|safe}}
+var appname = appname
+graph.nodes.forEach(function(d){
+     g.setNode(d.id, {label: d.name, class: d.type , style: d.style});
+     });
+console.log(g);
+g.nodes().forEach(function(v) {
+  var node = g.node(v);
+  // Round the corners of the nodes
+  node.rx = node.ry = 5;
+});
+graph.links.forEach(function(d){
+    g.setEdge(d.source_id, d.target_id, {"payload": d.label, style:d.style, arrowheadStyle:d.arrowheadStyle});
+  });
+var styleTooltip = function(desc) {
+  var name = "Hi";
+  var description ="There";
+  //return "<p class='name'>" + name + "</p><p class='description'>" + description + "</p>";
+  return "<p class='name'>" +desc+"</p>";
+};
+// Create the renderer
+var render = new dagreD3.render();
+// Set up an SVG group so that we can translate the final graph.
+var svg = d3.select("svg"),
+    svgGroup = svg.append("g");
+// Run the renderer. This is what draws the final graph.
+render(d3.select("svg g"), g);
+svgGroup.selectAll("g.edgePath")
+  .attr("title", function(v) { return styleTooltip(g.edge(v).payload) })
+  .each(function(v) { $(this).tipsy({ gravity: "n", opacity: 1, html: true }); });
+svgGroup.selectAll("g.node")
+  .attr("title", function(v) { return styleTooltip(g.node(v).label) })
+  .each(function(v) { $(this).tipsy({ gravity: "n", opacity: 1, html: true }); });
+// Center the graph
+var xCenterOffset = (svg.attr("width") - g.graph().width) / 5;
+svgGroup.attr("transform", "translate(" + xCenterOffset + ", 20)");
+svg.attr("height", g.graph().height + 40);
+</script>
+
+</div>
+    <div class="col-lg-6">
+<h3>Pending Requests</h3>
+<p id="next_steps"></p>
+<script>
+var ul = document.createElement('ul');
+var appname = '{{appname}}';
+document.getElementById('next_steps').appendChild(ul);
+var next_steps = {{next_steps|safe}};
+console.log(next_steps);
+console.log(appname);
+var reqs = next_steps;
+console.log(reqs);
+var highlight = {{highlight}};
+
+reqs.forEach(function (req, j) {
+    console.log(req)
+    req.forEach(function(step, i){
+    var li = document.createElement('li');
+    //var att = document.createAttribute("draggable")
+    //att.value = "true"
+    //li.setAttributeNode(att)
+    ul.appendChild(li);
+    if (i == highlight && j == 0){
+        li.innerHTML += "<mark>" + step + "</mark>"
+    } else{
+    li.innerHTML += step;
+    }
+    });
+});
+</script>
+
+ </div>
+</div>
+</div>
+<div>
+    <h3>Previous Requests</h3>
+    <p id="prev_steps"></p>
+
+    <script>
+        var ul = document.createElement('ul');
+        document.getElementById('prev_steps').appendChild(ul);
+        var prev_steps = {{prev_steps|safe}};
+        console.log(prev_steps)
+        var prev_reqs = prev_steps
+        console.log(prev_reqs);
+        prev_reqs.forEach(function (req, j) {
+        console.log(req)
+        req.forEach(function(step, i){
+        var li = document.createElement('li');
+        ul.appendChild(li);
+        if (i == highlight[j]){
+            li.innerHTML += "<mark>" + step + "</mark>"
+        } else{
+        li.innerHTML += step;
+        }
+    });
+});
+    </script>
+</div>
+
+<div class="row">
+
+    <form action="next" method="get">
+        <button name="Next Step" type="submit" class="text">Next Step</button>
+    </form>
+
+</div>
+
+
+
+

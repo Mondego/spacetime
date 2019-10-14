@@ -22,12 +22,12 @@ class CheckoutObj(object):
 
     class CheckoutState(object):
         INIT = 0
-        START = 1
-        CHECKOUTCOMPLETE = 2
-        GCSTART = 3
-        GCCOMPLETE = 4
-        FINISH = 5
-
+        NEW = 1
+        START = 2
+        CHECKOUTCOMPLETE = 3
+        GCSTART = 4
+        GCCOMPLETE = 5
+        FINISHED = 6
         ABORT = -1
 
     @property
@@ -68,17 +68,20 @@ class CheckoutObj(object):
     def complete_GC(self):
         self.state = self.CheckoutState.GCCOMPLETE
 
+    def finish(self):
+        self.state = self.CheckoutState.FINISHED
 
 @pcc_set
 class CommitObj(object):
 
     class CommitState(object):
         INIT = 0
-        START = 1
-        COMMITCOMPLETE = 2
-        GCSTART = 3
-        GCCOMPLETE = 4
-        FINISH = 5
+        NEW = 1
+        START = 2
+        COMMITCOMPLETE = 3
+        GCSTART = 4
+        GCCOMPLETE = 5
+        FINISHED = 6
 
         ABORT = -1
 
@@ -120,6 +123,9 @@ class CommitObj(object):
     def complete_GC(self):
         self.state = self.CommitState.GCCOMPLETE
 
+    def finish(self):
+        self.state = self.CommitState.FINISHED
+
 
 
 
@@ -127,12 +133,14 @@ class CommitObj(object):
 class FetchObj(object):
     class FetchState(object):
         INIT = 0
-        WAIT = 1
-        START = 2
-        FETCHCOMPLETE = 3
-        GCSTART = 4
-        GCCOMPLETE = 5
-        FINISH = 6
+        NEW = 1
+        WAIT = 2
+        RECEIVEDCHANGES = 3
+        START = 4
+        FETCHCOMPLETE = 5
+        GCSTART = 6
+        GCCOMPLETE = 7
+        FINISHED = 8
 
         ABORT = -1
 
@@ -177,6 +185,9 @@ class FetchObj(object):
     def wait(self):
         self.state = self.FetchState.WAIT
 
+    def receive_changes(self):
+        self.state = self.FetchState.RECEIVEDCHANGES
+
     def complete_FETCH(self):
         self.state = self.FetchState.FETCHCOMPLETE
 
@@ -186,6 +197,9 @@ class FetchObj(object):
     def complete_GC(self):
         self.state = self.FetchState.GCCOMPLETE
 
+    def finish(self):
+        self.state = self.FetchState.FINISHED
+
 @pcc_set
 class AcceptFetchObj(object):
         class AcceptFetchState(object):
@@ -193,9 +207,10 @@ class AcceptFetchObj(object):
             START = 1
             SENDCOMPLETE = 2
             WAIT = 3
-            GCSTART = 4
-            GCCOMPLETE = 5
-            FINISH = 6
+            RECEIVEDCONFIRMATION = 4
+            GCSTART = 5
+            GCCOMPLETE = 6
+            FINISHED = 7
 
             ABORT = -1
 
@@ -243,22 +258,29 @@ class AcceptFetchObj(object):
         def wait(self):
             self.state = self.AcceptFetchState.WAIT
 
+        def receive_confirmation(self):
+            self.state = self.AcceptFetchState.RECEIVEDCONFIRMATION
+
         def start_GC(self):
             self.state = self.AcceptFetchState.GCSTART
 
         def complete_GC(self):
             self.state = self.AcceptFetchState.GCCOMPLETE
+
+        def finish(self):
+            self.state = self.AcceptFetchState.FINISHED
 @pcc_set
 class PushObj(object):
     class PushState(object):
         INIT = 0
-        START = 1
+        NEW = 1
+        START = 2
         FETCHDELTACOMPLETE = 2
-        WAIT = 3
-        PUSHCOMPLETE = 4
-        GCSTART = 5
-        GCCOMPLETE = 6
-        FINISH = 7
+        WAIT = 4
+        PUSHCOMPLETE = 5
+        GCSTART = 6
+        GCCOMPLETE = 7
+        FINISHED = 8
 
         ABORT = -1
 
@@ -315,16 +337,20 @@ class PushObj(object):
     def complete_GC(self):
         self.state = self.PushState.GCCOMPLETE
 
+    def finish(self):
+        self.state = self.PushState.FINISHED
+
 @pcc_set
 class AcceptPushObj(object):
         class AcceptPushState(object):
             INIT = 0
-            START = 1
-            RECEIVECOMPLETE = 2
-            WAIT = 3
-            GCSTART = 4
-            GCCOMPLETE = 5
-            FINISH = 6
+            NEW = 1
+            START = 2
+            RECEIVECOMPLETE = 3
+            WAIT = 4
+            GCSTART = 5
+            GCCOMPLETE = 6
+            FINISHED = 7
 
             ABORT = -1
 
@@ -378,31 +404,22 @@ class AcceptPushObj(object):
         def complete_GC(self):
             self.state = self.AcceptPushState.GCCOMPLETE
 
-#@pcc_set
-class DNode(object):
+        def finish(self):
+            self.state = self.AcceptPushState.FINISHED
+
+
+@pcc_set
+class Parent(object):
 
     oid = primarykey(str)
-    current = dimension(str)
-    is_master = dimension(bool)
+    app = dimension(str)
+    parent_app = dimension(str)
 
-    def __init__(self, oid,current, is_master):
-        self.oid = oid
-        self.current = current
-        self.is_master = is_master
+    def __init__(self, app, parent_app):
+        self.oid = str(uuid.uuid4())
+        self.app = app
+        self.parent_app = parent_app
 
-
-class DEdge(object):
-
-    oid = primarykey(str)
-    from_node = dimension(str)
-    to_node = dimension(str)
-    payload = dimension(dict)
-
-    def __init__(self, oid, from_node, to_node, payload):
-        self.oid = oid
-        self.from_node = from_node
-        self.to_node = to_node
-        self.payload = payload
 
 
 

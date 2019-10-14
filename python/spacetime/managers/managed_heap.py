@@ -4,6 +4,7 @@ from spacetime.utils.enums import Event
 import spacetime.utils.utils as utils
 
 class ManagedHeap(object):
+
     def __init__(self, types):
         self.types = types
         self.diff_access_lock = RLock()

@@ -1,7 +1,6 @@
 from spacetime.dataframe import Dataframe
 from threading import Thread
-from spacetime.debugger.debugger_types import CommitObj,FetchObj, AcceptFetchObj, CheckoutObj, PushObj, AcceptPushObj, \
-    DNode, DEdge
+from spacetime.debugger.debugger_types import CommitObj,FetchObj, AcceptFetchObj, CheckoutObj, PushObj, AcceptPushObj, Parent
 from spacetime.managers.connectors.debugger_socket_manager import DebuggerSocketServer, DebuggerSocketConnector
 import traceback
 import cbor
@@ -52,11 +51,8 @@ class DebugDataframe(object):
                             self.debugger_df.commit()
                             self.debugger_df.push()
 
-
     def __init__(self, df, appname, types, server_port, parent_details):
         print(appname, types, server_port, parent_details)
-        self.dnodes = list()
-        self.dedges = list()
         self.application_df = Dataframe(appname, types, details=parent_details, server_port=server_port,
                                         use_debugger_sockets=df)
         print("application dataframe details", self.application_df.details)
@@ -66,6 +62,9 @@ class DebugDataframe(object):
         if parent_details:
             self.parent_app_name = self.application_df.socket_connector.get_parent_app_name()
         print("Parent App Name", self.parent_app_name)
+        self.debugger_df.add_one(Parent, Parent(appname, self.parent_app_name if self.parent_app_name else ""))
+        self.debugger_df.commit()
+        self.debugger_df.push()
         self.from_version = "ROOT"
         self.listening_thread = Thread(target=self.listen_func, daemon=True)
         print(appname, self.listening_thread.getName())
@@ -98,7 +97,7 @@ class DebugDataframe(object):
         self.debugger_df.commit()
         self.debugger_df.push()
         while checkoutObj.state != checkoutObj.CheckoutState.START: #Wait till the CDN gives the command to start
-            print("Waiting for CDN to give permission to start checkout", checkoutObj.state)
+            #print("Waiting for CDN to give permission to start checkout", checkoutObj.state)
             self.debugger_df.pull()
         print("Received permission from CDN to start checkout")
         with self.application_df.write_lock:
@@ -133,7 +132,7 @@ class DebugDataframe(object):
         self.debugger_df.commit()
         self.debugger_df.push()
         while commitObj.state != commitObj.CommitState.START: #Wait till the CDN gives the command to start
-            print("Waiting for CDN to give go ahead to start commit", commitObj.state)
+            #print("Waiting for CDN to give go ahead to start commit", commitObj.state)
             self.debugger_df.pull()
         print(" Go ahead from CDN to start commit")
         if versions:
@@ -156,7 +155,6 @@ class DebugDataframe(object):
                 print("GC Complete")
                 self.debugger_df.commit()
                 self.debugger_df.push()
-
                 self.application_df.local_heap.data_sent_confirmed(versions)
 
 

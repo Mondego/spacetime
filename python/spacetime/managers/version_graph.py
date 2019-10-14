@@ -27,6 +27,7 @@ class Node(object):
         self.all_next = set()
         self.is_master = is_master
         if debug:
+            print("new node is created")
             debug.add_one(Node, self)
 
     def set_next(self, version):
@@ -38,6 +39,8 @@ class Node(object):
         if self.prev_master is None:
             self.prev_master = version
         self.all_prev.add(version)
+
+
 
 @pcc_set
 class Edge(object):
@@ -95,12 +98,22 @@ class Graph(object):
 
     def continue_chain(
             self, from_version, to_version, package, force_branch=False):
-        from_version_node = self.nodes.setdefault(
-            from_version, Node(from_version, from_version == self.head.current, self.debug))
+        #from_version_node = self.nodes.setdefault(
+            #from_version, Node(from_version, from_version == self.head.current, self.debug))
+        try:
+            from_version_node = self.nodes[from_version]
+        except KeyError:
+            from_version_node = Node(from_version, from_version == self.head.current, self.debug)
+            self.nodes[from_version] = from_version_node
+        #to_version_node = self.nodes.setdefault(
+            #to_version, Node(
+                #to_version, (not force_branch) and from_version == self.head.current, self.debug))
+        try:
+            to_version_node = self.nodes[to_version]
+        except KeyError:
+            to_version_node = Node(to_version, (not force_branch) and from_version == self.head.current, self.debug)
+            self.nodes[to_version] = to_version_node
 
-        to_version_node = self.nodes.setdefault(
-            to_version, Node(
-                to_version, (not force_branch) and from_version == self.head.current, self.debug))
         to_version_node.set_prev(from_version)
 
         edge = Edge(from_version, to_version, package, self.debug)
@@ -133,6 +146,7 @@ class Graph(object):
 
 
     def merge_node(self, node, merger_function):
+        # remove node from df
         del self.nodes[node.current]
         old_change = self.edges[(node.prev_master, node.current)].payload
         new_change = self.edges[(node.current, node.next_master)].payload

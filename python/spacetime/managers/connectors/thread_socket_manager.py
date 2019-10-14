@@ -232,7 +232,6 @@ class TSocketServer(Thread):
             except Exception as e:
                 print ("RUN", e)
                 print(traceback.format_exc())
-                raise
 
 
 class TSocketConnector(object):

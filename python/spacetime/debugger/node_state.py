@@ -1,37 +1,61 @@
 from threading import Thread
 from spacetime.debugger.debugger_types import CommitObj, FetchObj, AcceptFetchObj, Register, \
     CheckoutObj, PushObj, AcceptPushObj, Parent
+from spacetime.managers.version_graph import Node as Vertex, Edge
+from spacetime.managers.managed_heap import ManagedHeap
 
 
-class NodeState(Thread):
-    def __init__(self, appname, df):
+class NodeState(object):
+    @property
+    def current_command(self):
+        if self.command_list:
+            return self.command_list[0]
+        return None
+
+    @property
+    def vertices(self):
+        return self.df.read_all(Vertex)
+        
+    @property
+    def edges(self):
+        return self.df.read_all(Edge)
+    
+    @property
+    def vertex_map(self):
+        return {v.current:v for v in self.vertices}
+        
+    @property
+    def edge_map(self):
+        return {(e.from_node, e.to_node):e for e in self.edges}
+
+
+    def __init__(self, appname, df, apptypes):
         self.df = df
         self.appname = appname
         self.parent = None
         self.child = dict()
-        self.managed_heap = None
+        self.managed_heap = ManagedHeap(apptypes)
         self.command_list = list()
-        self.current_command = None
         self.next_steps = list()
         self.prev_steps = list()
         self.current_stage = 0
         self.tps = [CommitObj, FetchObj, AcceptFetchObj, CheckoutObj, PushObj, AcceptPushObj]
         self.df.checkout()
-        super().__init__(daemon=True)
-        self.start()
 
-    def run(self):
-        while True:
-            self.df.checkout_await()
-            for tp in self.tps:
-                for obj in self.df.read_all(tp):
-                    if obj not in self.command_list and obj != self.current_command:
-                        self.command_list.append(obj)
+
+    def update(self):
+        self.df.checkout()
+        #print (f"{self.appname} Received some request")
+        for tp in self.tps:
+            for obj in self.df.read_all(tp):
+                if obj not in self.command_list and obj != self.current_command:
+                    self.command_list.append(obj)
+                    self.next_steps.append(self.get_stages_for_command(obj))
+                    print (obj)
 
     def get_next_command(self, command):
         if command == self.current_command:
             self.command_list.pop(0)
-            self.current_command = self.command_list[0]
 
     def get_stages_for_command(self, obj):
         if isinstance(obj, CheckoutObj):
@@ -108,6 +132,21 @@ class NodeState(Thread):
             # print (obj.state, obj.CommitState.COMMITCOMPLETE)
         elif obj.state == obj.CommitState.COMMITCOMPLETE:
             print("The CDN knows the commit is complete")
+            start_version = self.managed_heap.version
+            node = self.vertex_map[start_version]
+
+            payload = list()
+            while node.next_master is not None:
+                payload.append(
+                    (node.next_master,
+                     self.edge_map[(node.current, node.next_master)].payload))
+                node = self.vertex_map[node.next_master]
+
+            for e_version, data in payload:
+                self.managed_heap.receive_data(
+                    data, [start_version, e_version])
+                start_version = e_version
+            #print (self.managed_heap.data)
             obj.start_GC()
             #self.df.commit()
             #self.current_stage = 2
@@ -129,6 +168,7 @@ class NodeState(Thread):
             #self.df.commit()
 
         elif obj.state == obj.PushState.FINISHED:
+            #TODO: or EMPTY
             self.prev_steps.append(push_display)
             self.get_next_command(obj)
             self.df.delete_one(PushObj, obj)
@@ -183,10 +223,29 @@ class NodeState(Thread):
         elif obj.state == obj.AcceptPushState.RECEIVECOMPLETE:
             # next_steps.append("Accept Push")
             sender_df = self.child[obj.sender_node].df
-            pushObj = sender_df.read_one(PushObj, obj.oid)
+            print(self.appname, self.child[obj.sender_node].appname)
+            pushObj = sender_df.read_one(PushObj, obj.push_obj_oid)
             pushObj.start_GC()
             sender_df.commit()
             obj.start_GC()
+            
+            start_version = self.managed_heap.version
+            node = self.vertex_map[start_version]
+
+            payload = list()
+            while node.next_master is not None:
+                payload.append(
+                    (node.next_master,
+                     self.edge_map[(node.current, node.next_master)].payload))
+                print (self.vertices, self.edges)
+                print ((node.current, node.next_master), self.edge_map[(node.current, node.next_master)].payload)
+                node = self.vertex_map[node.next_master]
+            print(self.managed_heap.data)
+            for e_version, data in payload:
+                self.managed_heap.receive_data(
+                    data, [start_version, e_version])
+                start_version = e_version
+
             #self.df.commit()
             #self.current_stage = 2
 
@@ -232,6 +291,24 @@ class NodeState(Thread):
             #self.current_stage = 2
 
         elif obj.state == obj.FetchState.FETCHCOMPLETE:
+            start_version = self.managed_heap.version
+            node = self.vertex_map[start_version]
+
+            payload = list()
+            while node.next_master is not None:
+                payload.append(
+                    (node.next_master,
+                     self.edge_map[(node.current, node.next_master)].payload))
+                if node.current == None:
+                    break
+                node = self.vertex_map[node.next_master]
+
+            for e_version, data in payload:
+                self.managed_heap.receive_data(
+                    data, [start_version, e_version])
+                start_version = e_version
+
+
             obj.start_GC()
             #self.df.commit()
             requestee_df = self.parent.df
@@ -333,10 +410,13 @@ class NodeState(Thread):
         if isinstance(obj, AcceptFetchObj):
             self.execute_accept_fetch(obj)
 
-        for command in self.command_list:
-            self.next_steps.append(self.get_stages_for_command(command))
+        self.populate_next_steps()
         print(self.next_steps)
         print(self.current_stage)
+
+    def populate_next_steps(self):
+        for command in self.command_list:
+            self.next_steps.append(self.get_stages_for_command(command))
 
     def swap(self, pos1, pos2):
         # self.current_command[pos1] should become [pos2] and vice versa.

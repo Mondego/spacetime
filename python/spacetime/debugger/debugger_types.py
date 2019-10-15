@@ -4,6 +4,7 @@ from uuid import uuid4
 from rtypes import pcc_set, primarykey, dimension, merge
 import cbor,uuid
 from enum import Enum
+import traceback
 
 @pcc_set
 class Register(object):
@@ -177,6 +178,7 @@ class FetchObj(object):
         self.to_version = to_version
         self.delta = delta
         self.state = self.FetchState.INIT
+        self.parent_df = None
         # write out these states
 
     def start(self):
@@ -202,73 +204,89 @@ class FetchObj(object):
 
 @pcc_set
 class AcceptFetchObj(object):
-        class AcceptFetchState(object):
-            INIT = 0
-            START = 1
-            SENDCOMPLETE = 2
-            WAIT = 3
-            RECEIVEDCONFIRMATION = 4
-            GCSTART = 5
-            GCCOMPLETE = 6
-            FINISHED = 7
+    class AcceptFetchState(object):
+        INIT = 0
+        START = 1
+        SENDCOMPLETE = 2
+        WAIT = 3
+        RECEIVEDCONFIRMATION = 4
+        GCSTART = 5
+        GCCOMPLETE = 6
+        FINISHED = 7
 
-            ABORT = -1
+        ABORT = -1
 
-        @property
-        def delta_dict(self):
-            if not self.delta:
-                return dict()
-            if hasattr(self, "_deltadict") and self._deltahash == hash(self.delta):
-                return self._deltadict
-            self._deltadict = cbor.loads(self.delta)
-            self._deltahash = hash(self.delta)
+    @property
+    def delta_dict(self):
+        if not self.delta:
+            return dict()
+        if hasattr(self, "_deltadict") and self._deltahash == hash(self.delta):
             return self._deltadict
+        self._deltadict = cbor.loads(self.delta)
+        self._deltahash = hash(self.delta)
+        return self._deltadict
 
-        oid = primarykey(str)
-
-
-        requestor_node = dimension(str)
-        requestee_node = dimension(str)
-        state = dimension(int)
-
-        from_version = dimension(str)
+    oid = primarykey(str)
 
 
-        to_version = dimension(str)
-        delta = dimension(bytes)
-        fetch_obj_oid = dimension(str)
+    requestor_node = dimension(str)
+    requestee_node = dimension(str)
+    state = dimension(int)
 
-        def __init__(self, requestor_node, requestee_node, from_version, to_version, delta, fetch_obj_oid):
-            self.oid = fetch_obj_oid
-            self.requestor_node = requestor_node
-            self.requestee_node = requestee_node
-            self.from_version = from_version
-            self.to_version = to_version
-            self.delta = delta
-            self.state = self.AcceptFetchState.INIT
-            #self.fetch_obj_oid = fetch_obj_oid
-            # write out these states
+    from_version = dimension(str)
 
-        def start(self):
-            self.state = self.AcceptFetchState.START
 
-        def complete_SEND(self):
-            self.state = self.AcceptFetchState.SENDCOMPLETE
+    to_version = dimension(str)
+    delta = dimension(bytes)
+    fetch_obj_oid = dimension(str)
 
-        def wait(self):
-            self.state = self.AcceptFetchState.WAIT
+    def __init__(self, requestor_node, requestee_node, from_version, to_version, delta, fetch_obj_oid):
+        self.oid = fetch_obj_oid
+        self.requestor_node = requestor_node
+        self.requestee_node = requestee_node
+        self.from_version = from_version
+        self.to_version = to_version
+        self.delta = delta
+        self.state = self.AcceptFetchState.INIT
+        self.sender_df = None
+        #self.fetch_obj_oid = fetch_obj_oid
+        # write out these states
 
-        def receive_confirmation(self):
-            self.state = self.AcceptFetchState.RECEIVEDCONFIRMATION
+    def start(self):
+        self.state = self.AcceptFetchState.START
 
-        def start_GC(self):
-            self.state = self.AcceptFetchState.GCSTART
+    def complete_SEND(self):
+        self.state = self.AcceptFetchState.SENDCOMPLETE
 
-        def complete_GC(self):
-            self.state = self.AcceptFetchState.GCCOMPLETE
+    def wait(self):
+        self.state = self.AcceptFetchState.WAIT
 
-        def finish(self):
-            self.state = self.AcceptFetchState.FINISHED
+    def receive_confirmation(self):
+        self.state = self.AcceptFetchState.RECEIVEDCONFIRMATION
+
+    def start_GC(self):
+        self.state = self.AcceptFetchState.GCSTART
+
+    def complete_GC(self):
+        self.state = self.AcceptFetchState.GCCOMPLETE
+
+    def finish(self):
+        self.state = self.AcceptFetchState.FINISHED
+
+    def client_execute(self, df):
+        if self.state == self.AcceptFetchState.START:
+            print("calling fetch call back")
+            data, version_change = df.fetch_call_back(self.requestor_node, self.from_version)
+            self.delta = cbor.dumps(data)
+            self.to_version = version_change[1]
+            self.complete_SEND()
+            print("completed fetch call back")
+        elif self.state == self.AcceptFetchState.GCSTART:
+            print("Requestee starting garbage collect")
+            df.confirm_fetch_req(self.requestor_node, [self.from_version, self.to_version])
+            print("Requestee completed garbage collect")
+            self.complete_GC()
+
 @pcc_set
 class PushObj(object):
     class PushState(object):
@@ -317,6 +335,7 @@ class PushObj(object):
         self.to_version = to_version
         self.delta = delta
         self.state = self.PushState.INIT
+        self.parent_df = None
         # write out these states
 
     def start(self):
@@ -377,16 +396,18 @@ class AcceptPushObj(object):
         to_version = dimension(str)
         delta = dimension(bytes)
         fetch_obj_oid = dimension(str)
+        push_obj_oid = dimension(str)
 
         def __init__(self, sender_node, receiver_node, from_version, to_version, delta, push_obj_oid):
-            self.oid = push_obj_oid
+            self.oid = str(uuid.uuid4())
             self.sender_node = sender_node
             self.receiver_node = receiver_node
             self.from_version = from_version
             self.to_version = to_version
             self.delta = delta
             self.state = self.AcceptPushState.INIT
-            #self.push_obj_oid = push_obj_oid
+            self.sender_df = None
+            self.push_obj_oid = push_obj_oid
             # write out these states
 
         def start(self):
@@ -407,16 +428,34 @@ class AcceptPushObj(object):
         def finish(self):
             self.state = self.AcceptPushState.FINISHED
 
+        def client_execute(self, df):
+            if self.state == self.AcceptPushState.START:
+                print("calling push call back")
+                df.push_call_back(self.sender_node,[self.from_version, self.to_version],self.delta_dict)
+                self.complete_RECEIVE()
+                print("completed push call back")
+
+            if self.state == self.AcceptPushState.GCSTART:
+                print("Receiver starting garbage collect")
+                try:
+                    with df.application_df.write_lock:
+                        df.application_df.garbage_collect(self.sender_node, self.to_version)
+                        print("Receiver completed garbage collect")
+                        self.complete_GC()
+                except Exception as e:
+                    print(e)
+                    print(traceback.format_exc())
+                    raise
 
 @pcc_set
 class Parent(object):
-
+    singleton = "SINGLETON"
     oid = primarykey(str)
     app = dimension(str)
     parent_app = dimension(str)
 
     def __init__(self, app, parent_app):
-        self.oid = str(uuid.uuid4())
+        self.oid = Parent.singleton
         self.app = app
         self.parent_app = parent_app
 

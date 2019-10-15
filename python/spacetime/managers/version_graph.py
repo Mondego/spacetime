@@ -7,10 +7,13 @@ from copy import deepcopy
 
 @pcc_set
 class Node(object):
-
+    def __repr__(self):
+        return f"<{self.current}>"
     oid = primarykey(str)
     current = dimension(str)
     is_master = dimension(bool)
+    next_master = dimension(str)
+    prev_master = dimension(str)
 
     def __eq__(self, other):
         return other.current == self.current
@@ -27,7 +30,7 @@ class Node(object):
         self.all_next = set()
         self.is_master = is_master
         if debug:
-            print("new node is created")
+            print(f"new node is created {current}")
             debug.add_one(Node, self)
 
     def set_next(self, version):
@@ -44,7 +47,8 @@ class Node(object):
 
 @pcc_set
 class Edge(object):
-
+    def __repr__(self):
+        return f"<{self.from_node}, {self.to_node}>"
     oid = primarykey(str)
     from_node = dimension(str)
     to_node = dimension(str)
@@ -140,20 +144,33 @@ class Graph(object):
                         edges_to_del.add((start.current, node_v))
                         start.next_master = end.current
         for start, end in edges_to_del:
+            eobj = self.edges[(start, end)]
             del self.edges[(start, end)]
             self.nodes[start].all_next.remove(end)
             self.nodes[end].all_prev.remove(start)
+            if self.debug:
+                self.debug.delete_one(Edge, eobj)
 
 
     def merge_node(self, node, merger_function):
         # remove node from df
+        dnode = self.nodes[node.current]
         del self.nodes[node.current]
+        if self.debug:
+            self.debug.delete_one(Node, dnode)
         old_change = self.edges[(node.prev_master, node.current)].payload
         new_change = self.edges[(node.current, node.next_master)].payload
         new_payload = merger_function(old_change, new_change)
 
+        e_p_to_c = self.edges[(node.prev_master, node.current)]
+        e_c_to_n = self.edges[(node.current, node.next_master)]
+            
         del self.edges[(node.prev_master, node.current)]
         del self.edges[(node.current, node.next_master)]
+        if self.debug:
+            self.debug.delete_one(Edge, e_p_to_c)
+            self.debug.delete_one(Edge, e_c_to_n)
+
         self.nodes[node.prev_master].all_next.remove(node.current)
         self.nodes[node.next_master].all_prev.remove(node.current)
         if (self.nodes[node.prev_master].is_master

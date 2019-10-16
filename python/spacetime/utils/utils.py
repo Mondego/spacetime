@@ -137,8 +137,9 @@ def get_deleted(data):
         return [
             (dtpname, oid)
             for dtpname in data for oid in data[dtpname]
-            if data[dtpname][oid]["types"][dtpname] == Event.Delete]
+            if data[dtpname][oid] and data[dtpname][oid]["types"][dtpname] == Event.Delete]
     except Exception:
+        print ("DATA", data)
         raise
 
 class instrument_func(object):

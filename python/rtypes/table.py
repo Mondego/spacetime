@@ -19,7 +19,7 @@ class RtypesTable(object):
             raise TypeError(
                 "{0} is not of type {1}".format(
                     repr(value), dim_obj.dim_type.__name__))
-        elif not dict_json_match and not isinstance(value, dim_obj.dim_type):
+        elif not dict_json_match and not isinstance(value, dim_obj.dim_type) and value is not None:
             # No ducktyping :D
             raise TypeError(
                 "{0} is not of type {1}".format(

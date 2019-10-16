@@ -15,24 +15,34 @@ class Foo:
         return "Foo_"+ str(self.y)
 
 
-def producer(df):
-    y = 0
+def producer(df, i):
+    y = i
+    x= 0
     while True:
         df.add_one(Foo, Foo(y))
         df.commit()
         df.push()
-        y += 1
+        y += 2
+        x += 1
+        print ("LENGTH OF FOOOOOOOS PRODUCER", i, len(df.read_all(Foo)))
+        if x >= 10:
+            break
 
 def consumer(df):
-    time.sleep(5)
     foos = list()
     while True:
-        df.checkout()
+        try:
+            df.checkout()
+        except TimeoutError:
+            pass
         foos = df.read_all(Foo)
-        print("in consumer")
-        print(foos)
-        for foo in foos:
-            print("Consumer received",foo)
+        print ("LENGTH OF FOOOOOOOS", len(foos))
+        if len(foos) >= 20:
+            break
+        #print(foos)
+        #for foo in foos:
+        #    print("Consumer received",foo)
+        
 
 def main():
 
@@ -42,7 +52,7 @@ def main():
     debugger_server = Node(server_func, Types=[Register, CommitObj, AcceptFetchObj, FetchObj, CheckoutObj,
                                                AcceptPushObj, PushObj, Vertex, Edge, Parent], server_port=30000)
 
-    debugger_server.start_async()
+    debugger_server.start_async([Foo])
     print("Debugger server started")
     consumer_node = Node(consumer, Types=[Foo], server_port=65402, debug=('127.0.0.1', 30000))
     consumer_node.start_async()
@@ -52,7 +62,7 @@ def main():
     # To start child apps
     for i in range(n):
         producer_nodes[i] = Node(producer, Types=[Foo], dataframe=('127.0.0.1', 65402), debug=('127.0.0.1', 30000))
-        producer_nodes[i].start_async()
+        producer_nodes[i].start_async(i)
 
     for i in range(n):
         producer_nodes[i].join()

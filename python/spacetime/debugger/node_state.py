@@ -3,7 +3,7 @@ from spacetime.debugger.debugger_types import CommitObj, FetchObj, AcceptFetchOb
     CheckoutObj, PushObj, AcceptPushObj, Parent
 
 
-class NodeState(Thread):
+class NodeState(object):
     def __init__(self, appname, df):
         self.df = df
         self.appname = appname
@@ -11,27 +11,31 @@ class NodeState(Thread):
         self.child = dict()
         self.managed_heap = None
         self.command_list = list()
-        self.current_command = None
         self.next_steps = list()
         self.prev_steps = list()
-        self.current_stage = 0
+        self.current_stage = -1
         self.tps = [CommitObj, FetchObj, AcceptFetchObj, CheckoutObj, PushObj, AcceptPushObj]
         self.df.checkout()
-        super().__init__(daemon=True)
-        self.start()
 
-    def run(self):
-        while True:
-            self.df.checkout_await()
-            for tp in self.tps:
-                for obj in self.df.read_all(tp):
-                    if obj not in self.command_list and obj != self.current_command:
-                        self.command_list.append(obj)
+    @property
+    def current_command(self):
+        if self.command_list:
+            return self.command_list[0]
+        return None
 
-    def get_next_command(self, command):
-        if command == self.current_command:
+    def update(self):
+        self.df.checkout()
+        # print (f"{self.appname} Received some request")
+        for tp in self.tps:
+            for obj in self.df.read_all(tp):
+                if obj not in self.command_list and obj != self.current_command:
+                    self.command_list.append(obj)
+                    self.next_steps.append(self.get_stages_for_command(obj))
+                    print(obj)
+
+    def remove_current_command(self):
             self.command_list.pop(0)
-            self.current_command = self.command_list[0]
+
 
     def get_stages_for_command(self, obj):
         if isinstance(obj, CheckoutObj):
@@ -59,10 +63,15 @@ class NodeState(Thread):
                     "Read changes", "Send changes","Wait for confirmation from receiver", "Garbage collect", "Finish"]
 
     def execute_checkout(self, obj):
+        if obj.state == obj.CheckoutState.FINISHED:
+            self.current_stage = 0
+        else:
+            self.current_stage += 1
         checkout_display = self.get_stages_for_command(obj)
         if obj.state == obj.CheckoutState.FINISHED:
+            self.next_steps.pop(0)
             self.prev_steps.append(checkout_display)
-            self.get_next_command(obj)
+            self.remove_current_command()
             self.df.delete_one(CheckoutObj, obj)
 
 
@@ -84,17 +93,19 @@ class NodeState(Thread):
         elif obj.state == obj.CheckoutState.GCCOMPLETE:
             obj.finish()
             #self.current_stage = 3
-        if obj.state == obj.CheckoutState.FINISHED:
-            self.current_stage = 0
-        else:
-            self.current_stage += 1
+
         self.df.commit()
 
     def execute_commit(self, obj):
         commit_display = self.get_stages_for_command(obj)
         if obj.state == obj.CommitState.FINISHED:
+            self.current_stage = 0
+        else:
+            self.current_stage += 1
+        if obj.state == obj.CommitState.FINISHED:
+            self.next_steps.pop(0)
             self.prev_steps.append(commit_display)
-            self.get_next_command(obj)
+            self.remove_current_command()
             self.df.delete_one(CommitObj, obj)
 
         elif obj.state == obj.CommitState.INIT:
@@ -117,22 +128,28 @@ class NodeState(Thread):
             #self.current_stage = 3
 
         self.df.commit()
-        if obj.state == obj.CommitState.FINISHED:
-            self.current_stage = 0
-        else:
-            self.current_stage += 1
+
 
     def execute_push(self, obj):
         push_display = self.get_stages_for_command(obj)
-        if obj.state == obj.PushState.GCCOMPLETE:
-            obj.finish()
+        if obj.state == obj.PushState.FINISHED:
+            self.current_stage = 0
+        elif obj.state == obj.PushState.WAIT:
+            return
+        else:
+            self.current_stage += 1
+
             #self.df.commit()
 
-        elif obj.state == obj.PushState.FINISHED:
+        if obj.state == obj.PushState.FINISHED:
+            self.next_steps.pop(0)
             self.prev_steps.append(push_display)
-            self.get_next_command(obj)
+            self.remove_current_command()
             self.df.delete_one(PushObj, obj)
             #self.df.commit()
+
+        elif obj.state == obj.PushState.GCCOMPLETE:
+            obj.finish()
 
         elif obj.state == obj.PushState.INIT:
             obj.state = obj.PushState.NEW
@@ -161,14 +178,14 @@ class NodeState(Thread):
             #self.current_stage = 3
             #self.df.commit()
         self.df.commit()
-        if obj.state == obj.PushState.FINISHED:
-            self.current_stage = 0
-        elif obj.state == obj.PushState.WAIT:
-            return
-        else:
-            self.current_stage += 1
+
 
     def execute_accept_push(self, obj):
+
+        if obj.state == obj.AcceptPushState.FINISHED:
+            self.current_stage = 0
+        else:
+            self.current_stage += 1
         accept_push_display = self.get_stages_for_command(obj)
 
         if obj.state == obj.AcceptPushState.INIT:
@@ -196,16 +213,14 @@ class NodeState(Thread):
             #self.current_stage = 3
 
         elif obj.state == obj.AcceptPushState.FINISHED:
+            self.next_steps.pop(0)
             self.prev_steps.append(accept_push_display)
-            self.get_next_command(obj)
+            self.remove_current_command()
             self.df.delete_one(AcceptPushObj, obj)
             #self.df.commit()
 
+
         self.df.commit()
-        if obj.state == obj.AcceptPushState.FINISHED:
-            self.current_stage = 0
-        else:
-            self.current_stage += 1
 
     def execute_fetch(self, obj):
         fetch_display = self.get_stages_for_command(obj)
@@ -246,8 +261,9 @@ class NodeState(Thread):
             #self.current_stage = 4
 
         elif obj.state == obj.FetchState.FINISHED:
+            self.next_steps.pop(0)
             self.prev_steps.append(fetch_display)
-            self.get_next_command(obj)
+            self.remove_current_command()
             self.df.delete_one(PushObj, obj)
             #self.df.commit()
 
@@ -260,6 +276,13 @@ class NodeState(Thread):
             self.current_stage += 1
 
     def execute_accept_fetch(self, obj):
+
+        if obj.state == obj.AcceptFetchState.FINISHED:
+            self.current_stage = 0
+        elif obj.state == obj.AcceptFetchState.WAIT:
+            return
+        else:
+            self.current_stage += 1
         accept_fetch_display = self.get_stages_for_command(obj)
         if obj.state == obj.AcceptFetchState.INIT:
             obj.state = obj.AcceptFetchState.NEW
@@ -294,27 +317,21 @@ class NodeState(Thread):
             #self.current_stage = 4
 
         elif obj.state == obj.AcceptFetchState.FINISHED:
+            self.next_steps.pop(0)
             self.prev_steps.append(accept_fetch_display)
-            self.get_next_command(obj)
+            self.remove_current_command()
             self.df.delete_one(AcceptFetchObj, obj)
             #self.df.commit()
         self.df.commit()
-        if obj.state == obj.AcceptFetchState.FINISHED:
-            self.current_stage = 0
-        elif obj.state == obj.AcceptFetchState.WAIT:
-            return
-        else:
-            self.current_stage += 1
+
+
 
     def execute(self):
         # Execute one step of self.current_command.
         # This is called by appname/next
-        print(self.appname)
-        for command in self.command_list:
-            print(command, command.state)
 
-        self.next_steps = list()
         obj = self.current_command
+        print(obj, obj.state)
         if isinstance(obj, CheckoutObj):
             self.execute_checkout(obj)
 
@@ -333,11 +350,8 @@ class NodeState(Thread):
         if isinstance(obj, AcceptFetchObj):
             self.execute_accept_fetch(obj)
 
-        for command in self.command_list:
-            self.next_steps.append(self.get_stages_for_command(command))
-        print(self.next_steps)
-        print(self.current_stage)
 
     def swap(self, pos1, pos2):
         # self.current_command[pos1] should become [pos2] and vice versa.
-        pass
+        pos1, pos2 = int(pos1), int(pos2)
+        self.command_list[pos1], self.command_list[pos2] = self.command_list[pos1], self.command_list[pos2]

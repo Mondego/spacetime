@@ -7,7 +7,7 @@ from spacetime.debugger.debugger_types import CommitObj, FetchObj, AcceptFetchOb
 from spacetime.debugger.node_state import NodeState
 from spacetime.managers.version_graph import Node as Vertex, Edge
 from spacetime.utils.utils import merge_state_delta
-from flask import Flask, render_template
+from flask import Flask, render_template, redirect, request
 import json
 import copy
 import time
@@ -273,23 +273,24 @@ def server_func(df):
             current_dataframes = dataframes.copy()
             df = current_dataframes[appname]
             df.checkout()
-            node_objects = df.read_all(Vertex)
-            edge_objects = df.read_all(Edge)
-            graph_json = convert_to_json(node_objects, edge_objects)
-            new_objects = list()
-            next_steps = {appname: [] for appname in current_dataframes}
-            nodes[appname].current_command = nodes[appname].command_list[0]
             highlight = 0
+            nodes[appname].update()
             nodes[appname].execute()
+            nodes[appname].update()
                 # print("in CDN", obj, obj.state)
             df.checkout()
             node_objects = df.read_all(Vertex)
             edge_objects = df.read_all(Edge)
             graph_json = convert_to_json(node_objects, edge_objects)
-            print(graph_json)
+            print(nodes[appname].command_list, nodes[appname].next_steps, nodes[appname].prev_steps)
             return render_template("Graph.html", graph_view=graph_json, appname=appname, next_steps=json.dumps(nodes[appname].next_steps),
                                    highlight=nodes[appname].current_stage, prev_steps=json.dumps(nodes[appname].prev_steps))
 
+        @app.route("/home/<string:appname>/swap", methods=['POST'])
+        def swap(appname):
+            posns = request.get_json()
+            nodes[appname].swap(posns["pos1"], posns["pos2"])
+            return redirect(f"/home/{appname}/next")
 
         def graph():
             while True:

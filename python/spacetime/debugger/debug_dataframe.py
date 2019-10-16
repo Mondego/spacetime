@@ -48,8 +48,8 @@ class DebugDataframe(object):
                                     print(e)
                                     print(traceback.format_exc())
                                     raise
-                            self.debugger_df.commit()
-                            self.debugger_df.push()
+                        self.debugger_df.commit()
+                        self.debugger_df.push()
 
     def __init__(self, df, appname, types, server_port, parent_details):
         print(appname, types, server_port, parent_details)
@@ -75,7 +75,7 @@ class DebugDataframe(object):
         self.application_df.add_one(dtype, obj)
 
     def add_many(self, dtype, objs):
-        self.application_df.add_many(dtype.obj)
+        self.application_df.add_many(dtype, objs)
 
     def read_one(self, dtype, oid):
         print(self.application_df.read_one(dtype, oid))
@@ -188,7 +188,9 @@ class DebugDataframe(object):
                 if pushObj.from_version != pushObj.to_version:
                     self.application_df.garbage_collect(
                         "SOCKETPARENT", pushObj.to_version)
-
+            pushObj.complete_GC()
+            self.debugger_df.commit()
+            self.debugger_df.push()
 
 
     def fetch(self):

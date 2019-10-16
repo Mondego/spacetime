@@ -28,6 +28,7 @@ text {
 .node text {
   pointer-events: none;
 }
+
 /* This styles the title of the tooltip */
 .tipsy .name {
   font-size: 1.5em;
@@ -41,6 +42,46 @@ text {
 }
 .tipsy { font-size: 10px; position: absolute; padding: 5px; z-index: 100000; }
 .tipsy-inner { background-color: #D3D3D3; color: #FFF; max-width: 400px; padding: 5px 8px 4px 8px; text-align: center; }
+
+[draggable] {
+  -moz-user-select: none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+  user-select: none;
+  /* Required to make elements draggable in old WebKit */
+  -khtml-user-drag: element;
+  -webkit-user-drag: element;
+}
+
+#columns {
+  list-style-type: none;
+}
+
+.column {
+  width: 162px;
+  padding-bottom: 5px;
+  padding-top: 5px;
+  text-align: center;
+  cursor: move;
+}
+.column header {
+  height: 20px;
+  width: 150px;
+  color: black;
+  background-color: #ccc;
+  padding: 5px;
+  border-bottom: 1px solid #ddd;
+  border-radius: 10px;
+  border: 2px solid #666666;
+}
+
+.column.dragElem {
+  opacity: 0.4;
+}
+.column.over {
+  //border: 2px dashed #000;
+  border-top: 2px solid blue;
+}
  </style>
      <script src="https://d3js.org/d3.v4.min.js"></script>
     <script src="https://dagrejs.github.io/project/dagre-d3/latest/dagre-d3.js"></script>
@@ -109,6 +150,8 @@ svg.attr("height", g.graph().height + 40);
 <p id="next_steps"></p>
 <script>
 var ul = document.createElement('ul');
+//var attribute documment.createAttribute("id")
+//attribute.value = "commands"
 var appname = '{{appname}}';
 document.getElementById('next_steps').appendChild(ul);
 var next_steps = {{next_steps|safe}};
@@ -120,16 +163,37 @@ var highlight = {{highlight}};
 
 reqs.forEach(function (req, j) {
     console.log(req)
-    req.forEach(function(step, i){
     var li = document.createElement('li');
-    //var att = document.createAttribute("draggable")
-    //att.value = "true"
-    //li.setAttributeNode(att)
-    ul.appendChild(li);
-    if (i == highlight && j == 0){
-        li.innerHTML += "<mark>" + step + "</mark>"
+    ul.appendChild(li)
+    var att1 = document.createAttribute("draggable")
+    var att2 = document.createAttribute("class")
+    var att3 = document.createAttribute("index")
+    att1.value = "true"
+    att2.value = "column"
+    att3.value = j
+    li.setAttributeNode(att1)
+    li.setAttributeNode(att2)
+    li.setAttributeNode(att3)
+
+    console.log(li.getAttribute("index"));
+    if (highlight == 0 && j == 0){
+        li.innerHTML += "<mark>"  + req[0] + "</mark>"
     } else{
-    li.innerHTML += step;
+    li.innerHTML +=   req[0];
+    }
+    var ul1 = document.createElement('ul');
+    li.appendChild(ul1)
+    req.forEach(function(step, i){
+    if(i > 0){
+    var li1 = document.createElement('li');
+    ul1.appendChild(li1)
+
+    {if (i == highlight && j == 0){
+        li1.innerHTML += "<mark>" + step + "</mark>"
+    } else{
+    li1.innerHTML += step;
+    }
+    }
     }
     });
 });
@@ -150,19 +214,114 @@ reqs.forEach(function (req, j) {
         var prev_reqs = prev_steps
         console.log(prev_reqs);
         prev_reqs.forEach(function (req, j) {
-        console.log(req)
-        req.forEach(function(step, i){
-        var li = document.createElement('li');
-        ul.appendChild(li);
-        if (i == highlight[j]){
-            li.innerHTML += "<mark>" + step + "</mark>"
-        } else{
-        li.innerHTML += step;
-        }
+    console.log(req)
+    var li = document.createElement('li');
+    ul.appendChild(li)
+    li.innerHTML += req[0];
+
+    var ul1 = document.createElement('ul');
+    li.appendChild(ul1)
+    req.forEach(function(step, i){
+    if(i > 0){
+    var li1 = document.createElement('li');
+    ul1.appendChild(li1)
+    li1.innerHTML += step;
+    }
     });
 });
     </script>
 </div>
+<script>
+var dragSrcEl = null;
+var appname = '{{appname}}';
+
+function handleDragStart(e) {
+  // Target (this) element is the source node.
+  dragSrcEl = this;
+
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/html', this.outerHTML);
+
+  this.classList.add('dragElem');
+}
+function handleDragOver(e) {
+  if (e.preventDefault) {
+    e.preventDefault(); // Necessary. Allows us to drop.
+  }
+  this.classList.add('over');
+
+  e.dataTransfer.dropEffect = 'move';  // See the section on the DataTransfer object.
+
+  return false;
+}
+
+function handleDragEnter(e) {
+  // this / e.target is the current hover target.
+}
+
+function handleDragLeave(e) {
+  this.classList.remove('over');  // this / e.target is previous target element.
+}
+
+function handleDrop(e) {
+  // this/e.target is current target element.
+  console.log(e.target);
+  console.log(dragSrcEl);
+
+  if (e.stopPropagation) {
+    e.stopPropagation(); // Stops some browsers from redirecting.
+  }
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", "swap", true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.send(JSON.stringify({
+        pos1: dragSrcEl.getAttribute("index"),
+        pos2: e.target.getAttribute("index")
+    }));
+
+  // Don't do anything if dropping the same column we're dragging.
+  if (dragSrcEl != this) {
+    // Set the source column's HTML to the HTML of the column we dropped on.
+    //alert(this.outerHTML);
+    //dragSrcEl.innerHTML = this.innerHTML;
+    //this.innerHTML = e.dataTransfer.getData('text/html');
+    this.parentNode.removeChild(dragSrcEl);
+    var dropHTML = e.dataTransfer.getData('text/html');
+    this.insertAdjacentHTML('beforebegin',dropHTML);
+    var dropElem = this.previousSibling;
+
+
+    addDnDHandlers(dropElem);
+
+  }
+  this.classList.remove('over');
+  return false;
+}
+
+function handleDragEnd(e) {
+  // this/e.target is the source node.
+  this.classList.remove('over');
+
+  /*[].forEach.call(cols, function (col) {
+    col.classList.remove('over');
+  });*/
+}
+
+function addDnDHandlers(elem) {
+  elem.addEventListener('dragstart', handleDragStart, false);
+  elem.addEventListener('dragenter', handleDragEnter, false)
+  elem.addEventListener('dragover', handleDragOver, false);
+  elem.addEventListener('dragleave', handleDragLeave, false);
+  elem.addEventListener('drop', handleDrop, false);
+  elem.addEventListener('dragend', handleDragEnd, false);
+
+}
+
+var cols = document.querySelectorAll('.column');
+console.log(cols);
+[].forEach.call(cols, addDnDHandlers);
+
+</script>
 
 <div class="row">
 

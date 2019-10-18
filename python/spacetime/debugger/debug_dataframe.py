@@ -120,7 +120,6 @@ class DebugDataframe(object):
 
         commitObj.complete_commit()
         print("commit complete")
-        print(commitObj.state)
         self.debugger_df.commit()
         self.debugger_df.push() # To Let the CDN know commit is complete
         while commitObj.state != commitObj.CommitState.GCSTART: # Wait till the CDN gives the command to start GC
@@ -136,9 +135,8 @@ class DebugDataframe(object):
         if versions:
             self.application_df.local_heap.data_sent_confirmed(versions)
 
-
     def sync(self):
-         self.application_df.sync()
+        self.application_df.sync()
 
     def push(self):
         if self.parent_app_name:
@@ -167,6 +165,7 @@ class DebugDataframe(object):
             while pushObj.state != pushObj.PushState.GCSTART:
                 self.debugger_df.pull()
             print("Sender starting garbage collect")
+            self.from_version = pushObj.to_version #TODO is this correct?
             with self.application_df.write_lock:
                 if pushObj.from_version != pushObj.to_version:
                     self.application_df.garbage_collect(
@@ -174,7 +173,6 @@ class DebugDataframe(object):
             pushObj.complete_GC()
             self.debugger_df.commit()
             self.debugger_df.push()
-
 
     def fetch(self):
         if self.parent_app_name:

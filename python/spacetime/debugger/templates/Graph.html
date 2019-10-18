@@ -58,10 +58,10 @@ text {
 }
 
 .column {
-  width: 162px;
+  #width: 162px;
   padding-bottom: 5px;
   padding-top: 5px;
-  text-align: center;
+  #text-align: center;
   cursor: move;
 }
 .column header {
@@ -108,7 +108,7 @@ var g = new dagreD3.graphlib.Graph()
 var graph ={{graph_view|safe}}
 var appname = appname
 graph.nodes.forEach(function(d){
-     g.setNode(d.id, {label: d.name, class: d.type , style: d.style});
+     g.setNode(d.id, {label: d.name, class: d.type , style: d.style, "state": d.state});
      });
 console.log(g);
 g.nodes().forEach(function(v) {
@@ -136,7 +136,7 @@ svgGroup.selectAll("g.edgePath")
   .attr("title", function(v) { return styleTooltip(g.edge(v).payload) })
   .each(function(v) { $(this).tipsy({ gravity: "n", opacity: 1, html: true }); });
 svgGroup.selectAll("g.node")
-  .attr("title", function(v) { return styleTooltip(g.node(v).label) })
+  .attr("title", function(v) { return styleTooltip(g.node(v).state) })
   .each(function(v) { $(this).tipsy({ gravity: "n", opacity: 1, html: true }); });
 // Center the graph
 var xCenterOffset = (svg.attr("width") - g.graph().width) / 5;

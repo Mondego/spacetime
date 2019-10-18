@@ -58,7 +58,7 @@ def main():
     consumer_node.start_async()
 
 
-    producer_nodes = [0]*n
+    producer_nodes = [0] * n
     # To start child apps
     for i in range(n):
         producer_nodes[i] = Node(producer, Types=[Foo], dataframe=('127.0.0.1', 65402), debug=('127.0.0.1', 30000))

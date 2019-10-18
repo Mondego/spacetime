@@ -241,7 +241,7 @@ class AcceptFetchObj(object):
     fetch_obj_oid = dimension(str)
 
     def __init__(self, requestor_node, requestee_node, from_version, to_version, delta, fetch_obj_oid):
-        self.oid = fetch_obj_oid
+        self.oid = str(uuid.uuid4())
         self.requestor_node = requestor_node
         self.requestee_node = requestee_node
         self.from_version = from_version
@@ -249,7 +249,7 @@ class AcceptFetchObj(object):
         self.delta = delta
         self.state = self.AcceptFetchState.INIT
         self.sender_df = None
-        #self.fetch_obj_oid = fetch_obj_oid
+        self.fetch_obj_oid = fetch_obj_oid
         # write out these states
 
     def start(self):
@@ -293,7 +293,7 @@ class PushObj(object):
         INIT = 0
         NEW = 1
         START = 2
-        FETCHDELTACOMPLETE = 2
+        FETCHDELTACOMPLETE = 3
         WAIT = 4
         PUSHCOMPLETE = 5
         GCSTART = 6
@@ -326,6 +326,10 @@ class PushObj(object):
     to_version = dimension(str)
     delta = dimension(bytes)
     accept_fetch_obj_oid = dimension(str)
+
+    def __repr__(self):
+        return "Push Obj" + " , "+ str(self.sender_node) +" , "+ str(self.receiver_node)+ " , "+ str(self.oid) +\
+               " ,"+ str(self.state)
 
     def __init__(self, sender_node, receiver_node, from_version, to_version, delta):
         self.oid = str(uuid.uuid4())
@@ -373,6 +377,10 @@ class AcceptPushObj(object):
 
             ABORT = -1
 
+        def __repr__(self):
+                return ("Accept Push Obj" + " , "+ str(self.sender_node) +" , "+ str(self.receiver_node) + " , "+str(
+                    self.oid) + " , "+ str(self.push_obj_oid) + "," + str(self.state))
+
         @property
         def delta_dict(self):
             if not self.delta:
@@ -400,6 +408,7 @@ class AcceptPushObj(object):
 
         def __init__(self, sender_node, receiver_node, from_version, to_version, delta, push_obj_oid):
             self.oid = str(uuid.uuid4())
+            #self.oid = push_obj_oid
             self.sender_node = sender_node
             self.receiver_node = receiver_node
             self.from_version = from_version
@@ -431,7 +440,7 @@ class AcceptPushObj(object):
         def client_execute(self, df):
             if self.state == self.AcceptPushState.START:
                 print("calling push call back")
-                df.push_call_back(self.sender_node,[self.from_version, self.to_version],self.delta_dict)
+                df.push_call_back(self.sender_node, [self.from_version, self.to_version], self.delta_dict)
                 self.complete_RECEIVE()
                 print("completed push call back")
 

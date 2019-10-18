@@ -13,6 +13,7 @@ import copy
 import time
 from collections import defaultdict
 from json2table import convert
+from spacetime.utils.utils import merge_state_delta
 
 
 def get_event_type(event):
@@ -38,15 +39,23 @@ def delta_to_html(payload):
     #print(simplified_edge)
     return convert(simplified_edge)
 
-# def merge_edges(Node):
-#     start_node = "ROOT"
-#
-#     for delta in :
-#         merged = merge_state_delta(merged, delta)
+
+def merge_edges(appname, end_version):
+    NODE = NODES[appname]
+    payloads = list()
+    version = end_version
+    while version.prev_master:
+        payloads.append(NODE.edge_map[(version.prev_master, version.current)].payload)
+        version = NODE.vertex_map[version.prev_master]
+    #print("payloads", payloads)
+    merged = dict()
+    for payload in payloads[::-1]:
+        merged = merge_state_delta(merged, payload, delete_it=True)
+    print(merged)
+    return delta_to_html(merged)
 
 
-
-def convert_to_json(nodes, edges):
+def convert_to_json(appname, nodes, edges):
     node_list, edge_list, lst = list(), list(), list()
     for i, node in enumerate(nodes):
         # if node == self.head:
@@ -54,7 +63,7 @@ def convert_to_json(nodes, edges):
         #                       'is_master': str(node.is_master),
         #                       'style': "stroke:#006400" if node.is_master else "stroke:#8B0000"})
         #else:
-            node_list.append({'id': i, 'name': node.current[:4], 'type': 'not_head',
+            node_list.append({'id': i, 'name': node.current[:4], 'type': 'not_head', 'state': merge_edges(appname, node),
                               'is_master': str(node.is_master),
                               'style': "stroke:#006400" if node.is_master else "stroke:#8B0000"})
             lst.append(node.current)
@@ -128,6 +137,7 @@ def update_parent_and_children():
             node.parent = NODES[parent]
             NODES[parent].child[node.appname] = node
 
+
 def debugger():
     app = Flask(__name__)
     
@@ -165,23 +175,40 @@ def debugger():
         # return the view of the graph for this node
         node = NODES[appname]
         node.update()
-        graph_json = convert_to_json(node.vertices, node.edges)
-        print(graph_json)
-        print(NODES[appname].next_steps, NODES[appname].prev_steps)
-        return render_template("Graph.html", graph_view=graph_json, appname=appname, next_steps=json.dumps(NODES[appname].next_steps),
-                                highlight=NODES[appname].current_stage, prev_steps=json.dumps(NODES[appname].prev_steps))
+        graph_json = convert_to_json(appname, node.vertices, node.edges)
+        #print(graph_json)
+        #print(NODES[appname].next_steps, NODES[appname].prev_steps)
+        # pick up NODES[appname].open_tables
+        #print(type(NODES[appname].current_command))
+        return render_template("Graph.html", graph_view=graph_json, appname=appname,
+                                next_steps=json.dumps(NODES[appname].next_steps),
+                                highlight=NODES[appname].current_stage[type(NODES[appname].current_command)],
+                                prev_steps=json.dumps(NODES[appname].prev_steps))
     
     @app.route("/home/<string:appname>/next", methods=['GET'])
     def app_view_next(appname):
         NODES[appname].update()
         NODES[appname].execute()
+        print(NODES[appname].command_list)
+        return redirect(f"/home/{appname}/")
+
+    @app.route("/home/<string:appname>/statefor", methods=['GET'])
+    def app_view_state(appname):
+        key = request.args["key"]
+        keytype = request.args["keytype"]
+        NODES[appname].add_to_table(key, keytype)
         return redirect(f"/home/{appname}/")
 
     @app.route("/home/<string:appname>/swap", methods=['POST'])
     def swap(appname):
         posns = request.get_json()
+        print("post" , posns)
         NODES[appname].swap(posns["pos1"], posns["pos2"])
-        return redirect(f"/home/{appname}/")
+        graph_json = convert_to_json(appname, NODES[appname].vertices, NODES[appname].edges)
+        return render_template("Graph.html", graph_view=graph_json, appname=appname,
+                               next_steps=json.dumps(NODES[appname].next_steps),
+                               highlight=NODES[appname].current_stage, prev_steps=json.dumps(NODES[appname].prev_steps))
+        #return redirect(f"/home/{appname}/")
     
     @app.route("/run", methods=['GET'])
     def app_run():
@@ -196,7 +223,7 @@ def debugger():
                 node.execute()
                 df = node.managed_heap
                 try:
-                    print ("Foo:", len(df.read_all(Foo)), eval(command), command)
+                    print (node.appname,"Foo:", len(df.read_all(Foo)), eval(command), command)
                     if eval(command):
                         return redirect(f"/home/{node.appname}")
                 except Exception as e:
@@ -206,7 +233,7 @@ def debugger():
 def server_func(df, apptypes):
     for tp in apptypes:
         globals()[tp.__name__] = tp
-    print (Foo)
+    #print (Foo)
     check_for_new_nodes_thread = Thread(target=check_for_new_nodes, args=(df, apptypes))
     check_for_new_nodes_thread.start()
     debugger_thread = Thread(target=debugger)

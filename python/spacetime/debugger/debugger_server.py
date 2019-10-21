@@ -24,7 +24,6 @@ def get_event_type(event):
     if event == 2:
         return "Delete"
 
-
 def delta_to_html(payload):
     #simplified_edge = {"Type": {"oid":{"dim": "value"}}}
     simplified_edge = {"Type": {"event ":{"oid": {"dim": "value"}}}}
@@ -64,7 +63,7 @@ def convert_to_json(appname, nodes, edges):
         #                       'style': "stroke:#006400" if node.is_master else "stroke:#8B0000"})
         #else:
             node_list.append({'id': i, 'name': node.current[:4], 'type': 'not_head', 'state': merge_edges(appname, node),
-                              'is_master': str(node.is_master),
+                              'is_master': str(node.is_master), 'full_name': node.current,
                               'style': "stroke:#006400" if node.is_master else "stroke:#8B0000"})
             lst.append(node.current)
 
@@ -74,7 +73,9 @@ def convert_to_json(appname, nodes, edges):
         target_node = edge.to_node
         target_id = lst.index(target_node)
         edge_list.append({'source_id': source_id, 'target_id': target_id,'label':delta_to_html(edge.payload), #'label': str(edge.payload),
-                          'style': 'stroke:#000000;stroke-width: 2px;', 'arrowheadStyle': ''})
+                          'style': 'stroke:#000000;stroke-width: 2px;', 'arrowheadStyle': '',
+                          'source_node': edge.from_node, 'target_node' : edge.to_node
+                          })
 
 
     graph_jsonified = {'nodes': node_list,
@@ -183,7 +184,7 @@ def debugger():
         return render_template("Graph.html", graph_view=graph_json, appname=appname,
                                 next_steps=json.dumps(NODES[appname].next_steps),
                                 highlight=NODES[appname].current_stage[type(NODES[appname].current_command)],
-                                prev_steps=json.dumps(NODES[appname].prev_steps))
+                                prev_steps=json.dumps(NODES[appname].prev_steps), tables= NODES[appname].open_tables)
     
     @app.route("/home/<string:appname>/next", methods=['GET'])
     def app_view_next(appname):
@@ -196,13 +197,15 @@ def debugger():
     def app_view_state(appname):
         key = request.args["key"]
         keytype = request.args["keytype"]
+        print(key, keytype)
         NODES[appname].add_to_table(key, keytype)
+        print(NODES[appname].open_tables)
         return redirect(f"/home/{appname}/")
 
     @app.route("/home/<string:appname>/swap", methods=['POST'])
     def swap(appname):
         posns = request.get_json()
-        print("post" , posns)
+        print("post", posns)
         NODES[appname].swap(posns["pos1"], posns["pos2"])
         graph_json = convert_to_json(appname, NODES[appname].vertices, NODES[appname].edges)
         return render_template("Graph.html", graph_view=graph_json, appname=appname,

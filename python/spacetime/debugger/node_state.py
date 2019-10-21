@@ -3,6 +3,8 @@ from spacetime.debugger.debugger_types import CommitObj, FetchObj, AcceptFetchOb
     CheckoutObj, PushObj, AcceptPushObj, Parent
 from spacetime.managers.version_graph import Node as Vertex, Edge
 from spacetime.managers.managed_heap import ManagedHeap
+from json2table import convert
+from spacetime.utils.utils import merge_state_delta
 
 
 class NodeState(object):
@@ -43,9 +45,97 @@ class NodeState(object):
         self._open_tables = list()
         self.df.checkout()
 
+    def get_event_type(self, event):
+        if event == 0:
+            return "New"
+        if event == 1:
+            return "Modification"
+        if event == 2:
+            return "Delete"
+
+    def delta_to_html(self, payload):
+        # simplified_edge = {"Type": {"oid":{"dim": "value"}}}
+        simplified_edge = {"Type": {"event ": {"oid": {"dim": "value"}}}}
+        for tp in payload:
+            simplified_edge[tp] = {}
+            for oid in payload[tp]:
+                event = self.get_event_type(payload[tp][oid]['types'][tp])
+                simplified_edge[tp][event] = {}
+                simplified_edge[tp][event][oid] = {}
+                for dim in payload[tp][oid]['dims']:
+                    simplified_edge[tp][event][oid][dim] = payload[tp][oid]['dims'][dim]['value']
+        # print(simplified_edge)
+        return convert(simplified_edge)
+
+    def delta_to_table(self, keytype, key, payload):
+        if keytype == "edge":
+            versions = key.split(",")
+            key = "From " + versions[0][:4] + " to " + versions[1][:4]
+        elif keytype == "node":
+            key = key[:4]
+
+        html_string = "<table style=\"font-size:80%\">"
+        html_string += "<th>" + keytype + " : " + key + "</th>"
+        for tp in payload:
+            html_string += "<tr><td>" + tp + "</td></tr>"
+            dims_set = set()
+            html_string += "<tr><td>" + "oid" + "</td>"
+            for oid in payload[tp]:
+                for dim in payload[tp][oid]["dims"]:
+                    if dim not in dims_set:
+                        dims_set.add(dim)
+                        html_string += "<td>" + dim + "</td>"
+
+            html_string += "</tr>"
+            for oid in payload[tp]:
+                if keytype == "edge":
+                    if payload[tp][oid]['types'][tp] == 0:
+                        html_string += "<tr style=\"background-color:YellowGreen;\">"
+                    elif payload[tp][oid]['types'][tp] == 1:
+                        html_string += "<tr style=\"background-color:PowderBlue;\">"
+                    elif payload[tp][oid]['types'][tp] == 2:
+                        html_string += "<tr style=\"background-color:Coral;\">"
+                elif keytype == "node":
+                    html_string += "<tr>"
+                html_string += "<td>" + str(oid) + "</td>"
+                if payload[tp][oid]['types'][tp] in [0, 1]:
+                    for dim in dims_set:
+                        if dim in payload[tp][oid]["dims"]:
+                            html_string += "<td>" + str(payload[tp][oid]["dims"][dim]["value"]) + "</td>"
+                        else:
+                            html_string += "<td>" + " " + "</td>"
+                html_string += "</tr>"
+            html_string += "</table>"
+            print(html_string)
+            return html_string
+
+    def merge_edges(self, end_version):
+        payloads = list()
+        print(self.vertex_map)
+        version = self.vertex_map[end_version]
+        while version.prev_master:
+            payloads.append(self.edge_map[(version.prev_master, version.current)].payload)
+            version = self.vertex_map[version.prev_master]
+        # print("payloads", payloads)
+        merged = dict()
+        for payload in payloads[::-1]:
+            merged = merge_state_delta(merged, payload, delete_it=True)
+        #return self.delta_to_html(merged)
+        return merged
+
     @property
     def open_tables(self):
-        return [self.get_state_at(key, table_type) for key, table_type in self._open_tables if self.valid(key, table_type)]
+        return [(key, self.get_state_at(key, table_type)) for key, table_type in self._open_tables] # if self.valid(key, table_type)]
+
+    def get_state_at(self, key, table_type):
+        if table_type == "edge":
+            keys = key.split(',')
+            from_node, to_node = keys[0], keys[1]
+            # print(self.delta_to_table(table_type, key, self.edge_map[(from_node, to_node)].payload))
+            return self.delta_to_table(table_type, key, self.edge_map[(from_node, to_node)].payload)
+
+        if table_type == "node":
+            return self.delta_to_table(table_type, key, self.merge_edges(key))
 
     def add_to_table(self, key, table_type):
         # also if it is not in open_tables already.
@@ -55,7 +145,7 @@ class NodeState(object):
     def update(self):
         self.next_steps = list()
         self.df.checkout()
-        #print (f"{self.appname} Received some request")
+        # print (f"{self.appname} Received some request")
         for tp in self.tps:
             for obj in self.df.read_all(tp):
                 if obj not in self.command_list and obj != self.current_command:

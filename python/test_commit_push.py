@@ -7,9 +7,11 @@ import time
 @pcc_set
 class Foo:
     y = primarykey(int)
+    z = dimension(int)
 
     def __init__(self, y):
         self.y = y
+        self.z = y + 10
 
     def __str__(self):
         return "Foo_"+ str(self.y)

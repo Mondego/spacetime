@@ -181,10 +181,13 @@ input[type='checkbox'] {
 var g = new dagreD3.graphlib.Graph()
   .setGraph({})
   .setDefaultEdgeLabel(function() { return {}; });
-var graph ={{graph_view|safe}}
-var appname = appname
+var graph ={{graph_view|safe}};
+var appname = '{{appname}}';
+console.log(appname);
 graph.nodes.forEach(function(d){
-     g.setNode(d.id, {label: d.name, class: d.type , style: d.style, "state": d.state});
+     <!--g.setNode(d.id, {label: d.name, class: d.type , style: d.style, "state": d.state, "full_name": d.full_name});-->
+     g.setNode(d.id, {labelType:"html",label: "<a href=http://127.0.0.1:5000/home/"+appname+"/statefor?keytype=node&key="+d.full_name+">"+d.name+"</a>",
+     class: d.type , style: d.style, "state": d.state});
      });
 console.log(g);
 g.nodes().forEach(function(v) {
@@ -193,8 +196,11 @@ g.nodes().forEach(function(v) {
   node.rx = node.ry = 5;
 });
 graph.links.forEach(function(d){
-    g.setEdge(d.source_id, d.target_id, {"payload": d.label, style:d.style, arrowheadStyle:d.arrowheadStyle});
+    g.setEdge(d.source_id, d.target_id, {"payload": d.label, style:d.style, arrowheadStyle:d.arrowheadStyle,
+    "source_node": d.source_node, "target_node": d.target_node
+    });
   });
+
 var styleTooltip = function(desc) {
   var name = "Hi";
   var description ="There";
@@ -208,17 +214,34 @@ var svg = d3.select("svg"),
     svgGroup = svg.append("g");
 // Run the renderer. This is what draws the final graph.
 render(d3.select("svg g"), g);
-svgGroup.selectAll("g.edgePath")
-  .attr("title", function(v) { return styleTooltip(g.edge(v).payload) })
-  .each(function(v) { $(this).tipsy({ gravity: "n", opacity: 1, html: true }); });
-svgGroup.selectAll("g.node")
-  .attr("title", function(v) { return styleTooltip(g.node(v).state) })
-  .each(function(v) { $(this).tipsy({ gravity: "n", opacity: 1, html: true }); });
+svgGroup.selectAll("g.edgePath").on("click", function(id) {location.href='statefor?keytype=edge&key='+g.edge(id).source_node+','+g.edge(id).target_node;});
+<!--svgGroup.selectAll("g.edgePath")-->
+  <!--.attr("title", function(v) { return styleTooltip(g.edge(v).payload) })-->
+  <!--.each(function(v) { $(this).tipsy({ gravity: "n", opacity: 1, html: true }); });-->
+<!--svgGroup.selectAll("g.node")-->
+  <!--.attr("title", function(v) { return styleTooltip(g.node(v).state) })-->
+  <!--.each(function(v) { $(this).tipsy({ gravity: "n", opacity: 1, html: true }); });-->
 // Center the graph
 var xCenterOffset = (svg.attr("width") - g.graph().width) / 5;
 svgGroup.attr("transform", "translate(" + xCenterOffset + ", 20)");
 svg.attr("height", g.graph().height + 40);
 </script>
+
+<div id="table_area">
+
+</div>
+
+<script>
+    var tables = {{tables|safe}};
+    tables.forEach(function (req, j) {
+        console.log(req)
+        var table= document.createElement('div');
+        document.getElementById('table_area').appendChild(table);
+        table.innerHTML += req;
+        });
+
+</script>
+
 
 </div>
 <div class="col-lg-6">

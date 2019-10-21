@@ -83,40 +83,80 @@ text {
   border-top: 2px solid blue;
 }
 
-collapsible {
-  background-color: #777;
-  color: white;
-  cursor: pointer;
-  padding: 18px;
-  width: 100%;
-  border: none;
-  text-align: left;
-  outline: none;
-  font-size: 15px;
+.wrap-collabsible {
+  margin-bottom: 1.2rem 0;
 }
 
-.active, .collapsible:hover {
-  background-color: #555;
+input[type='checkbox'] {
+  display: none;
 }
 
-.collapsible:after {
-  content: '\002B';
-  color: white;
+.lbl-toggle {
+  display: block;
+
   font-weight: bold;
-  float: right;
-  margin-left: 5px;
+  font-family: monospace;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  text-align: center;
+
+  padding: 1rem;
+
+  <!--color: #A77B0E;-->
+  color: #D3D3D3;
+  <!--background: #FAE042;-->
+  background: #FFFFFF;
+
+  cursor: pointer;
+
+  border-radius: 7px;
+  transition: all 0.25s ease-out;
 }
 
-.active:after {
-  content: "\2212";
+.lbl-toggle:hover {
+  color: #7C5A0B;
 }
 
-.content {
-  padding: 0 18px;
-  max-height: 0;
+.lbl-toggle::before {
+  content: ' ';
+  display: inline-block;
+
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 5px solid currentColor;
+  vertical-align: middle;
+  margin-right: .7rem;
+  transform: translateY(-2px);
+
+  transition: transform .2s ease-out;
+}
+
+.toggle:checked + .lbl-toggle::before {
+  transform: rotate(90deg) translateX(-3px);
+}
+
+.collapsible-content {
+  max-height: 0px;
   overflow: hidden;
-  transition: max-height 0.2s ease-out;
-  background-color: #f1f1f1;
+  transition: max-height .25s ease-in-out;
+}
+
+.toggle:checked + .lbl-toggle + .collapsible-content {
+  max-height: 350px;
+}
+
+.toggle:checked + .lbl-toggle {
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.collapsible-content .content-inner {
+  <!--background: rgba(250, 224, 66, .2);-->
+  background: #D3D3D3;
+  border-bottom: 1px solid rgba(211, 211, 211, .45);
+  border-bottom-left-radius: 7px;
+  border-bottom-right-radius: 7px;
+  padding: .5rem 1rem;
 }
  </style>
      <script src="https://d3js.org/d3.v4.min.js"></script>
@@ -181,15 +221,44 @@ svg.attr("height", g.graph().height + 40);
 </script>
 
 </div>
-    <div class="col-lg-6">
-<h3>Current</h3>
-<p id="current_step"></p>
+<div class="col-lg-6">
 
-<h3>Next</h3>
-<p id="next_steps"></p>
+<!--<h3>Current</h3>-->
+<!--<p id="current_step"></p>-->
 
-<h3>Previous</h3>
-<p id="prev_steps"></p>
+
+<div class="wrap-collabsible">
+<input id="collapsible3" class="toggle" type="checkbox" checked>
+<label for="collapsible3" class="lbl-toggle">Current</label>
+<div class="collapsible-content">
+<div class="content-inner">
+<p id="current_step"></p> </div></div></div>
+
+<!--<h3>Next</h3>-->
+<!--<button class="collapsible">Next</button>-->
+<!--<div class="content">-->
+<!--<p id="next_steps"></p>-->
+<!--</div>-->
+
+<div class="wrap-collabsible">
+<input id="collapsible" class="toggle" type="checkbox" checked>
+<label for="collapsible" class="lbl-toggle">Next</label>
+<div class="collapsible-content">
+<div class="content-inner">
+<p id="next_steps"></p> </div></div></div>
+
+<!--<h3>Previous</h3>-->
+<!--<button class="collapsible">Previous</button>-->
+<!--<div class="content">-->
+<!--<p id="prev_steps"></p>-->
+<!--</div>-->
+
+<div class="wrap-collabsible">
+<input id="collapsible1" class="toggle" type="checkbox" checked>
+<label for="collapsible1" class="lbl-toggle">Previous</label>
+<div class="collapsible-content">
+<div class="content-inner">
+<p id="prev_steps"></p> </div></div></div>
 
 <script>
 var ul = document.createElement('ul');
@@ -286,6 +355,21 @@ current_step.forEach(function (req, j) {
         li.innerHTML += req;
 });
  </script>
+
+<script>
+let myLabels = document.querySelectorAll('.lbl-toggle');
+
+Array.from(myLabels).forEach(label => {
+  label.addEventListener('keydown', e => {
+    // 32 === spacebar
+    // 13 === enter
+    if (e.which === 32 || e.which === 13) {
+      e.preventDefault();
+      label.click();
+    };
+  });
+});
+</script>
 
  </div>
 

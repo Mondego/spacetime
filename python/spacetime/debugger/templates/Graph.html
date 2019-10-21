@@ -82,6 +82,42 @@ text {
   //border: 2px dashed #000;
   border-top: 2px solid blue;
 }
+
+collapsible {
+  background-color: #777;
+  color: white;
+  cursor: pointer;
+  padding: 18px;
+  width: 100%;
+  border: none;
+  text-align: left;
+  outline: none;
+  font-size: 15px;
+}
+
+.active, .collapsible:hover {
+  background-color: #555;
+}
+
+.collapsible:after {
+  content: '\002B';
+  color: white;
+  font-weight: bold;
+  float: right;
+  margin-left: 5px;
+}
+
+.active:after {
+  content: "\2212";
+}
+
+.content {
+  padding: 0 18px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.2s ease-out;
+  background-color: #f1f1f1;
+}
  </style>
      <script src="https://d3js.org/d3.v4.min.js"></script>
     <script src="https://dagrejs.github.io/project/dagre-d3/latest/dagre-d3.js"></script>
@@ -146,67 +182,97 @@ svg.attr("height", g.graph().height + 40);
 
 </div>
     <div class="col-lg-6">
-<h3>Pending Requests</h3>
+<h3>Current</h3>
+<p id="current_step"></p>
+
+<h3>Next</h3>
 <p id="next_steps"></p>
+
+<h3>Previous</h3>
+<p id="prev_steps"></p>
+
 <script>
 var ul = document.createElement('ul');
 //var attribute documment.createAttribute("id")
 //attribute.value = "commands"
 var appname = '{{appname}}';
-document.getElementById('next_steps').appendChild(ul);
+document.getElementById('current_step').appendChild(ul);
+var li = document.createElement('li');
+ul.appendChild(li);
+
 var next_steps = {{next_steps|safe}};
-console.log(next_steps);
-console.log(appname);
-var reqs = next_steps;
-console.log(reqs);
 var highlight = {{highlight}};
+var current_step = next_steps[0];
+if (highlight == 0){
+        li.innerHTML += "<mark>"  + current_step[0] + "</mark>";
+    } else {
+    li.innerHTML +=   current_step[0];
+    }
+var nested_ul = document.createElement('ul');
+li.appendChild(nested_ul);
+console.log(current_step);
 
-reqs.forEach(function (req, j) {
+
+current_step.forEach(function (req, j) {
     console.log(req)
-    var li = document.createElement('li');
-    ul.appendChild(li)
-    var att1 = document.createAttribute("draggable")
-    var att2 = document.createAttribute("class")
-    var att3 = document.createAttribute("index")
-    att1.value = "true"
-    att2.value = "column"
-    att3.value = j
-    li.setAttributeNode(att1)
-    li.setAttributeNode(att2)
-    li.setAttributeNode(att3)
 
-    console.log(li.getAttribute("index"));
-    if (highlight == 0 && j == 0){
-        li.innerHTML += "<mark>"  + req[0] + "</mark>"
-    } else{
-    li.innerHTML +=   req[0];
-    }
-    var ul1 = document.createElement('ul');
-    li.appendChild(ul1)
-    req.forEach(function(step, i){
-    if(i > 0){
-    var li1 = document.createElement('li');
-    ul1.appendChild(li1)
+    //var att1 = document.createAttribute("draggable")
+   // var att2 = document.createAttribute("class")
+    //var att3 = document.createAttribute("index")
+    //att1.value = "true"
+    //att2.value = "column"
+    //att3.value = j
+    //li.setAttributeNode(att1)
+    //li.setAttributeNode(att2)
+    //li.setAttributeNode(att3)
 
-    {if (i == highlight && j == 0){
-        li1.innerHTML += "<mark>" + step + "</mark>"
-    } else{
-    li1.innerHTML += step;
+    //console.log(li.getAttribute("index"));
+    //if (highlight == 0 && j == 0){
+    if(j > 0)
+     {
+         console.log("I am here");
+         var li1 = document.createElement('li');
+         nested_ul.appendChild(li1);
+         if (highlight == j){
+            li1.innerHTML += "<mark>"  + req + "</mark>";
+        } else {
+        li1.innerHTML +=   req;
     }
     }
-    }
-    });
+
+    <!--var ul1 = document.createElement('ul');-->
+    <!--li.appendChild(ul1)-->
+    <!--req.forEach(function(step, i){-->
+    <!--if(i > 0){-->
+    <!--var li1 = document.createElement('li');-->
+    <!--ul1.appendChild(li1)-->
+
+    <!--{if (i == highlight && j == 0){-->
+        <!--li1.innerHTML += "<mark>" + step + "</mark>"-->
+    <!--} else{-->
+    <!--li1.innerHTML += step;-->
+    //}
+    //}
+    //}
+    //});
+});
+</script>
+<script>
+        var ul = document.createElement('ul');
+        document.getElementById('next_steps').appendChild(ul);
+        var next_reqs = {{next_steps|safe}};
+        console.log(next_reqs);
+        next_reqs.forEach(function (req, j) {
+        console.log(req)
+        if (j > 0){
+            var li = document.createElement('li');
+            ul.appendChild(li)
+            li.innerHTML += req[0];
+        }
 });
 </script>
 
- </div>
-</div>
-</div>
-<div>
-    <h3>Previous Requests</h3>
-    <p id="prev_steps"></p>
-
-    <script>
+<script>
         var ul = document.createElement('ul');
         document.getElementById('prev_steps').appendChild(ul);
         var prev_steps = {{prev_steps|safe}};
@@ -214,23 +280,15 @@ reqs.forEach(function (req, j) {
         var prev_reqs = prev_steps
         console.log(prev_reqs);
         prev_reqs.forEach(function (req, j) {
-    console.log(req)
-    var li = document.createElement('li');
-    ul.appendChild(li)
-    li.innerHTML += req[0];
-
-    var ul1 = document.createElement('ul');
-    li.appendChild(ul1)
-    req.forEach(function(step, i){
-    if(i > 0){
-    var li1 = document.createElement('li');
-    ul1.appendChild(li1)
-    li1.innerHTML += step;
-    }
-    });
+        console.log(req)
+        var li = document.createElement('li');
+        ul.appendChild(li)
+        li.innerHTML += req;
 });
-    </script>
-</div>
+ </script>
+
+ </div>
+
 <script>
 var dragSrcEl = null;
 var appname = '{{appname}}';

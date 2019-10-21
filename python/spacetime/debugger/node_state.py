@@ -69,12 +69,12 @@ class NodeState(object):
 
     def get_stages_for_command(self, obj):
         if isinstance(obj, CheckoutObj):
-            return ["Checkout [From " + str(obj.node) + " ] State : " + str(obj.from_version),"Read Changes",
+            return ["Checkout [ From " + str(obj.node) + " ] State : " + str(obj.from_version), "Read Changes",
                     "Garbage Collect", "Finish"]
 
         if isinstance(obj, CommitObj):
             return ["Receive Commit: " + str(obj.from_version) + " to " + str(obj.to_version) +
-                    "[from " + str(obj.node) + " ]", "Apply change", "Garbage Collect", "Finish"]
+                    "[ from " + str(obj.node) + " ]", "Apply change", "Garbage Collect", "Finish"]
 
         if isinstance(obj, PushObj):
             return ["Push [ " + obj.from_version + " to " + obj.to_version + " ] to" + str(obj.receiver_node),
@@ -100,7 +100,7 @@ class NodeState(object):
             self.current_stage[CheckoutObj] += 1
         if obj.state == obj.CheckoutState.FINISHED:
             self.next_steps.pop(0)
-            self.prev_steps.append(checkout_display)
+            self.prev_steps.append(checkout_display[0])
             self.remove_current_command()
             self.df.delete_one(CheckoutObj, obj)
         elif obj.state == obj.CheckoutState.INIT:
@@ -130,7 +130,7 @@ class NodeState(object):
 
         if obj.state == obj.CommitState.FINISHED:
             self.next_steps.pop(0)
-            self.prev_steps.append(commit_display)
+            self.prev_steps.append(commit_display[0])
             self.remove_current_command()
             self.df.delete_one(CommitObj, obj)
 
@@ -180,7 +180,7 @@ class NodeState(object):
             #self.df.commit()
         if obj.state == obj.PushState.FINISHED:
             self.next_steps.pop(0)
-            self.prev_steps.append(push_display)
+            self.prev_steps.append(push_display[0])
             self.remove_current_command()
             self.df.delete_one(PushObj, obj)
             #self.df.commit()
@@ -263,7 +263,7 @@ class NodeState(object):
             #self.current_stage = 3
         elif obj.state == obj.AcceptPushState.FINISHED:
             self.next_steps.pop(0)
-            self.prev_steps.append(accept_push_display)
+            self.prev_steps.append(accept_push_display[0])
             self.remove_current_command()
             self.df.delete_one(AcceptPushObj, obj)
             #self.df.commit()
@@ -326,7 +326,7 @@ class NodeState(object):
             #self.current_stage = 4
         elif obj.state == obj.FetchState.FINISHED:
             self.next_steps.pop(0)
-            self.prev_steps.append(fetch_display)
+            self.prev_steps.append(fetch_display[0])
             self.remove_current_command()
             self.df.delete_one(PushObj, obj)
             #self.df.commit()
@@ -370,13 +370,11 @@ class NodeState(object):
             #self.current_stage = 4
         elif obj.state == obj.AcceptFetchState.FINISHED:
             self.next_steps.pop(0)
-            self.prev_steps.append(accept_fetch_display)
+            self.prev_steps.append(accept_fetch_display[0])
             self.remove_current_command()
             self.df.delete_one(AcceptFetchObj, obj)
             #self.df.commit()
         self.df.commit()
-
-
 
     def execute(self):
         # Execute one step of self.current_command.

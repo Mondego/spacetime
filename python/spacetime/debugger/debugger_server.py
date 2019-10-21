@@ -213,9 +213,14 @@ def debugger():
                                highlight=NODES[appname].current_stage, prev_steps=json.dumps(NODES[appname].prev_steps))
         #return redirect(f"/home/{appname}/")
     
-    @app.route("/run", methods=['GET'])
+    @app.route("/run", methods=['GET', 'POST'])
     def app_run():
-        breakpoint = request.args["q"]
+        # breakpoint = request.args["q"]
+        if request.method == "POST":
+            breakpoint = request.form["q"]
+        if  request.method == "GET":
+            breakpoint = request.args["q"]
+        print(breakpoint)
         where, command = breakpoint.split(":")
         where = where.strip()
         command = command.strip()

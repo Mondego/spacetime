@@ -53,27 +53,12 @@ class NodeState(object):
         if event == 2:
             return "Delete"
 
-    def delta_to_html(self, payload):
-        # simplified_edge = {"Type": {"oid":{"dim": "value"}}}
-        simplified_edge = {"Type": {"event ": {"oid": {"dim": "value"}}}}
-        for tp in payload:
-            simplified_edge[tp] = {}
-            for oid in payload[tp]:
-                event = self.get_event_type(payload[tp][oid]['types'][tp])
-                simplified_edge[tp][event] = {}
-                simplified_edge[tp][event][oid] = {}
-                for dim in payload[tp][oid]['dims']:
-                    simplified_edge[tp][event][oid][dim] = payload[tp][oid]['dims'][dim]['value']
-        # print(simplified_edge)
-        return convert(simplified_edge)
-
     def delta_to_table(self, keytype, key, payload):
         if keytype == "edge":
             versions = key.split(",")
             key = "From " + versions[0][:4] + " to " + versions[1][:4]
         elif keytype == "node":
             key = key[:4]
-
         html_string = "<table style=\"font-size:80%\">"
         html_string += "<th>" + keytype + " : " + key + "</th>"
         for tp in payload:
@@ -81,10 +66,14 @@ class NodeState(object):
             dims_set = set()
             html_string += "<tr><td>" + "oid" + "</td>"
             for oid in payload[tp]:
-                for dim in payload[tp][oid]["dims"]:
-                    if dim not in dims_set:
-                        dims_set.add(dim)
-                        html_string += "<td>" + dim + "</td>"
+                if "dims" in payload[tp][oid]:
+                    for dim in payload[tp][oid]["dims"]:
+                        if dim not in dims_set:
+                            dims_set.add(dim)
+
+            for dim in sorted(dims_set):
+                html_string += "<td>" + dim + "</td>"
+            print(dims_set)
 
             html_string += "</tr>"
             for oid in payload[tp]:
@@ -99,7 +88,7 @@ class NodeState(object):
                     html_string += "<tr>"
                 html_string += "<td>" + str(oid) + "</td>"
                 if payload[tp][oid]['types'][tp] in [0, 1]:
-                    for dim in dims_set:
+                    for dim in sorted(dims_set):
                         if dim in payload[tp][oid]["dims"]:
                             html_string += "<td>" + str(payload[tp][oid]["dims"][dim]["value"]) + "</td>"
                         else:

@@ -9,6 +9,8 @@ from spacetime.managers.version_graph import Graph
 import spacetime.utils.utils as utils
 from spacetime.utils.enums import Event, AutoResolve
 import time
+from rtypes import pcc_set, primarykey, dimension, merge
+import uuid
 from copy import deepcopy
 
 class VersionManager(object):
@@ -321,6 +323,18 @@ class VersionManager(object):
         count = len(os.listdir(folder))
         open(os.path.join(folder, "heap{}.dot".format(count)), "w").write(gstr)
 
+#
+# @pcc_set
+# class AppState(object):
+#     oid = primarykey(str)
+#     appname = dimension(str)
+#     state_to_app = dimension(dict)
+#
+#     def __init__(self, appname):
+#         self.oid = str(uuid.uuid4())
+#         self.appname = appname
+#         self.state_to_app = dict()
+
 class FullStateVersionManager(VersionManager):
     @property
     def head(self):
@@ -335,6 +349,7 @@ class FullStateVersionManager(VersionManager):
         self.type_map = {tp.__r_meta__.name: tp for tp in types}
         self.version_graph = Graph(debug)
         self.state_to_app = dict()
+        # self.state_to_app = AppState(appname).state_to_app
         self.app_to_state = dict()
         self.logger = utils.get_logger("%s_FullStateVersionManager" % appname)
         self.dump_graphs = dump_graph
@@ -354,6 +369,7 @@ class FullStateVersionManager(VersionManager):
 
     def set_app_marker(self, appname, end_v):
         self.state_to_app.setdefault(end_v, set()).add(appname)
+
 
     def receive_data(self, appname, versions, package, from_external=True):
         new_nodes =list()

@@ -358,6 +358,15 @@ current_step.forEach(function (req, j) {
         console.log(req)
         if (j > 0){
             var li = document.createElement('li');
+            var att1 = document.createAttribute("draggable")
+            var att2 = document.createAttribute("class")
+            var att3 = document.createAttribute("index")
+            att1.value = "true"
+            att2.value = "column"
+            att3.value = j
+            li.setAttributeNode(att1)
+            li.setAttributeNode(att2)
+            li.setAttributeNode(att3)
             ul.appendChild(li)
             li.innerHTML += req[0];
         }

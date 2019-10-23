@@ -1,7 +1,5 @@
-from spacetime import Node, Dataframe, DebugDataframe
+from spacetime import Node, GotchaDebugger
 from rtypes import pcc_set, primarykey, dimension, merge
-from spacetime import Register, server_func, CommitObj, AcceptFetchObj, FetchObj, CheckoutObj, PushObj, \
-    AcceptPushObj, Vertex, Edge, Parent
 import time
 
 @pcc_set
@@ -45,8 +43,7 @@ def main():
     n = 2
 
     #To start central debugger node
-    debugger_server = Node(server_func, Types=[Register, CommitObj, AcceptFetchObj, FetchObj, CheckoutObj,
-                                               AcceptPushObj, PushObj, Vertex, Edge, Parent], server_port=30000)
+    debugger_server = GotchaDebugger(30000)
 
     debugger_server.start_async([Foo])
     print("Debugger server started")

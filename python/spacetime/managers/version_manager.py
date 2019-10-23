@@ -126,7 +126,6 @@ class VersionManager(object):
         elif event_new is Event.New and event_conf is Event.Modification:
             # This has to be an error. How did an object get modified if
             # the object was not there at start.
-            print (oid, start, new_obj_change, conf_obj_change, from_external)
             raise RuntimeError(
                 "Divergent modification received when object was"
                 " created in the main line.")

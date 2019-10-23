@@ -87,8 +87,12 @@ def merge_object_delta(dtpname, old_change, new_change):
         return deepcopy(new_change)
     if old_change["types"][dtpname] is Event.New and new_change["types"][dtpname] is Event.Delete:
         return None
-    if new_change["types"][dtpname] is Event.Delete:
-        return deepcopy(new_change)
+    try:
+        if new_change["types"][dtpname] is Event.Delete:
+            return deepcopy(new_change)
+    except Exception:
+        print (new_change, old_change, dtpname)
+        raise
     if (old_change["types"][dtpname] is Event.Delete
             and new_change["types"][dtpname] is Event.New):
         return deepcopy(new_change)

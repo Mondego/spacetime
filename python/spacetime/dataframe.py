@@ -98,7 +98,6 @@ class Dataframe(object):
             self.instrument_record)
 
             self.socket_server.start()
-            print(self.appname, self.socket_server.getName())
             if self.socket_connector.has_parent_connection:
                 self.pull()
 
@@ -352,4 +351,5 @@ class Dataframe(object):
             raise
 
     def garbage_collect(self, appname, end_v):
-        self.versioned_heap.maintain(appname,end_v)
+        with self.write_lock:
+            self.versioned_heap.maintain(appname,end_v)

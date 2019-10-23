@@ -22,14 +22,12 @@ class DebuggerSocketServer(Thread):
         # sync_socket.settimeout(2)
         sync_socket.bind(("", server_port))
         sync_socket.listen()
-        print(self.appname, " has started listening on port", server_port)
         return sync_socket
 
     def run(self):
         while True:
             try:
                 con, addr = self.sync_socket.accept()
-                print ( "Recv connection from %s, %d",addr[0], addr[1])
                 con.send(pack("!L", len(self.data)))
                 con.sendall(self.data)
                 if unpack("!?", con.recv(1))[0]:
@@ -49,7 +47,6 @@ class DebuggerSocketConnector(object):
         pass
 
     def connect_to_parent(self):
-        print("Parent details", self.parent_details)
         if self.parent_details is None:
             return None
         req_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

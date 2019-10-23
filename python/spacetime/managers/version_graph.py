@@ -30,7 +30,6 @@ class Node(object):
         self.all_next = set()
         self.is_master = is_master
         if debug:
-            print(f"new node is created {current}")
             debug.add_one(Node, self)
 
     def set_next(self, version):

@@ -5,9 +5,10 @@ from threading import Thread
 from spacetime.dataframe import Dataframe
 from spacetime.utils.enums import VersionBy, ConnectionStyle, AutoResolve
 
-from spacetime.debugger.debugger_server import register_func
+from spacetime.debugger.debugger_server import register_func, server_func
 from spacetime.debugger.debug_dataframe import DebugDataframe
-from spacetime.debugger.debugger_types import  CommitObj, FetchObj, AcceptFetchObj, Register, CheckoutObj, PushObj, AcceptPushObj, Parent, AppToState
+from spacetime.debugger.debugger_types import CommitObj, FetchObj, AcceptFetchObj, Register, CheckoutObj, PushObj, AcceptPushObj, Parent, AppToState
+
 from spacetime.managers.version_graph import Node as Vertex, Edge
 
 
@@ -208,3 +209,11 @@ def Node(
         instrument=instrument, dump_graph=dump_graph,
         connection_as=connection_as, resolver=None,
         autoresolve=autoresolve, mem_instrument=mem_instrument)
+
+def GotchaDebugger(port):
+    return Node(
+        server_func,
+        Types=[Register, CommitObj, AcceptFetchObj,
+               FetchObj, CheckoutObj, AcceptPushObj,
+               PushObj, Vertex, Edge, Parent],
+        server_port=port)

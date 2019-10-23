@@ -17,7 +17,6 @@ class RtypesTable(object):
         dict_json_match = dim_obj.dim_type == json and isinstance(value, dict)
         if not dict_json_match:
             if dim_obj.dim_type == json and not isinstance(value, dict):
-                print (dim_obj.dim_type == json, isinstance(value, dict), type(value))
                 raise TypeError(
                     "{0} is not of type {1}".format(
                         repr(value), dim_obj.dim_type.__name__))
@@ -69,7 +68,6 @@ class RtypesTable(object):
                 # Value has not been assigned.
                 raise AttributeError("{0} has not been assigned a value.".format(dimname))
         except Exception:
-            print(oid, dimname, self.object_table, dim_obj.dim_type, self.obj_type)
             raise
         # return value from local table.
         

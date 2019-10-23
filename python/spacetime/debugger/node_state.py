@@ -6,6 +6,7 @@ from spacetime.managers.managed_heap import ManagedHeap
 from json2table import convert
 from spacetime.utils.utils import merge_state_delta
 import time
+from spacetime.utils.enums import Event
 
 class NodeState(object):
     @property
@@ -58,62 +59,57 @@ class NodeState(object):
             return "Delete"
 
     def delta_to_table(self, keytype, key, payload):
+        print (payload)
         if keytype == "edge":
             versions = key.split(",")
             key = "From " + versions[0][:4] + " to " + versions[1][:4]
         elif keytype == "node":
             key = key[:4]
-        html_string = "<table style=\"font-size:80%\">"
-        html_string += "<th>" + keytype + " : " + key + "</th>"
-        for tp in payload:
-            html_string += "<tr><td>" + tp + "</td></tr>"
-            dims_set = set()
-            html_string += "<tr><td>" + "oid" + "</td>"
-            for oid in payload[tp]:
-                if "dims" in payload[tp][oid]:
-                    for dim in payload[tp][oid]["dims"]:
-                        if dim not in dims_set:
-                            dims_set.add(dim)
+        css = {
+            "edge": "tbledge",
+            "node": "tblnode",
+            "type": "tbltype"
+        }
+        html_string = f'<button type="button" class="tblcollapsible {css[keytype]}">{keytype.upper()} - {key}</button>'
+        html_string +=  '<div class="content">'
+        for tpname, objs in payload.items():
+            html_string += f'  <button type="button" class="tblcollapsible {css["type"]}">{tpname.split(".")[-1]}</button>'
+            html_string +=  '  <div class="content">'
+            dimset = {dimname for objchange in objs.values() for dimname in objchange["dims"] if "dims" in objchange}
+            dims = list(dimset)
+            html_string += f"    <table>"
+            html_string += f"      <thead><tr>{''.join(f'''<td align='center'>{d}</td>''' for d in ['Primary Key'] + dims)}</tr></thead>"
+            for oid, objchange in objs.items():
+                html_string += f"      <tr{self.get_background_color(keytype, objchange['types'], tpname)}><td align='center'>{oid}</td>{self.get_row(objchange, dims)}</tr>"
+            html_string += "    </table>"
+            html_string += "  </div>"
+        html_string += "</div>"
+        print (html_string, list(payload.keys()))
+        return html_string
+    
+    def get_row(self, objchange, dims):
+        width = 100.0/(len(dims)+1)
+        return "".join(f"<td width='{width}%' align='center'>{objchange['dims'][d]['value'] if 'dims' in objchange and d in objchange['dims'] else ''}</td>" for d in dims)
 
-            for dim in sorted(dims_set):
-                html_string += "<td>" + dim + "</td>"
-            print(dims_set)
-
-            html_string += "</tr>"
-            for oid in payload[tp]:
-                if keytype == "edge":
-                    if payload[tp][oid]['types'][tp] == 0:
-                        html_string += "<tr style=\"background-color:YellowGreen;\">"
-                    elif payload[tp][oid]['types'][tp] == 1:
-                        html_string += "<tr style=\"background-color:PowderBlue;\">"
-                    elif payload[tp][oid]['types'][tp] == 2:
-                        html_string += "<tr style=\"background-color:Coral;\">"
-                elif keytype == "node":
-                    html_string += "<tr>"
-                html_string += "<td>" + str(oid) + "</td>"
-                if payload[tp][oid]['types'][tp] in [0, 1]:
-                    for dim in sorted(dims_set):
-                        if dim in payload[tp][oid]["dims"]:
-                            html_string += "<td>" + str(payload[tp][oid]["dims"][dim]["value"]) + "</td>"
-                        else:
-                            html_string += "<td>" + " " + "</td>"
-                html_string += "</tr>"
-            html_string += "</table>"
-            print(html_string)
-            return html_string
+    def get_background_color(self, keytype, typemap, tpname):
+        backgrounds = {Event.New: ' style=\"background-color:YellowGreen;\"', Event.Modification: '', Event.Delete: ' style=\"background-color:Orange;\"'}
+        if keytype == "edge":
+            return backgrounds[typemap[tpname]]
+        return ''
 
     def merge_edges(self, end_version):
         payloads = list()
-        print(self.vertex_map)
+        #print(self.vertex_map)
         version = self.vertex_map[end_version]
         while version.prev_master:
             payloads.append(self.edge_map[(version.prev_master, version.current)].payload)
             version = self.vertex_map[version.prev_master]
-        # print("payloads", payloads)
+        # #print("payloads", payloads)
         merged = dict()
         for payload in payloads[::-1]:
             merged = merge_state_delta(merged, payload, delete_it=True)
         #return self.delta_to_html(merged)
+        print ("Merged:", merged)
         return merged
 
     @property
@@ -125,17 +121,17 @@ class NodeState(object):
                 state = self.get_state_at(key, table_type)
                 tables.append((key, state))
             except KeyError as e:
-                print (e)
+                #print (e)
                 deletes.append((key, table_type))
         for key, table_type in deletes:
             self._open_tables.remove((key, table_type))
-        return tables
+        return "\n".join(s if s else "" for k, s in tables) if tables else ""
 
     def get_state_at(self, key, table_type):
         if table_type == "edge":
             keys = key.split(',')
             from_node, to_node = keys[0], keys[1]
-            # print(self.delta_to_table(table_type, key, self.edge_map[(from_node, to_node)].payload))
+            # #print(self.delta_to_table(table_type, key, self.edge_map[(from_node, to_node)].payload))
             return self.delta_to_table(table_type, key, self.edge_map[(from_node, to_node)].payload)
 
         if table_type == "node":
@@ -149,7 +145,7 @@ class NodeState(object):
     def update(self):
         self.next_steps = list()
         self.df.checkout()
-        # print (f"{self.appname} Received some request")
+        # #print (f"{self.appname} Received some request")
         for tp in self.tps:
             for obj in self.df.read_all(tp):
                 if obj not in self.command_list and obj != self.current_command:
@@ -168,22 +164,23 @@ class NodeState(object):
 
         if isinstance(obj, CommitObj):
             return ["Receive Commit: " + str(obj.from_version) + " to " + str(obj.to_version) +
-                    "[ from " + str(obj.node) + " ]", "Apply change", "Garbage Collect", "Finish"]
-
+                    "[ from " + f"<a href=/home/{str(obj.node)}/>{str(obj.node)}</a>" + " ]", "Apply change", "Garbage Collect", "Finish"]
+        parent = "id='parent'"
+        child = "id='child'"
         if isinstance(obj, PushObj):
-            return ["Push [ " + obj.from_version + " to " + obj.to_version + " ] to " + str(obj.receiver_node),
+            return ["Push [ " + obj.from_version + " to " + obj.to_version + " ] to " + f"<a {parent if self.current_command == obj else ''} href=/home/{str(obj.receiver_node)}/>{str(obj.receiver_node)}</a>",
                     "Read changes", "Send changes", "Wait for confirmation from receiver", "Garbage collect", "Finish"]
 
         if isinstance(obj, AcceptPushObj):
-            return ["Accept Push [ " + obj.from_version + " to " + obj.to_version + " ] from " + str(obj.sender_node),
+            return ["Accept Push [ " + obj.from_version + " to " + obj.to_version + " ] from " + f"<a {child if self.current_command == obj else ''} href=/home/{str(obj.sender_node)}/>{str(obj.sender_node)}</a>",
                     "Apply changes", "Send Confirmation", "Garbage collect", "Finish"]
 
         if isinstance(obj, FetchObj):
             return ["Fetch [ since " + obj.from_version + " ] from " +
-                        str(obj.requestee_node), "Send Request", "Wait for response", "Apply changes", "Send Confirmation", "Garbage collect", "Finish"]
+                        f"<a {parent if self.current_command == obj else ''} href=/home/{str(obj.requestee_node)}/>{str(obj.requestee_node)}</a>", "Send Request", "Wait for response", "Apply changes", "Send Confirmation", "Garbage collect", "Finish"]
 
         if isinstance(obj, AcceptFetchObj):
-            return ["Accept Fetch Request [ since " + obj.from_version + " ] from " + str(obj.requestor_node),
+            return ["Accept Fetch Request [ since " + obj.from_version + " ] from " + f"<a {child if self.current_command == obj else ''} href=/home/{str(obj.requestor_node)}/>{str(obj.requestor_node)}</a>",
                     "Read changes", "Send changes","Wait for confirmation", "Garbage collect", "Finish"]
 
     def execute_checkout(self, obj):
@@ -193,16 +190,16 @@ class NodeState(object):
             obj.start()
             #self.current_stage = 1
             self.df.commit()
-            print("CDN gives permission to the node for checkout")
+            #print("CDN gives permission to the node for checkout")
             while True:
                 self.df.checkout()
                 if obj.state == obj.CheckoutState.CHECKOUTCOMPLETE:
                     break
         elif obj.state == obj.CheckoutState.CHECKOUTCOMPLETE:
-            print("The CDN knows checkout is complete")
+            #print("The CDN knows checkout is complete")
             obj.start_GC()
             self.df.commit()
-            print("The CDN gives permission to start GC")
+            #print("The CDN gives permission to start GC")
             while True:
                 self.df.checkout()
                 if obj.state == obj.CheckoutState.GCCOMPLETE:
@@ -228,12 +225,12 @@ class NodeState(object):
         if obj.state == obj.CommitState.INIT:
             obj.start()
             self.df.commit()
-            print("Go ahead from the CDN to the node for commit")
+            #print("Go ahead from the CDN to the node for commit")
             while True:
                 self.df.checkout()
                 if obj.state == obj.CommitState.COMMITCOMPLETE:
                     break
-            print("The CDN knows the commit is complete")
+            #print("The CDN knows the commit is complete")
             start_version = self.managed_heap.version
             node = self.vertex_map[start_version]
             payload = list()
@@ -248,10 +245,10 @@ class NodeState(object):
                     data, [start_version, e_version])
                 start_version = e_version
             #self.current_stage = 1
-            # print (obj.state, obj.CommitState.COMMITCOMPLETE)
+            # #print (obj.state, obj.CommitState.COMMITCOMPLETE)
         elif obj.state == obj.CommitState.COMMITCOMPLETE:
             
-            #print (self.managed_heap.data)
+            ##print (self.managed_heap.data)
             obj.start_GC()
             self.df.commit()
             while True:
@@ -286,10 +283,10 @@ class NodeState(object):
                 if obj.state == obj.PushState.FETCHDELTACOMPLETE:
                     break
         elif obj.state == obj.PushState.FETCHDELTACOMPLETE:
-            print("CDN gets the delta from the sender node and creates a corres. acceptPushObj, push obj:", obj.state, obj.oid)
+            #print("CDN gets the delta from the sender node and creates a corres. acceptPushObj, push obj:", obj.state, obj.oid)
             acceptPushObj = AcceptPushObj(obj.sender_node, obj.receiver_node, obj.from_version,
                                           obj.to_version, obj.delta, obj.oid)
-            print("acceptPush Obj: ", acceptPushObj.oid)
+            #print("acceptPush Obj: ", acceptPushObj.oid)
             #acceptPushObj.start()
             obj.wait()
             self.df.commit()
@@ -299,7 +296,7 @@ class NodeState(object):
             z = 0
         elif obj.state == obj.PushState.WAIT:
             self.current_stage[PushObj] -= 1    
-            print ("waiting", obj.state, obj.PushState.PUSHCOMPLETE)
+            #print ("waiting", obj.state, obj.PushState.PUSHCOMPLETE)
         elif obj.state == obj.PushState.PUSHCOMPLETE:
             obj.gc_init()
         elif obj.state == obj.PushState.GCINIT:
@@ -332,7 +329,7 @@ class NodeState(object):
                     break
             #self.current_stage = 1
             # next_steps.append("Accept Push")
-            print ("Completed accept push phase 1.")
+            #print ("Completed accept push phase 1.")
             start_version = self.managed_heap.version
             node = self.vertex_map[start_version]
             payload = list()
@@ -340,20 +337,20 @@ class NodeState(object):
                 payload.append(
                     (node.next_master,
                      self.edge_map[(node.current, node.next_master)].payload))
-                #print (self.vertices, self.edges)
-                #print ((node.current, node.next_master), self.edge_map[(node.current, node.next_master)].payload)
+                ##print (self.vertices, self.edges)
+                ##print ((node.current, node.next_master), self.edge_map[(node.current, node.next_master)].payload)
                 node = self.vertex_map[node.next_master]
-            #print(self.managed_heap.data)
+            ##print(self.managed_heap.data)
             for e_version, data in payload:
                 self.managed_heap.receive_data(
                     data, [start_version, e_version])
                 start_version = e_version
         elif obj.state == obj.AcceptPushState.RECEIVECOMPLETE:
             sender_df = self.child[obj.sender_node].df
-            #print(self.appname, self.child[obj.sender_node].appname)
+            ##print(self.appname, self.child[obj.sender_node].appname)
             #pushObj = sender_df.read_one(PushObj, obj.oid)
             pushObj = sender_df.read_one(PushObj, obj.push_obj_oid)
-            #print(pushObj, obj.push_obj_oid)
+            ##print(pushObj, obj.push_obj_oid)
             pushObj.complete_PUSH()
             obj.wait()           
         elif obj.state == obj.AcceptPushState.WAIT:
@@ -382,7 +379,7 @@ class NodeState(object):
         self.current_stage[FetchObj] += 1
 
         if obj.state == obj.FetchState.INIT:
-            print("CDN gets a fetch object and creates a corres. acceptfetchObj")
+            #print("CDN gets a fetch object and creates a corres. acceptfetchObj")
             acceptFetchObj = AcceptFetchObj(obj.requestor_node, obj.requestee_node,
                                             obj.from_version, obj.to_version, b"", obj.oid)
             obj.wait()
@@ -457,7 +454,7 @@ class NodeState(object):
             #self.df.commit()
             #self.current_stage = 1
         elif obj.state == obj.AcceptFetchState.SENDCOMPLETE:
-            # print("CDN sends the retrieved delta to the requestor")
+            # #print("CDN sends the retrieved delta to the requestor")
             requestor_df = self.child[obj.requestor_node].df
             fetchObj = requestor_df.read_one(FetchObj, obj.fetch_obj_oid)
             fetchObj.to_version = obj.to_version
@@ -494,8 +491,8 @@ class NodeState(object):
         # This is called by appname/next
 
         obj = self.current_command
-        print(self.appname, self.command_list)#, self.parent, self.child)
-        #print( obj, obj.state)
+        #print(self.appname, self.command_list)#, self.parent, self.child)
+        ##print( obj, obj.state)
         if isinstance(obj, CheckoutObj):
             self.execute_checkout(obj)
 
@@ -521,9 +518,5 @@ class NodeState(object):
             self.next_steps.append(self.get_stages_for_command(command))
 
     def swap(self, pos1, pos2):
-        # self.current_command[pos1] should become [pos2] and vice versa.
         pos1, pos2 = int(pos1), int(pos2)
         self.command_list[pos1], self.command_list[pos2] = self.command_list[pos2], self.command_list[pos1]
-        print("after swap")
-        for command in self.command_list:
-            print(command, command.state)

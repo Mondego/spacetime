@@ -233,22 +233,68 @@ svgGroup.attr("transform", "translate(" + xCenterOffset + ", 20)");
 svg.attr("height", g.graph().height + 40);
 </script>
 
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+thead {
+  border-bottom: 2px solid black;
+}
+
+.tblcollapsible {
+    color: white;
+    cursor: pointer;
+    padding: 5px;
+    width: 100%;
+    border: none;
+    text-align: left;
+    outline: none;
+    font-size: 15px;
+}
+
+.active, .tblcollapsible:hover {
+    background-color: #555;
+}
+.tblnode {
+  background-color: rgb(6, 12, 94);
+}
+
+.tbledge {
+  background-color: rgb(59, 6, 94);
+}
+
+.tbltype {
+  background-color: #777;
+}
+
+.content {
+    padding: 0 18px;
+    display: none;
+    overflow: hidden;
+    background-color: #f1f1f1;
+}
+</style>
+
+
+
 <div id="table_area">
-
+  {{tables|safe}}
+  <script>
+    var coll = document.getElementsByClassName("tblcollapsible");
+    var i;
+    
+    for (i = 0; i < coll.length; i++) {
+    coll[i].addEventListener("click", function() {
+        this.classList.toggle("active");
+        var content = this.nextElementSibling;
+        if (content.style.display === "block") {
+        content.style.display = "none";
+        } else {
+        content.style.display = "block";
+        }
+    });
+    }
+    </script>
 </div>
-
-<script>
-    var tables = {{tables|safe}};
-    tables.forEach(function (req, j) {
-        console.log(req)
-        var table= document.createElement('div');
-        document.getElementById('table_area').appendChild(table);
-        table.innerHTML += req;
-        });
-
-</script>
-
-
+  
 </div>
 <div class="col-lg-6">
 
@@ -503,10 +549,31 @@ console.log(cols);
 <div class="row">
 
     <form action="next" method="get">
-        <button name="Next Step" type="submit" class="text">Next Step</button>
+        <button name="Next Step" id="next_step" type="submit" class="text">Next Step</button>
     </form>
 
 </div>
+
+<script>
+$(document).keypress(function(e){
+    if (e.which == 32){
+        $("#next_step").click();
+    }
+});
+
+$(document).keypress(function(e){
+    if (e.which == 80){
+      
+        $("#parent").trigger('click');
+    }
+});
+
+$(document).keypress(function(e){
+    if (e.which == 67){
+        $("#child").trigger('click');
+    }
+});
+</script>
 
 
 

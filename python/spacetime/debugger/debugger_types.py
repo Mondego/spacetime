@@ -286,16 +286,12 @@ class AcceptFetchObj(object):
 
     def client_execute(self, df):
         if self.state == self.AcceptFetchState.START:
-            print("calling fetch call back")
             data, version_change = df.fetch_call_back(self.requestor_node, self.from_version)
             self.delta = cbor.dumps(data)
             self.to_version = version_change[1]
             self.complete_SEND()
-            print("completed fetch call back")
         elif self.state == self.AcceptFetchState.GCSTART:
-            print("Requestee starting garbage collect")
             df.confirm_fetch_req(self.requestor_node, [self.from_version, self.to_version])
-            print("Requestee completed garbage collect")
             self.complete_GC()
 
 @pcc_set
@@ -452,17 +448,13 @@ class AcceptPushObj(object):
 
         def client_execute(self, df):
             if self.state == AcceptPushObj.AcceptPushState.START:
-                print("calling push call back")
                 df.push_call_back(self.sender_node, [self.from_version, self.to_version], self.delta_dict)
                 self.complete_RECEIVE()
-                print("completed push call back")
 
             if self.state == AcceptPushObj.AcceptPushState.GCSTART:
-                print("Receiver starting garbage collect")
                 try:
                     with df.application_df.write_lock:
                         df.application_df.garbage_collect(self.sender_node, self.to_version)
-                        print("Receiver completed garbage collect")
                         self.complete_GC()
                 except Exception as e:
                     print(e)

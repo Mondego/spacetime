@@ -14,7 +14,7 @@ import time
 from collections import defaultdict
 from json2table import convert
 from spacetime.utils.utils import merge_state_delta
-
+from multiprocessing import RLock
 
 def get_event_type(event):
     if event == 0:
@@ -35,7 +35,7 @@ def delta_to_html(payload):
             simplified_edge[tp][event][oid] = {}
             for dim in payload[tp][oid]['dims']:
                 simplified_edge[tp][event][oid][dim] = payload[tp][oid]['dims'][dim]['value']
-    #print(simplified_edge)
+    ##print(simplified_edge)
     return convert(simplified_edge)
 
 
@@ -46,11 +46,11 @@ def merge_edges(appname, end_version):
     while version.prev_master:
         payloads.append(NODE.edge_map[(version.prev_master, version.current)].payload)
         version = NODE.vertex_map[version.prev_master]
-    #print("payloads", payloads)
+    ##print("payloads", payloads)
     merged = dict()
     for payload in payloads[::-1]:
         merged = merge_state_delta(merged, payload, delete_it=True)
-    print(merged)
+    #print(merged)
     return delta_to_html(merged)
 
 
@@ -94,7 +94,7 @@ def convert_to_json(appname, nodes, edges, app_to_state, parent_name):
 
     graph_jsonified = {'nodes': node_list,
                        'links': edge_list}
-    #print(json.dumps(graph_jsonified))
+    ##print(json.dumps(graph_jsonified))
     return json.dumps(graph_jsonified)
 
 
@@ -117,7 +117,7 @@ def register_func(df, appname):
 DATAFRAMES = dict()
 NODES = dict()
 EXISTING_OBJ = [CommitObj, FetchObj, AcceptFetchObj, CheckoutObj, PushObj, AcceptPushObj]
-
+node_lock = RLock()
 
 def check_for_new_nodes(df, apptypes):
     while True:
@@ -127,19 +127,22 @@ def check_for_new_nodes(df, apptypes):
             if register_obj.port:
                 continue
 
-            print("A new node registers with the server:" + str(register_obj.appname) + "\n")
+            #print("A new node registers with the server:" + str(register_obj.appname) + "\n")
             current_df = Dataframe(register_obj.appname,
                                     {CommitObj, FetchObj, AcceptFetchObj, CheckoutObj, PushObj, AcceptPushObj,
                                     Vertex, Edge, Parent, AppToState})  # Create a dataframe for the new client
-            print("The dataframe that is created for this node is" + str(current_df) + "\n")
+            #print("The dataframe that is created for this node is" + str(current_df) + "\n")
             DATAFRAMES[register_obj.appname] = current_df
-            NODES[register_obj.appname] = NodeState(register_obj.appname, current_df, apptypes)
+            with node_lock:
+                NODES[register_obj.appname] = NodeState(register_obj.appname, current_df, apptypes)
             register_obj.port = current_df.details[1]
-            print("The port assigned to this node is " + str(register_obj.port) + "\n")
+            #print("The port assigned to this node is " + str(register_obj.port) + "\n")
             df.commit()
 
 def update_parent_and_children():
-    for node in NODES.values():
+    with node_lock:
+        node_list = list(NODES.values())
+    for node in node_list:
         node.update()
         if node.parent:
             continue
@@ -171,7 +174,7 @@ def debugger():
 
         topology_jsonified = {'nodes': nodes_json,
                                 'links': edges_json}
-        print(json.dumps(topology_jsonified))
+        #print(json.dumps(topology_jsonified))
         return render_template("Topology.html", graph_view=json.dumps(topology_jsonified))
 
     # @app.route("/home/<string:appname>/", methods=['GET'])
@@ -182,7 +185,7 @@ def debugger():
     #     node_objects = df.read_all(Vertex)
     #     edge_objects = df.read_all(Edge)
     #     graph_json = convert_to_json(node_objects, edge_objects)
-    #     print(graph_json)
+    #     #print(graph_json)
     #     return render_template("Graph.html", graph_view=graph_json, appname=appname)
 
     @app.route("/home/<string:appname>/", methods=['GET'])
@@ -191,11 +194,11 @@ def debugger():
         node = NODES[appname]
         node.update()
         graph_json = convert_to_json(appname, node.vertices, node.edges, node.app_to_state, node.parent.appname if node.parent else None)
-        #print(graph_json)
-        #print(NODES[appname].next_steps, NODES[appname].prev_steps)
+        ##print(graph_json)
+        ##print(NODES[appname].next_steps, NODES[appname].prev_steps)
         # pick up NODES[appname].open_tables
-        #print(type(NODES[appname].current_command))
-        print ("Highlight", NODES[appname].current_stage[type(NODES[appname].current_command)])
+        ##print(type(NODES[appname].current_command))
+        #print ("Highlight", NODES[appname].current_stage[type(NODES[appname].current_command)])
         return render_template("Graph.html", graph_view=graph_json, appname=appname,
                                 next_steps=json.dumps(NODES[appname].next_steps),
                                 highlight=NODES[appname].current_stage[type(NODES[appname].current_command)],
@@ -205,22 +208,22 @@ def debugger():
     def app_view_next(appname):
         NODES[appname].update()
         NODES[appname].execute()
-        print(NODES[appname].command_list)
+        #print(NODES[appname].command_list)
         return redirect(f"/home/{appname}/")
 
     @app.route("/home/<string:appname>/statefor", methods=['GET'])
     def app_view_state(appname):
         key = request.args["key"]
         keytype = request.args["keytype"]
-        print(key, keytype)
+        #print(key, keytype)
         NODES[appname].add_to_table(key, keytype)
-        print(NODES[appname].open_tables)
+        #print(NODES[appname].open_tables)
         return redirect(f"/home/{appname}/")
 
     @app.route("/home/<string:appname>/swap", methods=['POST'])
     def swap(appname):
         posns = request.get_json()
-        print("post", posns)
+        #print("post", posns)
         NODES[appname].swap(posns["pos1"], posns["pos2"])
         # graph_json = convert_to_json(appname, NODES[appname].vertices, NODES[appname].edges)
         # return render_template("Graph.html", graph_view=graph_json, appname=appname,
@@ -235,18 +238,20 @@ def debugger():
             breakpoint = request.form["q"]
         if  request.method == "GET":
             breakpoint = request.args["q"]
-        print(breakpoint)
+        #print(breakpoint)
         where, command = breakpoint.split(":")
         where = where.strip()
         command = command.strip()
         where = list(NODES.keys()) if where == "all" else where.split(",")
         while True:
-            for node in NODES.values():
+            with node_lock:
+                node_list = list(NODES.values())
+            for node in node_list:
                 node.update()
                 node.execute()
                 df = node.managed_heap
                 try:
-                    print (node.appname,"Foo:", len(df.read_all(Foo)), eval(command), command)
+                    #print (node.appname,"Foo:", len(df.read_all(Foo)), eval(command), command)
                     if eval(command):
                         return redirect(f"/home/{node.appname}")
                 except Exception as e:
@@ -256,10 +261,11 @@ def debugger():
 def server_func(df, apptypes):
     for tp in apptypes:
         globals()[tp.__name__] = tp
-    #print (Foo)
+    ##print (Foo)
     check_for_new_nodes_thread = Thread(target=check_for_new_nodes, args=(df, apptypes))
     check_for_new_nodes_thread.start()
     debugger_thread = Thread(target=debugger)
     debugger_thread.start()
     check_for_new_nodes_thread.join()
     debugger_thread.join()
+    

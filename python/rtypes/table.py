@@ -15,15 +15,17 @@ class RtypesTable(object):
 
     def set(self, oid, dimname, dim_obj, value):
         dict_json_match = dim_obj.dim_type == json and isinstance(value, dict)
-        if not dict_json_match and (dim_obj.dim_type == json and not isinstance(value, dict)):
-            raise TypeError(
-                "{0} is not of type {1}".format(
-                    repr(value), dim_obj.dim_type.__name__))
-        elif not dict_json_match and not isinstance(value, dim_obj.dim_type) and value is not None:
-            # No ducktyping :D
-            raise TypeError(
-                "{0} is not of type {1}".format(
-                    repr(value), dim_obj.dim_type.__name__))
+        if not dict_json_match:
+            if dim_obj.dim_type == json and not isinstance(value, dict):
+                print (dim_obj.dim_type == json, isinstance(value, dict), type(value))
+                raise TypeError(
+                    "{0} is not of type {1}".format(
+                        repr(value), dim_obj.dim_type.__name__))
+            if not isinstance(value, dim_obj.dim_type) and value is not None:
+                # No ducktyping :D
+                raise TypeError(
+                    "{0} is not of type {1}".format(
+                        repr(value), dim_obj.dim_type.__name__))
         if oid is None:
             # setting up a random uuid as oid
             oid = str(uuid4())

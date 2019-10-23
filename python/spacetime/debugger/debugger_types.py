@@ -133,14 +133,15 @@ class CommitObj(object):
 class FetchObj(object):
     class FetchState(object):
         INIT = 0
-        NEW = 1
         WAIT = 2
         RECEIVEDCHANGES = 3
-        START = 4
-        FETCHCOMPLETE = 5
-        GCSTART = 6
-        GCCOMPLETE = 7
-        FINISHED = 8
+        READYSEND = 4
+        START = 5
+        FETCHCOMPLETE = 6
+        GCINIT = 7
+        GCSTART = 8
+        GCCOMPLETE = 9
+        FINISHED = 10
 
         ABORT = -1
 
@@ -178,6 +179,7 @@ class FetchObj(object):
         self.delta = delta
         self.state = self.FetchState.INIT
         self.parent_df = None
+        self.accept_fetch_obj_oid = None
         # write out these states
 
     def start(self):
@@ -201,6 +203,12 @@ class FetchObj(object):
     def finish(self):
         self.state = self.FetchState.FINISHED
 
+    def ready_to_send(self):
+        self.state = self.FetchState.READYSEND
+
+    def init_gc(self):
+        self.state = self.FetchState.GCINIT
+
 @pcc_set
 class AcceptFetchObj(object):
     class AcceptFetchState(object):
@@ -209,8 +217,9 @@ class AcceptFetchObj(object):
         SENDCOMPLETE = 2
         WAIT = 3
         RECEIVEDCONFIRMATION = 4
-        GCSTART = 5
-        GCCOMPLETE = 6
+        READYSEND = 5
+        GCSTART = 6
+        GCCOMPLETE = 7
         FINISHED = 100
 
         ABORT = -1
@@ -271,6 +280,9 @@ class AcceptFetchObj(object):
 
     def finish(self):
         self.state = self.AcceptFetchState.FINISHED
+
+    def ready_to_send(self):
+        self.state = self.AcceptFetchState.READYSEND
 
     def client_execute(self, df):
         if self.state == self.AcceptFetchState.START:

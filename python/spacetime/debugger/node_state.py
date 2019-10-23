@@ -179,12 +179,12 @@ class NodeState(object):
                     "Apply changes", "Send Confirmation", "Garbage collect", "Finish"]
 
         if isinstance(obj, FetchObj):
-            return ["Fetch [ " + obj.from_version + " to " + obj.to_version + " ] from " +
-                        str(obj.requestee_node), "Wait for response", "Apply changes", "Garbage collect", "Finish"]
+            return ["Fetch [ since " + obj.from_version + " ] from " +
+                        str(obj.requestee_node), "Send Request", "Wait for response", "Apply changes", "Send Confirmation", "Garbage collect", "Finish"]
 
         if isinstance(obj, AcceptFetchObj):
-            return ["Accept Fetch [ " + obj.from_version + " to " + obj.to_version + " ] to " + str(obj.receiver_node),
-                    "Read changes", "Send changes","Wait for confirmation from receiver", "Garbage collect", "Finish"]
+            return ["Accept Fetch Request [ since " + obj.from_version + " ] from " + str(obj.requestor_node),
+                    "Read changes", "Send changes","Wait for confirmation", "Garbage collect", "Finish"]
 
     def execute_checkout(self, obj):
         checkout_display = self.get_stages_for_command(obj)
@@ -378,34 +378,30 @@ class NodeState(object):
             #self.current_stage = 3
 
     def execute_fetch(self, obj):
-        if obj.state == obj.FetchState.FINISHED:
-            self.current_stage[FetchObj] = -1
-        elif obj.state == obj.FetchState.WAIT:
-            self.current_stage[FetchObj] = 1
-            return
-        else:
-            self.current_stage[FetchObj] += 1
         fetch_display = self.get_stages_for_command(obj)
+        self.current_stage[FetchObj] += 1
+
         if obj.state == obj.FetchState.INIT:
-            obj.state = obj.FetchState.NEW
-            #self.df.commit()
-            #self.current_stage = 0
-        elif obj.state == obj.FetchState.NEW:
             print("CDN gets a fetch object and creates a corres. acceptfetchObj")
             acceptFetchObj = AcceptFetchObj(obj.requestor_node, obj.requestee_node,
                                             obj.from_version, obj.to_version, b"", obj.oid)
-            acceptFetchObj.start()
             obj.wait()
             #self.df.commit()
             requestee_df = self.parent.df
             requestee_df.add_one(AcceptFetchObj, acceptFetchObj)
-            requestee_df.commit()
+            obj.accept_fetch_obj_oid = acceptFetchObj.oid
             #self.current_stage = 1
+        elif obj.state == obj.FetchState.WAIT:
+            self.current_stage[FetchObj] -= 1
         elif obj.state == obj.FetchState.RECEIVEDCHANGES:
+            obj.ready_to_send()
+        elif obj.state == obj.FetchState.READYSEND:
             obj.start()
-            #self.df.commit()
-            #self.current_stage = 2
-        elif obj.state == obj.FetchState.FETCHCOMPLETE:
+            self.df.commit()
+            while True:
+                self.df.checkout()
+                if obj.state == obj.FetchState.FETCHCOMPLETE:
+                    break
             start_version = self.managed_heap.version
             node = self.vertex_map[start_version]
             payload = list()
@@ -421,40 +417,43 @@ class NodeState(object):
                 self.managed_heap.receive_data(
                     data, [start_version, e_version])
                 start_version = e_version
-            obj.start_GC()
             #self.df.commit()
+            #self.current_stage = 2
+        elif obj.state == obj.FetchState.FETCHCOMPLETE:
+            # send ack
             requestee_df = self.parent.df
-            acceptFetchObj = requestee_df.read_one(AcceptFetchObj, obj.oid)
+            acceptFetchObj = requestee_df.read_one(AcceptFetchObj, obj.accept_fetch_obj_oid)
             acceptFetchObj.receive_confirmation()
-            requestee_df.commit()
+            obj.init_gc()
+        elif obj.state == obj.FetchState.GCINIT:
+            obj.start_GC()
+            self.df.commit()
+            while True:
+                self.df.checkout()
+                if obj.state == obj.FetchState.GCCOMPLETE:
+                    break
             #self.current_stage = 3
         elif obj.state == obj.FetchState.GCCOMPLETE:
             obj.finish()
-            #self.df.commit()
-            #self.current_stage = 4
-        elif obj.state == obj.FetchState.FINISHED:
-            self.next_steps.pop(0)
+            self.df.commit()
+            while True:
+                self.df.checkout()
+                if self.df.read_one(FetchObj, obj.oid) is None:
+                    break
             self.prev_steps.append(fetch_display[0])
             self.remove_current_command()
-            self.df.delete_one(PushObj, obj)
-            #self.df.commit()
-        self.df.commit()
+            self.current_stage[FetchObj] = 0
 
     def execute_accept_fetch(self, obj):
-        if obj.state == obj.AcceptFetchState.FINISHED:
-            self.current_stage[AcceptFetchObj] = -1
-        elif obj.state == obj.AcceptFetchState.WAIT:
-            self.current_stage[AcceptFetchObj] = 3
-            return
-        else:
-            self.current_stage[AcceptFetchObj] += 1
         accept_fetch_display = self.get_stages_for_command(obj)
+        self.current_stage[AcceptFetchObj] += 1
         if obj.state == obj.AcceptFetchState.INIT:
-            obj.state = obj.AcceptFetchState.NEW
-            #self.df.commit()
-            #self.current_stage = 0
-        elif obj.state == obj.AcceptFetchState.NEW:
             obj.start()
+            self.df.commit()
+            while True:
+                self.df.checkout()
+                if obj.state == obj.AcceptFetchState.SENDCOMPLETE:
+                    break
             #self.df.commit()
             #self.current_stage = 1
         elif obj.state == obj.AcceptFetchState.SENDCOMPLETE:
@@ -464,25 +463,31 @@ class NodeState(object):
             fetchObj.to_version = obj.to_version
             fetchObj.delta = obj.delta
             fetchObj.receive_changes()
-            requestor_df.commit()
             obj.wait()
             #self.df.commit()
             #self.current_stage = 2
+        elif obj.state == obj.AcceptFetchState.WAIT:
+            self.current_stage[AcceptFetchObj] -= 1    
         elif obj.state == obj.AcceptFetchState.RECEIVEDCONFIRMATION:
+            obj.ready_to_send()
+        elif obj.state == obj.AcceptFetchState.READYSEND:
             obj.start_GC()
-            #self.df.commit()
+            self.df.commit()
+            while True:
+                self.df.checkout()
+                if obj.state == obj.AcceptFetchState.GCCOMPLETE:
+                    break
             #self.current_stage = 3
         elif obj.state == obj.AcceptFetchState.GCCOMPLETE:
             obj.finish()
-            #self.df.commit()
-            #self.current_stage = 4
-        elif obj.state == obj.AcceptFetchState.FINISHED:
-            self.next_steps.pop(0)
+            self.df.commit()
+            while True:
+                self.df.checkout()
+                if self.df.read_one(AcceptFetchObj, obj.oid) is None:
+                    break
             self.prev_steps.append(accept_fetch_display[0])
             self.remove_current_command()
-            self.df.delete_one(AcceptFetchObj, obj)
-            #self.df.commit()
-        self.df.commit()
+            self.current_stage[AcceptFetchObj] = 0
 
     def execute(self):
         # Execute one step of self.current_command.

@@ -228,9 +228,18 @@ class DebugDataframe(object):
                 self.application_df.garbage_collect("SOCKETPARENT", fetchObj.to_version)
                 print("Requestor completed garbage collect")
                 fetchObj.complete_GC()  # To Let the CDN know GC is complete
-                self.from_version = fetchObj.to_version
-                self.debugger_df.commit()
-                self.debugger_df.push()
+            self.from_version = fetchObj.to_version
+            self.debugger_df.commit()
+            self.debugger_df.push()
+            while fetchObj.state != fetchObj.FetchState.FINISHED: # Wait till the CDN gives the command to Finish
+                self.debugger_df.pull()
+            self.debugger_df.delete_one(FetchObj, fetchObj)
+            self.debugger_df.commit()
+            self.debugger_df.push()
+
+    def pull(self):
+        self.fetch()
+        self.checkout()
 
     def fetch_call_back(self, appname, version, wait=False, timeout=0):
         try:

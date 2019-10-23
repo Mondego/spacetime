@@ -399,7 +399,8 @@ class FullStateVersionManager(VersionManager):
             self.version_graph.continue_chain(start_v, end_v, package)
         if self.mem_instrument:
             self.record_mem_usage()
-        self.maintain(appname, end_v)
+        if not self.debug:
+            self.maintain(appname, end_v)
         if self.mem_instrument:
             self.record_mem_usage()
         return True

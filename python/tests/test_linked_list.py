@@ -112,7 +112,7 @@ class TestGraph(unittest.TestCase):
 
         # Add a parallel path from ROOT to 3.
         version3 = "3"
-        payload3 = {"TEST", 3}
+        payload3 = {"TEST": 3}
         graph.continue_chain("ROOT", version3, payload3)
 
         # Make sure root did not change, except for all_next
@@ -178,7 +178,7 @@ class TestGraph(unittest.TestCase):
         self.assertEqual(ROOT, graph.tail)
 
         # Add a parallel path from 3 to 2.
-        payload4 = {"TEST", 3}
+        payload4 = {"TEST": 3}
         graph.continue_chain(version3, version2, payload4)
 
         # Make sure root did not change

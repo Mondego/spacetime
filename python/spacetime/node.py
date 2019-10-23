@@ -7,7 +7,7 @@ from spacetime.utils.enums import VersionBy, ConnectionStyle, AutoResolve
 
 from spacetime.debugger.debugger_server import register_func
 from spacetime.debugger.debug_dataframe import DebugDataframe
-from spacetime.debugger.debugger_types import  CommitObj, FetchObj, AcceptFetchObj, Register, CheckoutObj, PushObj, AcceptPushObj, Parent
+from spacetime.debugger.debugger_types import  CommitObj, FetchObj, AcceptFetchObj, Register, CheckoutObj, PushObj, AcceptPushObj, Parent, AppToState
 from spacetime.managers.version_graph import Node as Vertex, Edge
 
 
@@ -182,7 +182,7 @@ class DebugNode(Process):
         # To register with debugger server and get the port to communicate with the dataframe in the debugger server
         register_node = Node(register_func, Types=[Register], dataframe=self.debug)
         self.port = register_node.start(self.appname)
-        self.node = Node(debug_function, Types=[CommitObj, FetchObj, AcceptFetchObj, CheckoutObj, PushObj, AcceptPushObj, Vertex, Edge, Parent], dataframe=(self.debug[0], self.port))
+        self.node = Node(debug_function, Types=[CommitObj, FetchObj, AcceptFetchObj, CheckoutObj, PushObj, AcceptPushObj, Vertex, Edge, Parent, AppToState], dataframe=(self.debug[0], self.port))
         self.node.start_async(self.appname, self.func, self.types, self.parent_details, self.server_port,
                               *self.args, **self.kwargs)
         super().start()

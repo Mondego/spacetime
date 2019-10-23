@@ -8,6 +8,7 @@ from multiprocessing import Process, Queue
 from spacetime.managers.version_graph import Graph
 import spacetime.utils.utils as utils
 from spacetime.utils.enums import Event, AutoResolve
+from spacetime.debugger.debugger_types import AppToState
 import time
 from rtypes import pcc_set, primarykey, dimension, merge
 import uuid
@@ -340,6 +341,8 @@ class FullStateVersionManager(VersionManager):
     def head(self):
         return self.version_graph.head.current
 
+
+
     def __init__(
             self, appname, types,
             dump_graph=None, instrument_record=None, resolver=None, 
@@ -350,7 +353,11 @@ class FullStateVersionManager(VersionManager):
         self.version_graph = Graph(debug)
         self.state_to_app = dict()
         # self.state_to_app = AppState(appname).state_to_app
-        self.app_to_state = dict()
+        if debug:
+            self.app_to_state = debug.read_one(AppToState, self.appname)
+            assert self.app_to_state is not None
+        else:
+            self.app_to_state = dict()
         self.logger = utils.get_logger("%s_FullStateVersionManager" % appname)
         self.dump_graphs = dump_graph
         self.instrument_record = instrument_record

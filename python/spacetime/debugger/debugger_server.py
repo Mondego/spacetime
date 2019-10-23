@@ -3,7 +3,7 @@ from threading import Thread
 from rtypes import pcc_set, primarykey, dimension, merge
 from spacetime.debugger.debug_dataframe import DebugDataframe
 from spacetime.debugger.debugger_types import CommitObj, FetchObj, AcceptFetchObj, Register, \
-    CheckoutObj, PushObj, AcceptPushObj, Parent
+    CheckoutObj, PushObj, AcceptPushObj, Parent, AppToState
 from spacetime.debugger.node_state import NodeState
 from spacetime.managers.version_graph import Node as Vertex, Edge
 from spacetime.utils.utils import merge_state_delta
@@ -54,7 +54,7 @@ def merge_edges(appname, end_version):
     return delta_to_html(merged)
 
 
-def convert_to_json(appname, nodes, edges):
+def convert_to_json(appname, nodes, edges, app_to_state, parent_name):
     node_list, edge_list, lst = list(), list(), list()
     for i, node in enumerate(nodes):
         # if node == self.head:
@@ -64,7 +64,7 @@ def convert_to_json(appname, nodes, edges):
         #else:
             node_list.append({'id': i, 'name': node.current[:4], 'type': 'not_head', 'state': merge_edges(appname, node),
                               'is_master': str(node.is_master), 'full_name': node.current,
-                              'style': "stroke:#006400" if node.is_master else "stroke:#8B0000"})
+                              'style': "stroke:#006400" if node.is_master else "stroke:#8B0000", 'node_type': 'STATE'})
             lst.append(node.current)
 
     for edge in edges:
@@ -76,7 +76,21 @@ def convert_to_json(appname, nodes, edges):
                           'style': 'stroke:#000000;stroke-width: 2px;', 'arrowheadStyle': '',
                           'source_node': edge.from_node, 'target_node' : edge.to_node
                           })
+    i += 1
+    for appname in app_to_state:
+        actual_name = parent_name if appname == "SOCKETPARENT" else appname
+            
+        node_list.append({'id': i, 'name': f"{actual_name[:4]}...{actual_name[-4:]}", 'node_type': 'REF',
+                          'style': "stroke:#A9A9A9", 'ref_app': actual_name})
+        
 
+        target_node = app_to_state[appname]
+        target_id = lst.index(target_node)
+        edge_list.append({'source_id': i, 'target_id': target_id, 'label': '',#'label': str(edge.payload),
+                        'style': 'stroke:#A9A9A9;stroke-width: 1px;', 'arrowheadStyle': '',
+                        'source_node': f"{actual_name[:4]}...{actual_name[-4:]}", 'target_node' : target_node
+                        })
+        i+=1
 
     graph_jsonified = {'nodes': node_list,
                        'links': edge_list}
@@ -116,7 +130,7 @@ def check_for_new_nodes(df, apptypes):
             print("A new node registers with the server:" + str(register_obj.appname) + "\n")
             current_df = Dataframe(register_obj.appname,
                                     {CommitObj, FetchObj, AcceptFetchObj, CheckoutObj, PushObj, AcceptPushObj,
-                                    Vertex, Edge, Parent})  # Create a dataframe for the new client
+                                    Vertex, Edge, Parent, AppToState})  # Create a dataframe for the new client
             print("The dataframe that is created for this node is" + str(current_df) + "\n")
             DATAFRAMES[register_obj.appname] = current_df
             NODES[register_obj.appname] = NodeState(register_obj.appname, current_df, apptypes)
@@ -176,11 +190,12 @@ def debugger():
         # return the view of the graph for this node
         node = NODES[appname]
         node.update()
-        graph_json = convert_to_json(appname, node.vertices, node.edges)
+        graph_json = convert_to_json(appname, node.vertices, node.edges, node.app_to_state, node.parent.appname if node.parent else None)
         #print(graph_json)
         #print(NODES[appname].next_steps, NODES[appname].prev_steps)
         # pick up NODES[appname].open_tables
         #print(type(NODES[appname].current_command))
+        print ("Highlight", NODES[appname].current_stage[type(NODES[appname].current_command)])
         return render_template("Graph.html", graph_view=graph_json, appname=appname,
                                 next_steps=json.dumps(NODES[appname].next_steps),
                                 highlight=NODES[appname].current_stage[type(NODES[appname].current_command)],
@@ -207,11 +222,11 @@ def debugger():
         posns = request.get_json()
         print("post", posns)
         NODES[appname].swap(posns["pos1"], posns["pos2"])
-        graph_json = convert_to_json(appname, NODES[appname].vertices, NODES[appname].edges)
-        return render_template("Graph.html", graph_view=graph_json, appname=appname,
-                               next_steps=json.dumps(NODES[appname].next_steps),
-                               highlight=NODES[appname].current_stage, prev_steps=json.dumps(NODES[appname].prev_steps))
-        #return redirect(f"/home/{appname}/")
+        # graph_json = convert_to_json(appname, NODES[appname].vertices, NODES[appname].edges)
+        # return render_template("Graph.html", graph_view=graph_json, appname=appname,
+        #                        next_steps=json.dumps(NODES[appname].next_steps),
+        #                        highlight=NODES[appname].current_stage, prev_steps=json.dumps(NODES[appname].prev_steps))
+        return redirect(f"/home/{appname}/")
     
     @app.route("/run", methods=['GET', 'POST'])
     def app_run():

@@ -1,4 +1,5 @@
 import time
+import json
 import datetime
 from uuid import uuid4
 from rtypes import pcc_set, primarykey, dimension, merge
@@ -23,7 +24,6 @@ class CheckoutObj(object):
 
     class CheckoutState(object):
         INIT = 0
-        NEW = 1
         START = 2
         CHECKOUTCOMPLETE = 3
         GCSTART = 4
@@ -77,7 +77,6 @@ class CommitObj(object):
 
     class CommitState(object):
         INIT = 0
-        NEW = 1
         START = 2
         COMMITCOMPLETE = 3
         GCSTART = 4
@@ -212,7 +211,7 @@ class AcceptFetchObj(object):
         RECEIVEDCONFIRMATION = 4
         GCSTART = 5
         GCCOMPLETE = 6
-        FINISHED = 7
+        FINISHED = 100
 
         ABORT = -1
 
@@ -291,14 +290,14 @@ class AcceptFetchObj(object):
 class PushObj(object):
     class PushState(object):
         INIT = 0
-        NEW = 1
         START = 2
         FETCHDELTACOMPLETE = 3
         WAIT = 4
         PUSHCOMPLETE = 5
-        GCSTART = 6
-        GCCOMPLETE = 7
-        FINISHED = 8
+        GCINIT = 6 
+        GCSTART = 7
+        GCCOMPLETE = 8
+        FINISHED = 9
 
         ABORT = -1
 
@@ -362,18 +361,20 @@ class PushObj(object):
 
     def finish(self):
         self.state = self.PushState.FINISHED
+    
+    def gc_init(self):
+        self.state = PushObj.PushState.GCINIT
 
 @pcc_set
 class AcceptPushObj(object):
         class AcceptPushState(object):
             INIT = 0
-            NEW = 1
             START = 2
             RECEIVECOMPLETE = 3
             WAIT = 4
             GCSTART = 5
             GCCOMPLETE = 6
-            FINISHED = 7
+            FINISHED = 100
 
             ABORT = -1
 
@@ -414,37 +415,37 @@ class AcceptPushObj(object):
             self.from_version = from_version
             self.to_version = to_version
             self.delta = delta
-            self.state = self.AcceptPushState.INIT
+            self.state = AcceptPushObj.AcceptPushState.INIT
             self.sender_df = None
             self.push_obj_oid = push_obj_oid
             # write out these states
 
         def start(self):
-            self.state = self.AcceptPushState.START
+            self.state = AcceptPushObj.AcceptPushState.START
 
         def complete_RECEIVE(self):
-            self.state = self.AcceptPushState.RECEIVECOMPLETE
+            self.state = AcceptPushObj.AcceptPushState.RECEIVECOMPLETE
 
         def wait(self):
-            self.state = self.AcceptPushState.WAIT
+            self.state = AcceptPushObj.AcceptPushState.WAIT
 
         def start_GC(self):
-            self.state = self.AcceptPushState.GCSTART
+            self.state = AcceptPushObj.AcceptPushState.GCSTART
 
         def complete_GC(self):
-            self.state = self.AcceptPushState.GCCOMPLETE
+            self.state = AcceptPushObj.AcceptPushState.GCCOMPLETE
 
         def finish(self):
-            self.state = self.AcceptPushState.FINISHED
+            self.state = AcceptPushObj.AcceptPushState.FINISHED
 
         def client_execute(self, df):
-            if self.state == self.AcceptPushState.START:
+            if self.state == AcceptPushObj.AcceptPushState.START:
                 print("calling push call back")
                 df.push_call_back(self.sender_node, [self.from_version, self.to_version], self.delta_dict)
                 self.complete_RECEIVE()
                 print("completed push call back")
 
-            if self.state == self.AcceptPushState.GCSTART:
+            if self.state == AcceptPushObj.AcceptPushState.GCSTART:
                 print("Receiver starting garbage collect")
                 try:
                     with df.application_df.write_lock:
@@ -455,6 +456,7 @@ class AcceptPushObj(object):
                     print(e)
                     print(traceback.format_exc())
                     raise
+            
 
 @pcc_set
 class Parent(object):
@@ -468,6 +470,27 @@ class Parent(object):
         self.app = app
         self.parent_app = parent_app
 
+@pcc_set
+class AppToState(object):
+    oid = primarykey(str)
+    app_to_state = dimension(json)
+
+    def __getitem__(self, key):
+        return self.app_to_state[key]
+
+    def __setitem__(self, key, value):
+        self.app_to_state[key] = value
+        self.app_to_state = self.app_to_state
+
+    def __contains__(self, key):
+        return key in self.app_to_state
+
+    def __delitem__(self, key):
+        del self.app_to_state[key]
+
+    def __init__(self, app):
+        self.oid = app
+        self.app_to_state = dict()
 
 
 

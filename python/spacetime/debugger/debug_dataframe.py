@@ -1,6 +1,6 @@
 from spacetime.dataframe import Dataframe
 from threading import Thread, RLock
-from spacetime.debugger.debugger_types import CommitObj,FetchObj, AcceptFetchObj, CheckoutObj, PushObj, AcceptPushObj, Parent
+from spacetime.debugger.debugger_types import CommitObj,FetchObj, AcceptFetchObj, CheckoutObj, PushObj, AcceptPushObj, Parent, AppToState
 from spacetime.managers.connectors.debugger_socket_manager import DebuggerSocketServer, DebuggerSocketConnector
 import traceback
 import cbor
@@ -21,6 +21,17 @@ class DebugDataframe(object):
             for tp in [AcceptFetchObj, AcceptPushObj]:
                 new_objs = self.debugger_df.read_all(tp)
                 for obj in new_objs:
+                    if isinstance(obj, AcceptPushObj) and obj.state == AcceptPushObj.AcceptPushState.FINISHED:
+                        self.debugger_df.delete_one(AcceptPushObj, obj)
+                        self.debugger_df.commit()
+                        self.debugger_df.push()
+                        continue
+                    if isinstance(obj, AcceptFetchObj) and obj.state == AcceptFetchObj.AcceptFetchState.FINISHED:
+                        self.debugger_df.delete_one(AcceptFetchObj, obj)
+                        self.debugger_df.commit()
+                        self.debugger_df.push()
+                        continue
+                        
                     obj.client_execute(self)
                     with self.debug_df_lock:
                         self.debugger_df.commit()
@@ -29,10 +40,11 @@ class DebugDataframe(object):
     def __init__(self, df, appname, types, server_port, parent_details):
         self.debug_df_lock = RLock()
         print(appname, types, server_port, parent_details)
+        self.debugger_df = df
+        df.add_one(AppToState, AppToState(appname))
         self.application_df = Dataframe(appname, types, details=parent_details, server_port=server_port,
                                         use_debugger_sockets=df)
         print("application dataframe details", self.application_df.details)
-        self.debugger_df = df
         print("debugger dataframe details", self.debugger_df.details)
         self.parent_app_name = None
         if parent_details:
@@ -99,6 +111,12 @@ class DebugDataframe(object):
             print("GC is Complete")
             self.debugger_df.commit()
             self.debugger_df.push()
+        while checkoutObj.state != checkoutObj.CheckoutState.FINISHED: # Wait till the CDN gives the command to Finish
+            self.debugger_df.pull()
+        print("Go ahead from CDN to Finish")
+        self.debugger_df.delete_one(CheckoutObj, checkoutObj)
+        self.debugger_df.commit()
+        self.debugger_df.push()
 
     def commit(self):
         print(f"{self.appname} the node wants to commit")
@@ -134,6 +152,13 @@ class DebugDataframe(object):
         self.debugger_df.push()
         if versions:
             self.application_df.local_heap.data_sent_confirmed(versions)
+        while commitObj.state != commitObj.CommitState.FINISHED: # Wait till the CDN gives the command to Finish
+            self.debugger_df.pull()
+        print("Go ahead from CDN to Finish")
+        self.debugger_df.delete_one(CommitObj, commitObj)
+        self.debugger_df.commit()
+        self.debugger_df.push()
+        print ("Delete commit object", commitObj.oid)        
 
     def sync(self):
         self.application_df.sync()
@@ -171,6 +196,11 @@ class DebugDataframe(object):
                     self.application_df.garbage_collect(
                         "SOCKETPARENT", pushObj.to_version)
             pushObj.complete_GC()
+            self.debugger_df.commit()
+            self.debugger_df.push()
+            while pushObj.state != pushObj.PushState.FINISHED: # Wait till the CDN gives the command to Finish
+                self.debugger_df.pull()
+            self.debugger_df.delete_one(PushObj, pushObj)
             self.debugger_df.commit()
             self.debugger_df.push()
 

@@ -185,10 +185,16 @@ var graph ={{graph_view|safe}};
 var appname = '{{appname}}';
 console.log(appname);
 graph.nodes.forEach(function(d){
-     <!--g.setNode(d.id, {label: d.name, class: d.type , style: d.style, "state": d.state, "full_name": d.full_name});-->
-     g.setNode(d.id, {labelType:"html",label: "<a href=http://127.0.0.1:5000/home/"+appname+"/statefor?keytype=node&key="+d.full_name+">"+d.name+"</a>",
-     class: d.type , style: d.style, "state": d.state});
-     });
+    // <!--g.setNode(d.id, {label: d.name, class: d.type , style: d.style, "state": d.state, "full_name": d.full_name});-->
+    if (d.node_type == 'REF'){
+      g.setNode(d.id, {labelType:"html",label: "<a href=http://127.0.0.1:5000/home/"+d.ref_app+">"+d.name+"</a>",
+      class: d.type , style: d.style, "state": ""});
+    } else {
+      g.setNode(d.id, {labelType:"html",label: "<a href=http://127.0.0.1:5000/home/"+appname+"/statefor?keytype=node&key="+d.full_name+">"+d.name+"</a>",
+      class: d.type , style: d.style, "state": d.state});
+    }
+     
+});
 console.log(g);
 g.nodes().forEach(function(v) {
   var node = g.node(v);
@@ -196,10 +202,10 @@ g.nodes().forEach(function(v) {
   node.rx = node.ry = 5;
 });
 graph.links.forEach(function(d){
-    g.setEdge(d.source_id, d.target_id, {"payload": d.label, style:d.style, arrowheadStyle:d.arrowheadStyle,
-    "source_node": d.source_node, "target_node": d.target_node
-    });
+  g.setEdge(d.source_id, d.target_id, {"payload": d.label, style:d.style, arrowheadStyle:d.arrowheadStyle,
+  "source_node": d.source_node, "target_node": d.target_node
   });
+});
 
 var styleTooltip = function(desc) {
   var name = "Hi";
@@ -295,11 +301,8 @@ ul.appendChild(li);
 var next_steps = {{next_steps|safe}};
 var highlight = {{highlight}};
 var current_step = next_steps[0];
-if (highlight == 0){
-        li.innerHTML += "<mark>"  + current_step[0] + "</mark>";
-    } else {
-    li.innerHTML +=   current_step[0];
-    }
+li.innerHTML +=   current_step[0];
+
 var nested_ul = document.createElement('ul');
 li.appendChild(nested_ul);
 console.log(current_step);
@@ -325,7 +328,7 @@ current_step.forEach(function (req, j) {
          console.log("I am here");
          var li1 = document.createElement('li');
          nested_ul.appendChild(li1);
-         if (highlight == j){
+         if (highlight+1 == j){
             li1.innerHTML += "<mark>"  + req + "</mark>";
         } else {
         li1.innerHTML +=   req;

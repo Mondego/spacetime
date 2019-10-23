@@ -1,11 +1,11 @@
 from threading import Thread
 from spacetime.debugger.debugger_types import CommitObj, FetchObj, AcceptFetchObj, Register, \
-    CheckoutObj, PushObj, AcceptPushObj, Parent
+    CheckoutObj, PushObj, AcceptPushObj, Parent, AppToState
 from spacetime.managers.version_graph import Node as Vertex, Edge
 from spacetime.managers.managed_heap import ManagedHeap
 from json2table import convert
 from spacetime.utils.utils import merge_state_delta
-
+import time
 
 class NodeState(object):
     @property
@@ -30,6 +30,10 @@ class NodeState(object):
     def edge_map(self):
         return {(e.from_node, e.to_node):e for e in self.edges}
 
+    @property
+    def app_to_state(self):
+        return self.df.read_one(AppToState, self.appname).app_to_state
+
     def __init__(self, appname, df, apptypes):
 
         self.df = df
@@ -41,7 +45,7 @@ class NodeState(object):
         self.next_steps = list()
         self.prev_steps = list()
         self.tps = [CommitObj, FetchObj, AcceptFetchObj, CheckoutObj, PushObj, AcceptPushObj]
-        self.current_stage = {tp:-1 for tp in self.tps}
+        self.current_stage = {tp:0 for tp in self.tps}
         self._open_tables = list()
         self.df.checkout()
 
@@ -114,7 +118,18 @@ class NodeState(object):
 
     @property
     def open_tables(self):
-        return [(key, self.get_state_at(key, table_type)) for key, table_type in self._open_tables] # if self.valid(key, table_type)]
+        deletes = list()
+        tables = list()
+        for key, table_type in self._open_tables:
+            try:
+                state = self.get_state_at(key, table_type)
+                tables.append((key, state))
+            except KeyError as e:
+                print (e)
+                deletes.append((key, table_type))
+        for key, table_type in deletes:
+            self._open_tables.remove((key, table_type))
+        return tables
 
     def get_state_at(self, key, table_type):
         if table_type == "edge":
@@ -156,73 +171,68 @@ class NodeState(object):
                     "[ from " + str(obj.node) + " ]", "Apply change", "Garbage Collect", "Finish"]
 
         if isinstance(obj, PushObj):
-            return ["Push [ " + obj.from_version + " to " + obj.to_version + " ] to" + str(obj.receiver_node),
+            return ["Push [ " + obj.from_version + " to " + obj.to_version + " ] to " + str(obj.receiver_node),
                     "Read changes", "Send changes", "Wait for confirmation from receiver", "Garbage collect", "Finish"]
 
         if isinstance(obj, AcceptPushObj):
-            return ["Accept Push [ " + obj.from_version + " to " + obj.to_version + " ] from" + str(obj.sender_node),
-                    "Apply changes", "Garbage collect", "Finish"]
+            return ["Accept Push [ " + obj.from_version + " to " + obj.to_version + " ] from " + str(obj.sender_node),
+                    "Apply changes", "Send Confirmation", "Garbage collect", "Finish"]
 
         if isinstance(obj, FetchObj):
-            return ["Fetch [ " + obj.from_version + " to " + obj.to_version + " ] from" +
+            return ["Fetch [ " + obj.from_version + " to " + obj.to_version + " ] from " +
                         str(obj.requestee_node), "Wait for response", "Apply changes", "Garbage collect", "Finish"]
 
         if isinstance(obj, AcceptFetchObj):
-            return ["Accept Fetch [ " + obj.from_version + " to " + obj.to_version + " ] to" + str(obj.receiver_node),
+            return ["Accept Fetch [ " + obj.from_version + " to " + obj.to_version + " ] to " + str(obj.receiver_node),
                     "Read changes", "Send changes","Wait for confirmation from receiver", "Garbage collect", "Finish"]
 
     def execute_checkout(self, obj):
         checkout_display = self.get_stages_for_command(obj)
-        if obj.state == obj.CheckoutState.FINISHED:
-            self.current_stage[CheckoutObj] = -1
-        else:
-            self.current_stage[CheckoutObj] += 1
-        if obj.state == obj.CheckoutState.FINISHED:
-            self.next_steps.pop(0)
-            self.prev_steps.append(checkout_display[0])
-            self.remove_current_command()
-            self.df.delete_one(CheckoutObj, obj)
-        elif obj.state == obj.CheckoutState.INIT:
-            obj.state = obj.CheckoutState.NEW
-            #self.current_stage = 0
-        elif obj.state == obj.CheckoutState.NEW:
+        self.current_stage[CheckoutObj] += 1
+        if obj.state == obj.CheckoutState.INIT:
             obj.start()
             #self.current_stage = 1
+            self.df.commit()
             print("CDN gives permission to the node for checkout")
+            while True:
+                self.df.checkout()
+                if obj.state == obj.CheckoutState.CHECKOUTCOMPLETE:
+                    break
         elif obj.state == obj.CheckoutState.CHECKOUTCOMPLETE:
             print("The CDN knows checkout is complete")
             obj.start_GC()
+            self.df.commit()
             print("The CDN gives permission to start GC")
+            while True:
+                self.df.checkout()
+                if obj.state == obj.CheckoutState.GCCOMPLETE:
+                    break
             #self.current_stage = 2
         elif obj.state == obj.CheckoutState.GCCOMPLETE:
             obj.finish()
+            self.df.commit()
+            while True:
+                self.df.checkout()
+                if self.df.read_one(CheckoutObj, obj.oid) is None:
+                    break
+            self.prev_steps.append(checkout_display[0])
+            self.remove_current_command()
+            self.current_stage[CheckoutObj] = 0
             #self.current_stage = 3
-        self.df.commit()
+
 
     def execute_commit(self, obj):
         commit_display = self.get_stages_for_command(obj)
 
-        if obj.state == obj.CommitState.FINISHED:
-            self.current_stage[CommitObj] = -1
-        else:
-            self.current_stage[CommitObj] += 1
-
-        if obj.state == obj.CommitState.FINISHED:
-            self.next_steps.pop(0)
-            self.prev_steps.append(commit_display[0])
-            self.remove_current_command()
-            self.df.delete_one(CommitObj, obj)
-
-        elif obj.state == obj.CommitState.INIT:
-            obj.state = obj.CommitState.NEW
-            #self.current_stage = 0
-        elif obj.state == obj.CommitState.NEW:
+        self.current_stage[CommitObj] += 1
+        if obj.state == obj.CommitState.INIT:
             obj.start()
-            #self.df.commit()
+            self.df.commit()
             print("Go ahead from the CDN to the node for commit")
-            #self.current_stage = 1
-            # print (obj.state, obj.CommitState.COMMITCOMPLETE)
-        elif obj.state == obj.CommitState.COMMITCOMPLETE:
+            while True:
+                self.df.checkout()
+                if obj.state == obj.CommitState.COMMITCOMPLETE:
+                    break
             print("The CDN knows the commit is complete")
             start_version = self.managed_heap.version
             node = self.vertex_map[start_version]
@@ -237,87 +247,92 @@ class NodeState(object):
                 self.managed_heap.receive_data(
                     data, [start_version, e_version])
                 start_version = e_version
+            #self.current_stage = 1
+            # print (obj.state, obj.CommitState.COMMITCOMPLETE)
+        elif obj.state == obj.CommitState.COMMITCOMPLETE:
+            
             #print (self.managed_heap.data)
             obj.start_GC()
+            self.df.commit()
+            while True:
+                self.df.checkout()
+                if obj.state == obj.CommitState.GCCOMPLETE:
+                    break
+            
             #self.df.commit()
             #self.current_stage = 2
         elif obj.state == obj.CommitState.GCCOMPLETE:
             obj.finish()
-            #self.df.commit()
+            self.df.commit()
+            while True:
+                self.df.checkout()
+                if self.df.read_one(CommitObj, obj.oid) is None:
+                    break
+
+            #self.next_steps.pop(0)
+            self.prev_steps.append(commit_display[0])
+            self.remove_current_command()
+            self.current_stage[CommitObj] = 0
             #self.current_stage = 3
-        self.df.commit()
 
     def execute_push(self, obj):
         push_display = self.get_stages_for_command(obj)
-        if obj.state == obj.PushState.FINISHED:
-            self.current_stage[PushObj] = -1
-        elif obj.state == obj.PushState.WAIT:
-            self.current_stage[PushObj] = 3
-            return
-        else:
-            self.current_stage[PushObj] += 1
-            #self.df.commit()
-        if obj.state == obj.PushState.FINISHED:
-            self.next_steps.pop(0)
-            self.prev_steps.append(push_display[0])
-            self.remove_current_command()
-            self.df.delete_one(PushObj, obj)
-            #self.df.commit()
-        elif obj.state == obj.PushState.GCCOMPLETE:
-            obj.finish()
-        elif obj.state == obj.PushState.INIT:
-            obj.state = obj.PushState.NEW
-            #self.current_stage = 0
-            #self.df.commit()
-        elif obj.state == obj.PushState.NEW:
+        self.current_stage[PushObj] += 1
+        if obj.state == obj.PushState.INIT:
             obj.start()
-            #self.df.commit()
-            #self.current_stage = 1
-            print("Go ahead from the CDN to the node for push")
+            self.df.commit()
+            while True:
+                self.df.checkout()
+                if obj.state == obj.PushState.FETCHDELTACOMPLETE:
+                    break
         elif obj.state == obj.PushState.FETCHDELTACOMPLETE:
             print("CDN gets the delta from the sender node and creates a corres. acceptPushObj, push obj:", obj.state, obj.oid)
             acceptPushObj = AcceptPushObj(obj.sender_node, obj.receiver_node, obj.from_version,
                                           obj.to_version, obj.delta, obj.oid)
             print("acceptPush Obj: ", acceptPushObj.oid)
             #acceptPushObj.start()
+            obj.wait()
+            self.df.commit()
             receiver_df = self.parent.df
             receiver_df.add_one(AcceptPushObj, acceptPushObj)
-            receiver_df.commit()
             #self.current_stage[PushObj] += 1
-            obj.wait()
-
-            #self.df.commit()
-            #self.current_stage = 2
-
-        #if obj.state == obj.PushState.WAIT:
-            #self.current_stage = 3
-            #self.df.commit()
-        self.df.commit()
+            z = 0
+        elif obj.state == obj.PushState.WAIT:
+            self.current_stage[PushObj] -= 1    
+            print ("waiting", obj.state, obj.PushState.PUSHCOMPLETE)
+        elif obj.state == obj.PushState.PUSHCOMPLETE:
+            obj.gc_init()
+        elif obj.state == obj.PushState.GCINIT:
+            obj.start_GC()
+            self.df.commit()
+            while True:
+                self.df.checkout()
+                if obj.state == obj.PushState.GCCOMPLETE:
+                    break
+        elif obj.state == obj.PushState.GCCOMPLETE:
+            obj.finish()
+            self.df.commit()
+            while True:
+                self.df.checkout()
+                if self.df.read_one(PushObj, obj.oid) is None:
+                    break
+            self.prev_steps.append(push_display[0])
+            self.remove_current_command()
+            self.current_stage[PushObj] = 0
 
     def execute_accept_push(self, obj):
         accept_push_display = self.get_stages_for_command(obj)
-        if obj.state == obj.AcceptPushState.FINISHED:
-            self.current_stage[AcceptPushObj] = -1
-        else:
-            self.current_stage[AcceptPushObj] += 1
+        self.current_stage[AcceptPushObj] += 1
         if obj.state == obj.AcceptPushState.INIT:
-            obj.state = obj.AcceptPushState.NEW
-            #self.current_stage = 0
-        elif obj.state == obj.AcceptPushState.NEW:
             obj.start()
-            #self.df.commit()
+            self.df.commit()
+            while True:
+                self.df.checkout()
+                if obj.state == obj.AcceptPushState.RECEIVECOMPLETE:
+                    break
             #self.current_stage = 1
-        elif obj.state == obj.AcceptPushState.RECEIVECOMPLETE:
             # next_steps.append("Accept Push")
-            sender_df = self.child[obj.sender_node].df
-            #print(self.appname, self.child[obj.sender_node].appname)
-            #pushObj = sender_df.read_one(PushObj, obj.oid)
-            pushObj = sender_df.read_one(PushObj, obj.push_obj_oid)
-            #print(pushObj, obj.push_obj_oid)
-            pushObj.start_GC()
-            sender_df.commit()
-            obj.start_GC()
-            
+            print ("Completed accept push phase 1.")
             start_version = self.managed_heap.version
             node = self.vertex_map[start_version]
             payload = list()
@@ -333,20 +348,34 @@ class NodeState(object):
                 self.managed_heap.receive_data(
                     data, [start_version, e_version])
                 start_version = e_version
-
-            #self.df.commit()
+        elif obj.state == obj.AcceptPushState.RECEIVECOMPLETE:
+            sender_df = self.child[obj.sender_node].df
+            #print(self.appname, self.child[obj.sender_node].appname)
+            #pushObj = sender_df.read_one(PushObj, obj.oid)
+            pushObj = sender_df.read_one(PushObj, obj.push_obj_oid)
+            #print(pushObj, obj.push_obj_oid)
+            pushObj.complete_PUSH()
+            obj.wait()           
+        elif obj.state == obj.AcceptPushState.WAIT:
+            obj.start_GC()
+            self.df.commit()
+            while True:
+                self.df.checkout()
+                if obj.state == obj.AcceptPushState.GCCOMPLETE:
+                    break
             #self.current_stage = 2
         elif obj.state == obj.AcceptPushState.GCCOMPLETE:
             obj.finish()
-            #self.df.commit()
-            #self.current_stage = 3
-        elif obj.state == obj.AcceptPushState.FINISHED:
-            self.next_steps.pop(0)
+            self.df.commit()
+            while True:
+                self.df.checkout()
+                if self.df.read_one(AcceptPushObj, obj.oid) is None:
+                    break
             self.prev_steps.append(accept_push_display[0])
             self.remove_current_command()
-            self.df.delete_one(AcceptPushObj, obj)
+            self.current_stage[AcceptPushObj] = 0
             #self.df.commit()
-        self.df.commit()
+            #self.current_stage = 3
 
     def execute_fetch(self, obj):
         if obj.state == obj.FetchState.FINISHED:

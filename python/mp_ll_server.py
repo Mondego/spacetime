@@ -22,6 +22,7 @@ def lander_server(dataframe):
     for pid, player in enumerate(players):
         player.player_id = pid
     env.build(players)
+    print("+++", players)
     for player in players:
         player.ready = True
     dataframe.commit()

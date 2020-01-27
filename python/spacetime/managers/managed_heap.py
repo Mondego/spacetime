@@ -181,5 +181,9 @@ class ManagedHeap(object):
             dtpname = dtype.__r_meta__.name
             self.data[dtpname][oid]["dims"][dimname] = value
 
+    def get_write_record(self, dtype, oid, dimname):
+        with self.access_lock.gen_wlock():
+            return self.diff.get_write_record(dtype, oid, dimname)
+
     def reset_primary_key(self, dtype, oid, dim, value):
         pass

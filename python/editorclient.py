@@ -2,7 +2,7 @@
 
 import sys
 import tkinter as tk
-from spacetime import Node
+from spacetime import Node, GotchaDebugger
 from rtypes import pcc_set
 from rtypes import dimension, primarykey
 
@@ -37,7 +37,7 @@ def editor(dataframe):
     my_editor.text_value = "another new thing"
     dataframe.add_one(EditorClient, my_editor)
     dataframe.commit()
-    dataframe.push_await()
+    dataframe.push()
     root.after(1000, update_object, dataframe, T, root)
 
     # my_editor.text_value = "a start"

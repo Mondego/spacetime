@@ -34,6 +34,19 @@ class Diff(dict):
         if dtpname not in change["types"]:
            change["types"][dtpname] = Event.Modification 
     
+    def get_write_record(self, dtype, oid, dim):
+        dtpname = dtype.__r_meta__.name
+        tpchange = self.setdefault(dtpname, dict())
+        if oid in tpchange and tpchange[oid]["types"][dtpname] is Event.Delete:
+            # If the object was marked for delete, modifications shouldnt work.
+            return
+        change = tpchange.setdefault(
+            oid, {"dims": dict(), "types": dict()})
+        if dtpname not in change["types"]:
+           change["types"][dtpname] = Event.Modification 
+        return change["dims"][dim]
+        
+
     def has_new_value(self, dtype, oid, dim):
         dtpname = dtype.__r_meta__.name
         return (

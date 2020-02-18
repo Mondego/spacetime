@@ -14,3 +14,5 @@ applications/ospuller/data/*.js
 *.sln
 .vs
 .vscode/
+sample_apps/editor/venv/
+dist/

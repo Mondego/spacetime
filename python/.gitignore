@@ -16,3 +16,4 @@ applications/ospuller/data/*.js
 .vscode/
 sample_apps/editor/venv/
 dist/
+node_modules/

@@ -38,8 +38,11 @@ def receive_update():
             if "retain" in op:
                 idx_retain = op["retain"] - 1
             elif "insert" in op:
-                insert_value(op["insert"], idx_retain)
-                idx_retain += len(op["insert"])
+                #insert_value(op["insert"], idx_retain)
+                # idx_retain += len(op["insert"])
+                pass
             elif "delete" in op:
-                delete_values(op["delete"], idx_retain)
-        return "Stored change"
+                # delete_values(op["delete"], idx_retain)
+                pass
+
+    return "Stored change"

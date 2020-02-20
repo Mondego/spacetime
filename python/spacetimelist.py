@@ -4,7 +4,8 @@ Hence, every record can be used to create
 a diff.
 '''
 
-from llist import dllist
+# from llist import dllist
+from utillib.dllist4 import dllist
 import weakref
 import binascii
 import os
@@ -137,7 +138,7 @@ class SpacetimeList:
         # print("***", last_history_obj)
         last_node = last_history_obj["node"]
         if last_history_obj["action"] == "i":
-            self.piece_table.insertnode(last_node, last_history_obj["next"])
+            self.piece_table.insert(last_node, last_history_obj["next"])
         elif last_history_obj["action"] == "d":
             self.piece_table.remove(last_node)
         else:

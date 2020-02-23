@@ -240,39 +240,40 @@ if __name__ == "__main__":
 
     s.insert(4)
     s.insert(5)
-    the_diff = s.__diff__()
 
-    s2 = SpacetimeList([])
-
-    print("# Importing the diff")
-    s2.import_diff(the_diff)
-    s2.insert('x')
-    s2.insert('y')
-
-    diff_point = s.insert(6)
-    s.insert(7)
-    
-    # s.delete(i=3)
-    # s.delete(i=3)
-    # s.insert('x', 2)
-    
-    print()
-    print()
-
-    print("+-+ Exported data")
-    pprint(the_diff)
-    print("+-+")
-    print()
-    print()
-
-
-    print()
-    print("SUMMARY")
-    print("Exported sequence:", s.get_sequence())
-    print("Imported sequence:", s2.get_sequence())
-
-    difflist = s.__diff__(start_id=diff_point['ident'])
-    print(difflist)
-    print("before", s2.get_sequence())
-    s2.__merge__(difflist)
-    print(s2.get_sequence())
+#    the_diff = s.__diff__()
+#
+#    s2 = SpacetimeList([])
+#
+#    print("# Importing the diff")
+#    s2.import_diff(the_diff)
+#    s2.insert('x')
+#    s2.insert('y')
+#
+#    diff_point = s.insert(6)
+#    s.insert(7)
+#    
+#    # s.delete(i=3)
+#    # s.delete(i=3)
+#    # s.insert('x', 2)
+#    
+#    print()
+#    print()
+#
+#    print("+-+ Exported data")
+#    pprint(the_diff)
+#    print("+-+")
+#    print()
+#    print()
+#
+#
+#    print()
+#    print("SUMMARY")
+#    print("Exported sequence:", s.get_sequence())
+#    print("Imported sequence:", s2.get_sequence())
+#
+#    difflist = s.__diff__(start_id=diff_point['ident'])
+#    print(difflist)
+#    print("before", s2.get_sequence())
+#    s2.__merge__(difflist)
+#    print(s2.get_sequence())

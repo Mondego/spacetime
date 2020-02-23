@@ -4,75 +4,66 @@ Hence, every record can be used to create
 a diff.
 '''
 
-from llist import dllist
 import weakref
 import binascii
 import os
 from pprint import pprint
-
-class TwoWayDict(dict):
-    def __setitem__(self, key, value):
-        # Remove any previous connections with these values
-        if key in self:
-            del self[key]
-        if value in self:
-            del self[value]
-        dict.__setitem__(self, key, value)
-        dict.__setitem__(self, value, key)
-
-    def __delitem__(self, key):
-        dict.__delitem__(self, self[key])
-        dict.__delitem__(self, key)
-
-    def __len__(self):
-        """Returns the number of connections"""
-        return dict.__len__(self) // 2
+from dllist4 import dllist
+from utils import TwoWayDict, generate_id
+# from llist import dllist
 
 class SpacetimeList:
     ORIG_LST = 0
     ADD_LST = 1
     IDENT_BYTES = 8
-    def __init__(self, original_list):
+    def __init__(self, original_list=[]):
         self.original_list = dllist(original_list)
-        self.add_list = dllist()
+        self.add_list = dllist(original_list)
         self.piece_table = dllist()
-        self.orig_offset = 0
-        self.add_offset = 0
         self.id_to_pt_item = TwoWayDict()
 
         self.history_list = dllist()
         self.redo_list = dllist()
 
         for i in range(len(original_list)):
-            the_node = self.original_list.nodeat(i)
-            temp = (SpacetimeList.ORIG_LST, the_node)
+            the_node = self.add_list.nodeat(i)
+            temp = (SpacetimeList.ADD_LST, the_node)
             the_node = self.piece_table.append(temp)
             hist_obj = self.history_object("i", the_node)
             self.history_list.append(hist_obj)
             # self.history_list.appendleft(temp)
-            self.orig_offset += 1
 
-    def history_object(self, action, piece_table_node, ident=None):
-        if not ident:
-            ident = binascii.hexlify(os.urandom(SpacetimeList.IDENT_BYTES))
-        self.id_to_pt_item[ident] = piece_table_node 
+    def history_object(self, action, piece_table_node, action_id=None):
+        if not action_id:
+            action_id = generate_id()
+
+        self.id_to_pt_item[action_id] = piece_table_node 
+
+        try:
+            prev_node_id = self.piece_table.get_id_from_node(piece_table_node.prev)
+        except:
+            prev_node_id = None
+        node_id = self.piece_table.get_id_from_node(piece_table_node)
+        print("At i = 0", piece_table_node)
+
+        # next_node_id = self.add_list.get_id_from_node(piece_table_node.next)
+
         if action == "i":
            return {
-               "prev": piece_table_node.prev,
-               "next": piece_table_node.next,
-               "node": piece_table_node,
+               "prev_id": prev_node_id,
+               "node_id": node_id,
+               "node_value": piece_table_node.value[1].value,
                "action": "i",
                "buffer": piece_table_node.value[0],
-               "ident": ident
+               "action_id": action_id
            } 
         elif action == "d":
            return {
-               "prev": piece_table_node.prev,
-               "next": piece_table_node.next,
-               "node": piece_table_node,
+               "prev_id": prev_node_id,
+               "node_id": node_id,
                "action": "d",
-               "buffer": piece_table_node.value[0],
-               "ident": ident
+               "buffer": piece_table_node.value[1].value,
+               "action_id": action_id
            } 
         
         else:
@@ -80,8 +71,9 @@ class SpacetimeList:
 
     def insert(self, item, loc=None, ident=None, next_node_id=None):
         add_list_node = self.add_list.append(item)
-        self.add_offset += 1
+
         temp = (SpacetimeList.ADD_LST, add_list_node)
+
         if not loc and not next_node_id:
             the_node = self.piece_table.append(temp)
             h_obj = self.history_object("i", the_node, ident)
@@ -91,19 +83,22 @@ class SpacetimeList:
                 before_node = self.id_to_pt_item[next_node_id]
             else:
                 before_node = self.piece_table.nodeat(loc)
-            the_node = self.piece_table.insert(temp, before_node)
+            the_node = self.piece_table.insert(temp, before=before_node)
             h_obj = self.history_object("i", the_node, ident)
             self.history_list.append(h_obj)
 
         return h_obj
 
     def delete(self, i=None, ident=None):
-        if i:
+        if i is not None:
             the_node = self.piece_table.nodeat(i)
-            ident = self.id_to_pt_item[the_node]
+            print("*** the_node at 0", the_node)
+            ident = self.piece_table.get_id_from_node(the_node)
         else:
-            the_node = self.id_to_pt_item[ident]
-        h_obj = self.history_object("d", the_node, ident)
+            the_node = self.piece_table.get_node_from_id(ident)
+
+        h_obj = self.history_object("d", the_node)
+
         self.history_list.append(h_obj)
         # self.history_list.append((the_node.prev, the_node.next, ))
         self.piece_table.remove(the_node)
@@ -117,9 +112,22 @@ class SpacetimeList:
         except ValueError:
             return False
         # print("***", last_history_obj)
-        last_node = last_history_obj["node"]
+        last_node_id = last_history_obj["node_id"]
+        last_node = self.piece_table.get_node_from_id(last_node_id)
+
+        prev_node_id = last_history_obj["prev_id"]
+        prev_node = self.piece_table.get_node_from_id(prev_node_id)
+        print('##', last_node_id)
+        print('##', prev_node_id, prev_node)
+
+        # print(last_node_id)
+        last_node = self.piece_table.get_node_from_id(last_node_id)
+        print("**", last_node)
         if last_history_obj["action"] == "d":
-            self.piece_table.insertnode(last_node, last_history_obj["next"])
+            if prev_node is None:
+                self.piece_table.appendleft(last_node)
+            else:
+                self.piece_table.insert(last_node, after=prev_node)
         elif last_history_obj["action"] == "i":
             self.piece_table.remove(last_node)
         else:
@@ -135,9 +143,17 @@ class SpacetimeList:
         except ValueError:
             return False
         # print("***", last_history_obj)
-        last_node = last_history_obj["node"]
+
+
+        last_node_id = last_history_obj["node_id"]
+        last_node = self.piece_table.get_node_from_id(last_node_id)
+        prev_node_id = last_history_obj["prev_id"]
+        prev_node = self.piece_table.get_node_from_id(prev_node_id)
+        print('##', last_node_id)
+        print('##', prev_node_id, prev_node)
+
         if last_history_obj["action"] == "i":
-            self.piece_table.insertnode(last_node, last_history_obj["next"])
+            self.piece_table.insert(last_node, after=prev_node)
         elif last_history_obj["action"] == "d":
             self.piece_table.remove(last_node)
         else:
@@ -236,42 +252,126 @@ class SpacetimeList:
 
 if __name__ == "__main__":
     s = SpacetimeList([1,2,3])
-
+    print(s.get_sequence())
     s.insert(4)
+    print(s.get_sequence())
     s.insert(5)
-    the_diff = s.__diff__()
+    print(s.get_sequence())
+    pprint(s.history_list)
 
-    s2 = SpacetimeList([])
+    s.insert(6, loc=3)
+    print(s.get_sequence())
 
-    print("# Importing the diff")
-    s2.import_diff(the_diff)
-    s2.insert('x')
-    s2.insert('y')
+    s.undo()
+    print(s.get_sequence())
 
-    diff_point = s.insert(6)
-    s.insert(7)
-    
-    # s.delete(i=3)
-    # s.delete(i=3)
-    # s.insert('x', 2)
-    
-    print()
-    print()
+    s.undo()
+    print(s.get_sequence())
 
-    print("+-+ Exported data")
-    pprint(the_diff)
-    print("+-+")
-    print()
-    print()
+    s.undo()
+    print(s.get_sequence())
+
+    s.undo()
+    print(s.get_sequence())
+
+    s.undo()
+    print(s.get_sequence())
+
+    s.undo()
+    print(s.get_sequence())
+
+    s.redo()
+    print(s.get_sequence())
+
+    s.redo()
+    print(s.get_sequence())
+
+    s.redo()
+    print(s.get_sequence())
+
+    s.redo()
+    print(s.get_sequence())
+
+    s.redo()
+    print(s.get_sequence())
+
+    s.redo()
+    print(s.get_sequence())
+
+    s.redo()
+    print(s.get_sequence())
+
+    s.delete(i=2)
+    print(s.get_sequence())
+
+    s.undo()
+    print(s.get_sequence())
+
+    s.delete(i=2)
+    s.delete(i=2)
+    s.delete(i=2)
+    s.delete(i=2)
+    print(s.get_sequence())
+
+    s.undo()
+    s.undo()
+    s.undo()
+    s.undo()
+    print(s.get_sequence())
+#    print(s.get_sequence())
+#    s.insert('x', 2)
+#    print(s.get_sequence())
+#    s.delete(i=3)
+#    print(s.get_sequence())
+#    s.undo()
+#    print(s.get_sequence())
+#    s.undo()
+#    print(s.get_sequence())
+#    s.undo()
+#    print(s.get_sequence())
+#    s.undo()
+#    print(s.get_sequence())
+#    s.undo()
+#    print(s.get_sequence())
+#    s.undo()
+#    print(s.get_sequence())
+#    s.undo()
+#    print(s.get_sequence())
 
 
-    print()
-    print("SUMMARY")
-    print("Exported sequence:", s.get_sequence())
-    print("Imported sequence:", s2.get_sequence())
-
-    difflist = s.__diff__(start_id=diff_point['ident'])
-    print(difflist)
-    print("before", s2.get_sequence())
-    s2.__merge__(difflist)
-    print(s2.get_sequence())
+#     the_diff = s.__diff__()
+# 
+#     s2 = SpacetimeList([])
+# 
+#     print("# Importing the diff")
+#     s2.import_diff(the_diff)
+#     s2.insert('x')
+#     s2.insert('y')
+# 
+#     diff_point = s.insert(6)
+#     s.insert(7)
+#     
+#     # s.delete(i=3)
+#     # s.delete(i=3)
+#     # s.insert('x', 2)
+#     
+#     print()
+#     print()
+# 
+#     print("+-+ Exported data")
+#     pprint(the_diff)
+#     print("+-+")
+#     print()
+#     print()
+# 
+# 
+#     print()
+#     print("SUMMARY")
+#     print("Exported sequence:", s.get_sequence())
+#     print("Imported sequence:", s2.get_sequence())
+# 
+#     difflist = s.__diff__(start_id=diff_point['ident'])
+#     print(difflist)
+#     print("before", s2.get_sequence())
+#     s2.__merge__(difflist)
+#     print(s2.get_sequence())

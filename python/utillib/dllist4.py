@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+# from compat import 
 from utils import TwoWayDict, generate_id
 
 def cmp(a, b):
@@ -10,6 +11,7 @@ class dllistnode(object):
 
     def __init__(self, value=None, prev=None, next=None, the_list=None, ident=None):
         if isinstance(value, dllistnode):
+            ident = the_list.get_id_from_node(value)
             value = value.value
 
         # self.__prev = the_list._dllist__id_node_2way_map[prev]
@@ -114,6 +116,18 @@ class dllist(object):
 
         if update_history:
             self.history.append(hnode)
+    
+    def get_id_from_node(self, node):
+        try: 
+            return self._dllist__id_node_2way_map[node]
+        except:
+            return -1
+
+    def get_node_from_id(self, ident):
+        try:
+            return self._dllist__id_node_2way_map[ident]
+        except Exception as e:
+            return e
 
     @property
     def first(self):
@@ -255,8 +269,6 @@ class dllist(object):
 
     def appendright(self, item_x, update_history=True):
         node = dllistnode(item_x, prev=self.__last, next=None, the_list=self)
-        if item_x == 10:
-            print("/////", node, node.list)
         self.update_id_node_2way_map("i", node, update_history)
 
         if self.__first is None:

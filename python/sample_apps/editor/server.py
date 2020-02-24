@@ -3,10 +3,11 @@ from pprint import pprint
 import os
 import sys
 import json
+# from utillib import spacetimelist
 
 # hack to add latest spacetime stuff to $PYTHONPATH
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
-from utillib import dllist4
+# from utillib import dllist4
 
 app = Flask(__name__, static_url_path='')
 

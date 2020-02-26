@@ -3,13 +3,14 @@ from pprint import pprint
 import os
 import sys
 import json
-# from utillib import spacetimelist
 
 # hack to add latest spacetime stuff to $PYTHONPATH
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 # from utillib import dllist4
+from utillib.spacetimelist import SpacetimeList
 
 app = Flask(__name__, static_url_path='')
+document = SpacetimeList([])
 
 @app.route('/')
 def index():
@@ -22,6 +23,8 @@ def index():
 
 @app.route('/receivechange', methods=['POST'])
 def receive_update():
+    global document
+
     if request.method == 'POST':
         delta = json.loads(request.form.get('delta'))
         pprint(delta)
@@ -37,13 +40,21 @@ def receive_update():
         idx_retain = -1
         for op in delta:
             if "retain" in op:
-                idx_retain = op["retain"] - 1
+                idx_retain = op["retain"]
             elif "insert" in op:
                 #insert_value(op["insert"], idx_retain)
-                # idx_retain += len(op["insert"])
-                pass
+                print(idx_retain)
+                if idx_retain == -1:
+                    document.insert(op["insert"])
+                else:
+                    print('++', idx_retain)
+                    document.insert(op["insert"], loc=idx_retain)
+                idx_retain += len(op["insert"])
             elif "delete" in op:
+                for i in range(op["delete"]):
+                    document.delete(i=idx_retain)
                 # delete_values(op["delete"], idx_retain)
-                pass
+        
+        print(document.get_sequence())
 
     return "Stored change"

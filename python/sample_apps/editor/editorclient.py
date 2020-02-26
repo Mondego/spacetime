@@ -4,7 +4,8 @@ import sys
 import os
 
 import tkinter as tk
-# from spacetime import Node, GotchaDebugger
+from spacetime import Node
+# from spacetime import GotchaDebugger
 from rtypes import pcc_set
 from rtypes import dimension, primarykey
 

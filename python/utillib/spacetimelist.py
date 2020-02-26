@@ -8,8 +8,8 @@ import weakref
 import binascii
 import os
 from pprint import pprint
-from dllist4 import dllist
 from utils import TwoWayDict, generate_id
+from utillib.dllist4 import dllist
 # from llist import dllist
 
 class SpacetimeList:
@@ -82,8 +82,14 @@ class SpacetimeList:
             if next_node_id:
                 before_node = self.id_to_pt_item[next_node_id]
             else:
-                before_node = self.piece_table.nodeat(loc)
-            the_node = self.piece_table.insert(temp, before=before_node)
+                try:
+                    before_node = self.piece_table.nodeat(loc)
+                except Exception:
+                    append = True
+            if append:
+                the_node = self.piece_table.append(temp)
+            else:
+                the_node = self.piece_table.insert(temp, before=before_node)
             h_obj = self.history_object("i", the_node, ident)
             self.history_list.append(h_obj)
 
@@ -252,6 +258,7 @@ class SpacetimeList:
 
 if __name__ == "__main__":
     s = SpacetimeList([1,2,3])
+    # s = SpacetimeList([])
     print(s.get_sequence())
     s.insert(4)
     print(s.get_sequence())

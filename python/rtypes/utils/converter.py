@@ -1,6 +1,6 @@
 from rtypes.utils.enums import Datatype
 from pickle import loads, dumps
-
+import json
 try:
     import numpy as np
     HASNUMPY = True
@@ -71,6 +71,16 @@ def convert(dim_type, value):
             "type": Datatype.LIST,
             "value": [convert(type(v), v) for v in value]
         }
+    if dim_type is dict:
+        try:
+            json.dumps(value)
+        except:
+            raise
+            raise TypeError("Cannot convert dictionary to serializable form")
+        return {
+            "type": Datatype.JSON,
+            "value": value
+        }
 
 def unconvert(value, dim_type, df=None):
     if value is None:
@@ -99,4 +109,6 @@ def unconvert(value, dim_type, df=None):
         return tuple(unconvert(item, None, None) for item in value["value"])
     if value["type"] == Datatype.LIST:
         return list(unconvert(item, None, None) for item in value["value"])
+    if value["type"] == Datatype.JSON:
+        return value["value"]
     return None

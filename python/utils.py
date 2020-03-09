@@ -21,5 +21,5 @@ class TwoWayDict(dict):
 
 def generate_id():
     IDENT_BYTES = 5
-    ident = binascii.hexlify(os.urandom(IDENT_BYTES))
+    ident = str(binascii.hexlify(os.urandom(IDENT_BYTES)))
     return ident

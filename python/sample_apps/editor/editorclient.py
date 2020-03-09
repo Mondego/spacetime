@@ -1,67 +1,75 @@
-#!/usr/bin/env python
-
-import sys
+from flask import Flask, send_from_directory, request
+from pprint import pprint
 import os
-
-import tkinter as tk
-from spacetime import Node
-# from spacetime import GotchaDebugger
-from rtypes import pcc_set
-from rtypes import dimension, primarykey
-
+import sys
+import json
+from datamodel import Document
+# hack to add latest spacetime stuff to $PYTHONPATH
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
-from utillib import spacetimelist
+# from utillib import dllist4
+from utillib.spacetimelist import SpacetimeList
+from spacetime import Node
 
 
+def make_editor_app(df):
+    app = Flask(__name__, static_url_path='')
+    df.pull()
+    document = SpacetimeList(df)
 
-df = None
-@pcc_set
-class EditorClient(object):
-    oid = primarykey(str)
-    text_value = dimension(spacetimelist)
+    @app.route('/')
+    def index():
+        print("in here!")
+        import os
+        # os.chdir(os.path.dirname(__file__))
+        # pd = os.getcwd()
+        # print(os.getcwd())
+        
+        # return  send_from_directory(os.path.join(pd, 'static'), 'quilleditor.html')
+        return  send_from_directory('/home/lg/2020/research/spacetime/python/sample_apps/editor/static', 'quilleditor.html')
 
-    def __init__(self):
-        self.oid = "1"
-        self.text_value = "just some stuff"
+    @app.route('/receivechange', methods=['POST'])
+    def receive_update():
+        
+        if request.method == 'POST':
+            delta = json.loads(request.form.get('delta'))
+            pprint(delta)
+            ld = len(delta)
+            if ld == 3:
+                print("Change event")
+            elif ld == 2:
+                print("Insert or delete event")
+            else:
+                print("Append or delete all event")
 
-# def update_object(df, T, root):
-#     my_editor = df.read_one(EditorClient, "1")
-#     my_editor.text_value = T.get("1.0",'end-1c')
-#     df.commit()
-#     df.push()
-#     print(my_editor.text_value)
-#     root.after(1000, update_object, df, T, root)
-# 
-# def editor(dataframe):
-#     root = tk.Tk()
-#     my_editor = EditorClient()
-#     T = tk.Text(root, height=10, width=30)
-#     T.pack()
-#     quote = "just some stuff"
-#     T.insert(tk.END, quote)
-#     
-#     
-#     my_editor.text_value = "another new thing"
-#     dataframe.add_one(EditorClient, my_editor)
-#     dataframe.commit()
-#     dataframe.push()
-#     root.after(1000, update_object, dataframe, T, root)
-# 
-#     # my_editor.text_value = "a start"
-#     # dataframe.commit()
-#     # dataframe.push()
-#     # dataframe.sync()
-# 
-#     # print("***", df.client_count)
-#     # df.add_one(EditorClient, my_editor)
-#     # df.sync()
-#     # my_editor.text_value = "a start"
-#     # df.commit()
-#     # df.push()
-#     # df.sync()
-#     tk.mainloop()
+            # iterate over the delta ops, one by one
+            idx_retain = -1
+            for op in delta:
+                if "retain" in op:
+                    idx_retain = op["retain"]
+                elif "insert" in op:
+                    #insert_value(op["insert"], idx_retain)
+                    print(idx_retain)
+                    if idx_retain == -1:
+                        document.insert(op["insert"])
+                    else:
+                        print('++', idx_retain)
+                        document.insert(op["insert"], loc=idx_retain)
+                    idx_retain += len(op["insert"])
+                elif "delete" in op:
+                    for i in range(op["delete"]):
+                        document.delete(i=idx_retain)
+                    # delete_values(op["delete"], idx_retain)
+            
+            print(document.get_sequence())
 
+        return "Stored change"
+    return app
+
+def editor_node(df, port=5000):
+    make_editor_app(df).run(port=port)
 
 if __name__ == "__main__":
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
-    Node(editor, dataframe=("0.0.0.0", port), Types=[EditorClient]).start()
+    editor_port = 5000
+    if len(sys.argv) >= 2:
+        editor_port = sys.argv[1]
+    Node(editor_node, Types=[Document], dataframe=("127.0.0.1", 9000)).start(port=editor_port)

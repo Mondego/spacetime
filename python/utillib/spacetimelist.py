@@ -6,23 +6,29 @@ a diff.
 
 import weakref
 import binascii
-import os
+import os, time
+from threading import Thread
 from pprint import pprint
 from utils import TwoWayDict, generate_id
 from utillib.dllist4 import dllist
+from datamodel import Document
 # from llist import dllist
 
-class SpacetimeList:
+class SpacetimeList(Thread):
     ORIG_LST = 0
     ADD_LST = 1
     IDENT_BYTES = 8
-    def __init__(self, original_list=[]):
+    def __init__(self, df):
+        original_list = list()
+        self.df = df
         self.original_list = dllist(original_list)
         self.add_list = dllist(original_list)
         self.piece_table = dllist()
         self.id_to_pt_item = TwoWayDict()
+        while not self.df.read_one(Document, "SINGLETON"):
+            self.df.pull_await()
+        self.document = self.df.read_one(Document, "SINGLETON")
 
-        self.history_list = dllist()
         self.redo_list = dllist()
 
         for i in range(len(original_list)):
@@ -30,8 +36,21 @@ class SpacetimeList:
             temp = (SpacetimeList.ADD_LST, the_node)
             the_node = self.piece_table.append(temp)
             hist_obj = self.history_object("i", the_node)
-            self.history_list.append(hist_obj)
+            self.document.history_list += [hist_obj]
             # self.history_list.appendleft(temp)
+        super().__init__(daemon=True)
+        self.start()
+    
+    def run(self):
+        while True:
+            st = time.perf_counter()
+            self.df.commit()
+            self.df.push()
+            self.df.pull()
+            et = time.perf_counter()
+            if (et - st) < 0.3:
+                time.sleep(et - st)
+
 
     def history_object(self, action, piece_table_node, action_id=None):
         if not action_id:
@@ -77,8 +96,9 @@ class SpacetimeList:
         if not loc and not next_node_id:
             the_node = self.piece_table.append(temp)
             h_obj = self.history_object("i", the_node, ident)
-            self.history_list.append(h_obj)
+            self.document.history_list += [h_obj]
         else:
+            append = False
             if next_node_id:
                 before_node = self.id_to_pt_item[next_node_id]
             else:
@@ -91,7 +111,7 @@ class SpacetimeList:
             else:
                 the_node = self.piece_table.insert(temp, before=before_node)
             h_obj = self.history_object("i", the_node, ident)
-            self.history_list.append(h_obj)
+            self.document.history_list += [h_obj]
 
         return h_obj
 
@@ -105,7 +125,7 @@ class SpacetimeList:
 
         h_obj = self.history_object("d", the_node)
 
-        self.history_list.append(h_obj)
+        self.document.history_list += [h_obj]
         # self.history_list.append((the_node.prev, the_node.next, ))
         self.piece_table.remove(the_node)
         return h_obj

@@ -10,6 +10,7 @@ class Datatype(object):
 
     TUPLE = 20
     LIST = 21
+    JSON = 22
     
     BASICTYPES = set([
         INTEGER, STRING, FLOAT, BOOLEAN, BYTES])

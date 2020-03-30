@@ -27,6 +27,10 @@ def make_editor_app(df):
         # return  send_from_directory(os.path.join(pd, 'static'), 'quilleditor.html')
         return  send_from_directory('/home/lg/2020/research/spacetime/python/sample_apps/editor/static', 'quilleditor.html')
 
+    @app.route('/pullchanges')
+    def pull_changes():
+        return(''.join(document.get_sequence()))
+
     @app.route('/receivechange', methods=['POST'])
     def receive_update():
         
@@ -56,7 +60,7 @@ def make_editor_app(df):
                         document.insert(op["insert"], loc=idx_retain)
                     idx_retain += len(op["insert"])
                 elif "delete" in op:
-                    for i in range(op["delete"]):
+                    for _ in range(op["delete"]):
                         document.delete(i=idx_retain)
                     # delete_values(op["delete"], idx_retain)
             

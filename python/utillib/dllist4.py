@@ -125,6 +125,7 @@ class dllist(object):
 
     def get_node_from_id(self, ident):
         try:
+            print("in get_node_from_id", self._dllist__id_node_2way_map)
             return self._dllist__id_node_2way_map[ident]
         except Exception as e:
             return e
@@ -267,8 +268,10 @@ class dllist(object):
             self.__last_access_idx += 1
         return node
 
-    def appendright(self, item_x, update_history=True):
-        node = dllistnode(item_x, prev=self.__last, next=None, the_list=self)
+    def appendright(self, item_x, update_history=True, node_id=None):
+        node = dllistnode(item_x, prev=self.__last, next=None, the_list=self, ident=node_id)
+        # if node_id:
+        print("node id compare", node.ident, node_id)
         self.update_id_node_2way_map("i", node, update_history)
 
         if self.__first is None:
@@ -278,8 +281,9 @@ class dllist(object):
 
         return node
 
-    def append(self, item_x):
-        return self.appendright(item_x)
+    def append(self, item_x, node_id=None):
+        print("right inside append", item_x, node_id)
+        return self.appendright(item_x, node_id=node_id)
 
     def insert(self, item_x, before=None, after=None, update_history=True):
         if after is not None:

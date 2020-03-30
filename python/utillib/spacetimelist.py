@@ -12,7 +12,13 @@ from pprint import pprint
 from utils import TwoWayDict, generate_id
 from utillib.dllist4 import dllist
 from datamodel import Document
+import sys
+import pdb
 # from llist import dllist
+
+class FakeDocument:
+    def __init__(self):
+        self.history_list = []
 
 class SpacetimeList(Thread):
     ORIG_LST = 0
@@ -25,9 +31,12 @@ class SpacetimeList(Thread):
         self.add_list = dllist(original_list)
         self.piece_table = dllist()
         self.id_to_pt_item = TwoWayDict()
-        while not self.df.read_one(Document, "SINGLETON"):
-            self.df.pull_await()
-        self.document = self.df.read_one(Document, "SINGLETON")
+        if df:
+            while not self.df.read_one(Document, "SINGLETON"):
+                self.df.pull_await()
+            self.document = self.df.read_one(Document, "SINGLETON")
+        else:
+            self.document = FakeDocument()
 
         self.redo_list = dllist()
 
@@ -44,9 +53,11 @@ class SpacetimeList(Thread):
     def run(self):
         while True:
             st = time.perf_counter()
-            self.df.commit()
-            self.df.push()
-            self.df.pull()
+            if self.df:
+                self.df.commit()
+                self.df.push()
+                self.df.pull()
+                self.__merge__(list(self.document.history_list_sync))
             et = time.perf_counter()
             if (et - st) < 0.3:
                 time.sleep(et - st)
@@ -81,7 +92,7 @@ class SpacetimeList(Thread):
                "prev_id": prev_node_id,
                "node_id": node_id,
                "action": "d",
-               "buffer": piece_table_node.value[1].value,
+#               "buffer": piece_table_node.value[1].value,
                "action_id": action_id
            } 
         
@@ -96,6 +107,7 @@ class SpacetimeList(Thread):
         if not loc and not next_node_id:
             the_node = self.piece_table.append(temp)
             h_obj = self.history_object("i", the_node, ident)
+            self.document.history_list_sync += [h_obj]
             self.document.history_list += [h_obj]
         else:
             append = False
@@ -111,6 +123,7 @@ class SpacetimeList(Thread):
             else:
                 the_node = self.piece_table.insert(temp, before=before_node)
             h_obj = self.history_object("i", the_node, ident)
+            self.document.history_list_sync += [h_obj]
             self.document.history_list += [h_obj]
 
         return h_obj
@@ -121,10 +134,13 @@ class SpacetimeList(Thread):
             print("*** the_node at 0", the_node)
             ident = self.piece_table.get_id_from_node(the_node)
         else:
+            print("in delete by ident", ident)
             the_node = self.piece_table.get_node_from_id(ident)
+            print("the node is", the_node)
 
         h_obj = self.history_object("d", the_node)
 
+        self.document.history_list_sync += [h_obj]
         self.document.history_list += [h_obj]
         # self.history_list.append((the_node.prev, the_node.next, ))
         self.piece_table.remove(the_node)
@@ -134,7 +150,7 @@ class SpacetimeList(Thread):
     def undo(self):
         ## TODO
         try:
-            last_history_obj = self.history_list.pop()
+            last_history_obj = self.document.history_list.pop()
         except ValueError:
             return False
         # print("***", last_history_obj)
@@ -207,19 +223,71 @@ class SpacetimeList(Thread):
 
     def __merge__(self, diff_list):
         # find the point after which the elements are to be inserted
-        prev_id = diff_list[0]['prev']
 
-        while self.history_list[-1]['ident'] != prev_id:
-            self.undo()
+        prev_id = None
+        try:
+            prev_id = self.document.history_list[-1]['action_id']
+        except:
+            pass
 
+        #if document_last is not None:
+        #    prev_id = diff_list[0]['action_id']
+        #else:
+        #    prev_id = None
+        
+        try:
+            while self.document.history_list[-1]['action_id'] != prev_id:
+                self.undo()
+        except:
+            pass
+        
+        if prev_id is None:
+            common_parent_found = True
+        else:
+            common_parent_found = False
+        
+        print("difflist", diff_list)
+        print("prev_id =", prev_id)
+        print("hlist", self.document.history_list)
+        print("ptable", [x for x in self.piece_table])
+        print("addlist", [x for x in self.add_list])
+        print("ptable2", self.get_sequence())
+        print("CPF", common_parent_found)
+        
         for item in diff_list:
-            add_list_node = self.add_list.append(item['node'])
-            temp = (SpacetimeList.ADD_LST, add_list_node)
+            # add_list_node = self.add_list.append(item['node_value'])
+            #temp = (SpacetimeList.ADD_LST, add_list_node)
 
-            the_node = self.piece_table.append(temp)
-            h_obj = self.history_object("i", the_node, item['ident'])
-            self.history_list.append(h_obj)
+            # the_node = self.piece_table.append(temp)
+            print("processing item!!!!", "CPF", common_parent_found)
+            if common_parent_found is True:
+                print("right inside common parent")
+                if item['action'] == 'i':
+                    print("common parent found, insert")
+                    add_list_node = self.add_list.append(item['node_value'])
+                    temp = (SpacetimeList.ADD_LST, add_list_node)
 
+                    print("Calling append")
+                    the_node = self.piece_table.append(temp, node_id=item['node_id'])
+                    print([x for x in self.piece_table])
+                    h_obj = self.history_object("i", the_node, item['action_id'])
+                    self.document.history_list.append(h_obj)
+                elif item['action'] == 'd':
+                    print("Deleting", item)
+                    # self.delete(ident=item['node_id'])
+                    the_node = self.piece_table.get_node_from_id(item['node_id'])
+                    print("+the node is", the_node)
+                    h_obj = self.history_object("d", the_node, action_id=item['action_id'])
+
+                    self.document.history_list.append(h_obj)
+                    # self.history_list.append((the_node.prev, the_node.next, ))
+                    self.piece_table.remove(the_node)
+
+            else:
+                print("common parent not found yet")
+                if item['action_id'] == prev_id:
+                    print("common parent found")
+                    common_parent_found = True
         while self.redo():
             pass
 

@@ -166,9 +166,10 @@ class SpacetimeList:
 
     def __merge__(self, diff_list):
         # find the point after which the elements are to be inserted
-        prev_id = diff_list[0]['prev']
+        print(diff_list)
+        prev_id = diff_list[0]['prev_id']
 
-        while self.history_list[-1]['ident'] != prev_id:
+        while self.history_list[-1]['node_id'] != prev_id:
             self.undo()
 
         for item in diff_list:

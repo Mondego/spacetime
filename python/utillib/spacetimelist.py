@@ -23,20 +23,21 @@ class FakeDocument:
 class SpacetimeList(Thread):
     ORIG_LST = 0
     ADD_LST = 1
-    IDENT_BYTES = 8
+    IDENT_BYTES = 8 # length of ID
     def __init__(self, df):
         original_list = list()
         self.df = df
-        self.original_list = dllist(original_list)
+        self.original_list = dllist(original_list) # unused; all new chars are added to add_list
         self.add_list = dllist(original_list)
         self.piece_table = dllist()
-        self.id_to_pt_item = TwoWayDict()
+        self.id_to_pt_item = TwoWayDict() # unused; ids are stored through dllist
+        
         if df:
             while not self.df.read_one(Document, "SINGLETON"):
                 self.df.pull_await()
             self.document = self.df.read_one(Document, "SINGLETON")
         else:
-            self.document = FakeDocument()
+            self.document = FakeDocument() # used for unit tests
 
         self.redo_list = dllist()
 
@@ -47,6 +48,7 @@ class SpacetimeList(Thread):
             hist_obj = self.history_object("i", the_node)
             self.document.history_list += [hist_obj]
             # self.history_list.appendleft(temp)
+        
         super().__init__(daemon=True)
         self.start()
     
@@ -67,15 +69,15 @@ class SpacetimeList(Thread):
         if not action_id:
             action_id = generate_id()
 
-        self.id_to_pt_item[action_id] = piece_table_node 
+        self.id_to_pt_item[action_id] = piece_table_node # unused; 
 
         try:
             prev_node_id = self.piece_table.get_id_from_node(piece_table_node.prev)
         except:
             prev_node_id = None
-        node_id = self.piece_table.get_id_from_node(piece_table_node)
-        print("At i = 0", piece_table_node)
 
+        node_id = self.piece_table.get_id_from_node(piece_table_node)
+        #print("At i = 0", piece_table_node)
         # next_node_id = self.add_list.get_id_from_node(piece_table_node.next)
 
         if action == "i":
@@ -123,6 +125,7 @@ class SpacetimeList(Thread):
             else:
                 the_node = self.piece_table.insert(temp, before=before_node)
             h_obj = self.history_object("i", the_node, ident)
+            
             self.document.history_list_sync += [h_obj]
             self.document.history_list += [h_obj]
 
@@ -131,7 +134,7 @@ class SpacetimeList(Thread):
     def delete(self, i=None, ident=None):
         if i is not None:
             the_node = self.piece_table.nodeat(i)
-            print("*** the_node at 0", the_node)
+            # print("*** the_node at 0", the_node)
             ident = self.piece_table.get_id_from_node(the_node)
         else:
             print("in delete by ident", ident)
@@ -261,7 +264,7 @@ class SpacetimeList(Thread):
             # the_node = self.piece_table.append(temp)
             print("processing item!!!!", "CPF", common_parent_found)
             if common_parent_found is True:
-                print("right inside common parent")
+                print("in common parent")
                 if item['action'] == 'i':
                     print("common parent found, insert")
                     add_list_node = self.add_list.append(item['node_value'])

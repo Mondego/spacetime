@@ -25,7 +25,9 @@ def make_editor_app(df):
         # print(os.getcwd())
         
         # return  send_from_directory(os.path.join(pd, 'static'), 'quilleditor.html')
-        return  send_from_directory('/home/lg/2020/research/spacetime/python/sample_apps/editor/static', 'quilleditor.html')
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+
+        return  send_from_directory(os.path.join(dir_path, 'static'), 'quilleditor.html')
 
     @app.route('/pullchanges')
     def pull_changes():

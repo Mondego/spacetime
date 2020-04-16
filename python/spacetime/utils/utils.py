@@ -4,28 +4,30 @@ import time
 import cbor
 
 from spacetime.utils.enums import Event
+from rtypes.utils.enums import DiffType
 #from copy import deepcopy
 
 class container(object):
     pass
 
 
-def get_logger(name):
-    if not os.path.exists("Logs"):
-        os.makedirs("Logs")
+def get_logger(name, log_to_std):
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
+    if log_to_std:
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.INFO)
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        ch.setFormatter(formatter)
+        logger.addHandler(ch)
+    # if not os.path.exists("Logs"):
+    #     os.makedirs("Logs")
     #fh = logging.FileHandler(os.path.join("Logs", name + ".log"))
     #fh.setLevel(logging.DEBUG)
-    #ch = logging.StreamHandler()
-    #ch.setLevel(logging.INFO)
-    #formatter = logging.Formatter(
-    #    "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     #fh.setFormatter(formatter)
-    #ch.setFormatter(formatter)
-    # add the handlers to the logger
     #logger.addHandler(fh)
-    #logger.addHandler(ch)
+
     return logger
 
 def deepcopy(the_dict):
@@ -33,7 +35,7 @@ def deepcopy(the_dict):
     #return the_dict
     return cbor.loads(cbor.dumps(the_dict))
 
-def merge_state_delta(old_change, newer_change, delete_it=False):
+def merge_state_delta(old_change, newer_change, tp_to_dimmap, apply, delete_it=False):
     merged = dict()
     if old_change == dict():
         return deepcopy(newer_change)
@@ -43,13 +45,14 @@ def merge_state_delta(old_change, newer_change, delete_it=False):
         else:
             merged[dtpname] = merge_objectlist_deltas(
                 dtpname, old_change[dtpname], newer_change[dtpname],
-                delete_it=delete_it)
+                tp_to_dimmap, apply, delete_it=delete_it)
     for dtpname in newer_change:
         if dtpname not in old_change:
             merged[dtpname] = deepcopy(newer_change[dtpname])
     return merged
 
-def merge_objectlist_deltas(dtpname, old_change, new_change, delete_it=False):
+def merge_objectlist_deltas(
+        dtpname, old_change, new_change, tp_to_dimmap, apply, delete_it=False):
     merged = dict()
     for oid in old_change:
         if oid not in new_change:
@@ -65,7 +68,8 @@ def merge_objectlist_deltas(dtpname, old_change, new_change, delete_it=False):
                 # in these merged changes.
                 continue
             obj_data = merge_object_delta(
-                dtpname, old_change[oid], new_change[oid])
+                dtpname, old_change[oid], new_change[oid],
+                tp_to_dimmap[dtpname], apply)
             if not obj_data:
                 obj_data = {"types": {dtpname: Event.Delete}}
             merged[oid] = obj_data
@@ -76,7 +80,7 @@ def merge_objectlist_deltas(dtpname, old_change, new_change, delete_it=False):
             merged[oid] = deepcopy(new_change[oid])
     return merged
 
-def merge_object_delta(dtpname, old_change, new_change):
+def merge_object_delta(dtpname, old_change, new_change, dimmap, apply):
     if not old_change:
         return deepcopy(new_change)
     if old_change["types"][dtpname] is Event.New and new_change["types"][dtpname] is Event.Delete:
@@ -94,7 +98,21 @@ def merge_object_delta(dtpname, old_change, new_change):
     if old_change["types"][dtpname] is Event.Delete:
         return (old_change)
     dim_change = (old_change["dims"])
-    dim_change.update(new_change["dims"])
+    for dim in new_change["dims"]:
+        if dim in dim_change and dimmap[dim].custom_diff:
+            if new_change["dims"][dim]["type"] != DiffType.NEW:
+                func = (
+                    dimmap[dim].custom_diff.apply
+                    if apply else
+                    dimmap[dim].custom_diff.merge)
+                value = func(
+                    dim_change[dim]["value"], new_change["dims"][dim]["value"])
+                dim_change[dim] = {
+                    "value": value,
+                    "type": DiffType.MOD
+                }
+                continue
+        dim_change[dim] = new_change[dim]
     type_change = dict()
     for tpname, old_event in old_change["types"].items():
         new_event = (
@@ -160,3 +178,31 @@ class instrument_func(object):
 
     def record_instrumentation(self, obj, *args):
         obj.instrument_record.put("\t".join(map(str, args)) + "\n")
+
+def dim_diff(dtpname, original, new, original_obj, new_obj, dimmap):
+    # return dims that are in new but not in/different in the original.
+    change = {"dims": dict(), "types": dict()}
+    do_not_touch = set()
+    for dim in new["dims"]:
+        if dimmap[dim].custom_diff:
+            new["dims"][dim] = {
+                "type": DiffType.MOD if original_obj else DiffType.NEW,
+                "value": dimmap[dim].custom_diff.diff_objs(
+                    new_obj, original_obj)
+            } if original_obj and new_obj else {
+                
+            }
+            do_not_touch.add(dim)
+    if not (original and "dims" in original):
+        return new
+    for dim in new["dims"]:
+        if (dim not in original["dims"]
+                or original["dims"][dim] != new["dims"][dim]):
+            # The dim is not in original or the dim is there,
+            # but the values are different.
+            # copy it.
+            change["dims"][dim] = new["dims"][dim]
+    change["types"].update(original["types"])
+    change["types"].update(new["types"])
+    change["types"][dtpname] = Event.Modification
+    return change

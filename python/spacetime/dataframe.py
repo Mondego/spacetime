@@ -1,298 +1,166 @@
-from multiprocessing import Queue, Process
-from threading import Thread, Condition
-import traceback
-import time
+import socket
+from threading import Thread
+from struct import pack, unpack
 
-from spacetime.managers.connectors.np_socket_manager import NPSocketServer, NPSocketConnector
-from spacetime.managers.connectors.asyncio_socket_manager import AIOSocketServer, AIOSocketConnector
-from spacetime.managers.connectors.thread_socket_manager import TSocketServer, TSocketConnector
-from spacetime.managers.version_manager import VersionManager
-from spacetime.managers.managed_heap import ManagedHeap
-from spacetime.managers.diff import Diff
-import spacetime.utils.enums as enums
-import spacetime.utils.utils as utils
-from spacetime.utils.utils import instrument_func
+from spacetime.remote import Remote
+from spacetime.version_graph import VersionGraph
+from spacetime.heap import Heap
+from spacetime.utils.socket_utils import receive_data, send_data
+from spacetime.utils import utils
 
-class Dataframe(object):
+
+class Dataframe(Thread):
     @property
     def details(self):
-        return self.socket_server.port
-
-    @property
-    def shutdown(self):
-        return self._shutdown
-
-    @property
-    def client_count(self):
-        return self.socket_server.client_count
-
-    def write_stats(self):
-        if self.instrument_record:
-            self.instrument_record.put("DONE")
-            self.instrument_writer.join()
+        return self.main_socket.getsockname()
 
     def __init__(
-            self, appname, types, details=None, server_port=0,
-            connection_as=enums.ConnectionStyle.TSocket,
-            instrument=None, dump_graph=None, resolver=None,
-            autoresolve=enums.AutoResolve.FullResolve,
-            mem_instrument=False):
+            self, appname, types, server_port=0,
+            remotes=None, resolver=None, log_to_std=False):
         self.appname = appname
-        self.logger = utils.get_logger("%s_Dataframe" % appname)
-        self.instrument = instrument
-
-        self.instrument_record = None
-
-        self._shutdown = False
-        if connection_as == enums.ConnectionStyle.TSocket:
-            SocketServer, SocketConnector = TSocketServer, TSocketConnector
-        elif connection_as == enums.ConnectionStyle.NPSocket:
-            SocketServer, SocketConnector = NPSocketServer, NPSocketConnector
-        elif connection_as == enums.ConnectionStyle.AIOSocket:
-            SocketServer, SocketConnector = AIOSocketServer, AIOSocketConnector
-        else:
-            raise NotImplementedError()
-
-        self.graph_change_event = Condition()
-        self.socket_server = SocketServer(
-            self.appname, server_port,
-            self.fetch_call_back, self.push_call_back, self.confirm_fetch_req,
-            self.instrument_record)
-
-        self.socket_connector = SocketConnector(
-            self.appname, details, self.details, types,
-            self.instrument_record)
-
         self.types = types
-        self.type_map = {
-            tp.__r_meta__.name: tp for tp in self.types}
+        self.shutdown = False
+        self.log_to_std = log_to_std
+        self.logger = utils.get_logger("Dataframe", self.log_to_std)
 
-        # THis is the local snapshot.
-        self.local_heap = ManagedHeap(types)
-        self.versioned_heap = None
+        super().__init__(daemon=True)
+        # Set up socket that receives connections initiated by remotes.
+        self.main_socket = self.setup_main_socket(server_port)
+        self.server_port = self.main_socket.getsockname()[1]
 
-        # This is the dataframe's versioned graph.
-        self.versioned_heap = VersionManager(
-            self.appname, types, resolver, autoresolve, instrument=instrument)
-        self.socket_server.start()
-        if self.socket_connector.has_parent_connection:
-            self.pull()
+        self.version_graph = VersionGraph(
+            self.appname, self.types, resolver=resolver, log_to_std=log_to_std)
 
-    # Suppport Functions
+        # Initiates all connections to remotes.
+        # map from Remote name -> Remote Obj
+        self.remotes = self._connect_to(remotes)
 
-    def _save_instruments(self):
-        import os
-        ifile = open(self.instrument + ".tsv", "w")
-        mfile = open(self.instrument + ".vg.tsv", "w")
-        while not self.instrument_done:
-            record =  self.instrument_record.get()
-            if record == "DONE":
-                break
-            if record[0] == "MEMORY":
-                mfile.write(record[1])
-                mfile.flush()
-                os.fsync(mfile.fileno())
-            else:
-                ifile.write(record)
-                ifile.flush()
-                os.fsync(ifile.fileno())
+        self.heap = Heap(self.appname, types, self.version_graph)
+        self.start()
 
-    def _create_package(self, appname, diff, start_version):
-        return appname, [start_version, diff.version], diff
+    def setup_main_socket(self, server_port):
+        sync_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sync_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        sync_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sync_socket.bind(("", server_port))
+        sync_socket.listen()
+        return sync_socket
 
-    def _check_updated_since(self, version, timeout):
-        success = True
-        with self.graph_change_event:
-            success = self.graph_change_event.wait_for(
-                lambda: version != self.versioned_heap.head,
-                timeout if timeout > 0 else None)
-        if not success:
-            raise TimeoutError(
-                "No new version received in time {0}".format(
-                    timeout))
+    def add_remote(self, name, details):
+        if name in self.remotes and self.remotes[name].outgoing_connection:
+            self.remotes[name].outgoing_close()
+        if name not in self.remotes:
+            self._connect_to({name: details})
+        else:
+            self.remotes[name].connect_as_client(details)
 
+    def _connect_to(self, remotes):
+        if not remotes:
+            # No remote to connect to.
+            return dict()
+        return {
+            remote: self._create_connection(remote, details)
+            for remote, details in remotes.items()}
 
-    # Object Create Add and Delete
+    def _create_connection(self, remote, details):
+        remote_obj = Remote(
+            self.appname, remote, self.version_graph,
+            log_to_std=self.log_to_std)
+        remote_obj.connect_as_client(details)
+        self.logger.info(f"Obtained a new server {remote}")
+        return remote_obj
+
+    def run(self):
+        self.listen()
+        self.main_socket.close()
+        for remote in self.remotes.values():
+            remote.close()
+
+    def listen(self):
+        while not self.shutdown:
+            con_socket, _ = self.main_socket.accept()
+            raw_nl = con_socket.recv(4)
+            if not raw_nl:
+                continue
+            name_length = unpack("!L", raw_nl)[0]
+            name = str(receive_data(con_socket, name_length), encoding="utf-8")
+            self.logger.info(f"Obtained a new client {name}")
+            if name in self.remotes and self.remotes[name].incoming_connection:
+                self.remotes[name].incoming_close()
+            if name not in self.remotes:
+                self.remotes[name] = Remote(
+                    self.appname, name, self.version_graph,
+                    log_to_std=self.log_to_std)
+            self.remotes[name].set_sock_as_server(con_socket)
+
+    # Heap Functions
     def add_one(self, dtype, obj):
-        '''Adds one object to the staging.'''
-        self.local_heap.add_one(dtype, obj)
+        self.heap.add(dtype, [obj])
 
     def add_many(self, dtype, objs):
-        '''Adds many objects to the staging.'''
-        self.local_heap.add_many(dtype, objs)
-
-    def read_one(self, dtype, oid):
-        '''Reads one object either from staging or
-           last forked version if it exists.
-           Returns None if no object is found.'''
-        return self.local_heap.read_one(dtype, oid)
-
-    def read_all(self, dtype):
-        '''Returns a list of all objects of given type either
-           from staging or last forked version.
-           Returns empty list if no objects are found.'''
-        return self.local_heap.read_all(dtype)
+        self.heap.add(dtype, objs)
 
     def delete_one(self, dtype, obj):
-        '''Deletes obj from staging first. If it exists
-           in previous version, adds a delete record.'''
-        self.local_heap.delete_one(dtype, obj)
+        self.heap.delete(dtype, [obj])
+
+    def delete_many(self, dtype, objs):
+        self.heap.delete(dtype, objs)
 
     def delete_all(self, dtype):
-        self.local_heap.delete_all(dtype)
+        self.heap.delete(dtype, self.read_all(dtype))
 
-    # Fork and Join
+    def read_one(self, dtype, oid):
+        return self.heap.read_one(dtype, oid)
 
-    @instrument_func("checkout")
+    def read_all(self, dtype):
+        return self.heap.read_all(dtype)
+
+    def commit(self):
+        self.heap.commit()
+
     def checkout(self):
-        data, versions = self.versioned_heap.retrieve_data(
-            self.appname,
-            self.local_heap.version)
-        if self.local_heap.receive_data(data, versions):
-            # Can be carefully made Async.
-            self.versioned_heap.data_sent_confirmed(
-                self.appname, versions)
+        self.heap.checkout()
 
-    @instrument_func("checkout_await")
     def checkout_await(self, timeout=0):
-        self._check_updated_since(self.local_heap.version, timeout)
+        self.heap.checkout(wait=True, timeout=timeout)
+
+    def push(self, remote=None):
+        if remote and remote in self.remotes:
+            self.remotes[remote].push()
+            return
+        for remote_obj in self.remotes.values():
+            remote_obj.push()
+
+    def push_await(self, remote=None):
+        if remote and remote in self.remotes:
+            self.remotes[remote].push(wait=True)
+            return
+        for remote_obj in self.remotes.values():
+            remote_obj.push(wait=True)
+
+    def fetch(self, remote=None):
+        if remote and remote in self.remotes:
+            self.remotes[remote].fetch()
+            return
+        for remote_obj in self.remotes.values():
+            remote_obj.fetch()
+
+    def fetch_await(self, remote=None, timeout=0):
+        if remote and remote in self.remotes:
+            self.remotes[remote].fetch(wait=True, timeout=timeout)
+            return
+        for remote_obj in self.remotes.values():
+            remote_obj.fetch(wait=True, timeout=timeout)
+
+    def pull(self, remote=None):
+        self.fetch(remote=remote)
         self.checkout()
 
-    @instrument_func("commit")
-    def commit(self):
-        data, versions = self.local_heap.retreive_data()
-        if versions:
-            succ = self.versioned_heap.receive_data(
-                self.appname, versions, data, from_external=False)
-            with self.graph_change_event:
-                self.graph_change_event.notify_all()
-            if succ:
-                self.local_heap.data_sent_confirmed(versions)
+    def pull_await(self, remote=None, timeout=0):
+        self.fetch_await(remote=remote, timeout=timeout)
+        self.checkout()
 
     def sync(self):
         self.commit()
-        if self.socket_connector.has_parent_connection:
-            self.push()
-            self.pull()
-        self.checkout()
-        return True
-
-    # Push and Pull
-    @instrument_func("push")
-    def push(self):
-        if self.socket_connector.has_parent_connection:
-            self.logger.debug("Push request started.")
-            data, version = self.versioned_heap.retrieve_data(
-                "SOCKETPARENT", self.socket_connector.parent_version)
-            if version[0] == version[1]:
-                self.logger.debug(
-                    "Push not required, "
-                    "parent already has the information.")
-                return
-
-            if self.socket_connector.push_req(data, version):
-                self.logger.debug("Push request completed.")
-                self.versioned_heap.data_sent_confirmed(
-                    "SOCKETPARENT", version)
-                self.logger.debug("Push request registered.")
-    
-    @instrument_func("push_await")
-    def push_await(self):
-        if self.socket_connector.has_parent_connection:
-            self.logger.debug("Push request started.")
-            data, version = self.versioned_heap.retrieve_data(
-                "SOCKETPARENT", self.socket_connector.parent_version)
-            if version[0] == version[1]:
-                self.logger.debug(
-                    "Push not required, "
-                    "parent already has the information.")
-                return
-
-            if self.socket_connector.push_req(
-                    data, version, wait=True):
-                self.logger.debug("Push request completed.")
-                self.versioned_heap.data_sent_confirmed(
-                    "SOCKETPARENT", version)
-                self.logger.debug("Push request registered.")
-
-    @instrument_func("fetch")
-    def fetch(self, instrument=False):
-        if self.socket_connector.has_parent_connection:
-            self.logger.debug("Pull request started.")
-            package, version = self.socket_connector.pull_req()
-            self.logger.debug("Pull request completed.")
-            self.versioned_heap.receive_data(
-                "SOCKETPARENT",
-                version, package)
-            self.logger.debug("Pull request applied.")
-            with self.graph_change_event:
-                self.graph_change_event.notify_all()
-            if instrument:
-                return package
-
-    @instrument_func("fetch_await")
-    def fetch_await(self, timeout=0):
-        if self.socket_connector.has_parent_connection:
-            self.logger.debug("Pull request started.")
-            try:
-                package, version = self.socket_connector.pull_req(
-                    wait=True, timeout=timeout)
-            except TimeoutError:
-                self.logger.debug("Timed out fetch request.")
-                raise
-            self.logger.debug("Pull request completed.")
-            self.versioned_heap.receive_data(
-                "SOCKETPARENT",
-                version, package)
-            self.logger.debug("Pull request applied.")
-            with self.graph_change_event:
-                self.graph_change_event.notify_all()
-
-
-    @instrument_func("pull")
-    def pull(self, instrument=False):
-        delta = self.fetch(instrument=instrument)
-        self.checkout()
-        if instrument:
-            return delta
-
-    @instrument_func("pull_await")
-    def pull_await(self, timeout=0):
-        self.fetch_await(timeout=timeout)
-        self.checkout()
-
-    # Functions that respond to external requests
-
-    @instrument_func("accept_fetch")
-    def fetch_call_back(
-            self, appname, version, req_types, wait=False, timeout=0):
-        try:
-            if wait:
-                self._check_updated_since(version, timeout)
-            return self.versioned_heap.retrieve_data(
-                appname, version, req_types)
-        except Exception as e:
-            print (e)
-            print(traceback.format_exc())
-            raise
-
-    @instrument_func("confirm_fetch")
-    def confirm_fetch_req(self, appname, version):
-        try:
-            self.versioned_heap.data_sent_confirmed(appname, version)
-        except Exception as e:
-            print (e)
-            print(traceback.format_exc())
-            raise
-
-    @instrument_func("accept_push")
-    def push_call_back(self, appname, versions, data):
-        try:
-            resp = self.versioned_heap.receive_data(appname, versions, data)
-            with self.graph_change_event:
-                self.graph_change_event.notify_all()
-            return resp
-        except Exception as e:
-            print (e)
-            print(traceback.format_exc())
-            raise
+        self.push()
+        self.pull()

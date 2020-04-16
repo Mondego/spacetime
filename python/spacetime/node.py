@@ -7,7 +7,7 @@ from spacetime.dataframe import Dataframe
 from spacetime.utils.enums import VersionBy, ConnectionStyle, AutoResolve
 
 def get_details(dataframe):
-    if isinstance(dataframe , Dataframe):
+    if isinstance(dataframe, Dataframe):
         return dataframe.details
     elif isinstance(dataframe, tuple):
         return dataframe
@@ -16,27 +16,16 @@ def get_details(dataframe):
     raise RuntimeError(
         "Do not know how to connect to dataframe with given data", dataframe)
 
-def get_app(func, types, producer,
-            getter_setter, getter, setter, deleter, threading=False):
+def get_app(func, types, threading=False):
 
-    class App(Thread if threading else Process):
+    class Node(Thread if threading else Process):
         @property
         def type_map(self):
-            return {
-                "producer": self.producer,
-                "gettersetter": self.getter_setter,
-                "getter": self.getter,
-                "setter": self.setter,
-                "deleter": self.deleter,
-            }
+            return {"types": self.types}
 
         @property
         def all_types(self):
-            return self.producer.union(
-                self.getter_setter).union(
-                    self.getter).union(
-                        self.setter).union(
-                            self.deleter).union(self.types)
+            return self.types
 
         @property
         def details(self):
@@ -47,41 +36,26 @@ def get_app(func, types, producer,
             return self._port
 
         def __init__(
-                self, appname, dataframe=None, server_port=0,
-                instrument=None, dump_graph=None,
-                connection_as=ConnectionStyle.TSocket, resolver=None,
-                autoresolve=AutoResolve.FullResolve, mem_instrument=False):
+                self, appname, remotes=None, server_port=0, resolver=None):
             self._port = None
             self.appname = appname
-            self.producer = producer
-            self.getter_setter = getter_setter
-            self.getter = getter
-            self.setter = setter
-            self.deleter = deleter
             self.types = types
 
             self.func = func
             self.args = tuple()
             self.kwargs = dict()
-            self.dataframe_details = (
-                get_details(dataframe) if dataframe else None)
+            self.dataframe_details = {
+                remote: get_details(dataframe) if dataframe else None
+                for remote, dataframe in remotes.items()}
 
             self.server_port = server_port
-            self.instrument = instrument
-            self.dump_graph = dump_graph
-            self.connection_as = connection_as
             self.resolver = resolver
-            self.autoresolve = autoresolve
             self._ret_value = Queue()
-            self.mem_instrument = mem_instrument
             super().__init__()
             self.daemon = False
 
         def run(self):
             # Create the dataframe.
-            self.cr = None
-            if self.instrument:
-                self.cr = cProfile.Profile()
             dataframe = self._create_dataframe()
             self._port_fetcher.put(dataframe.details)
             # Fork the dataframe for initialization of app.
@@ -91,9 +65,6 @@ def get_app(func, types, producer,
             # Merge the final changes back to the dataframe.
             dataframe.commit()
             dataframe.push()
-            if self.instrument:
-                self.cr.create_stats()
-                self.cr.dump_stats(self.instrument)
 
         def _start(self, *args, **kwargs):
             self.args = args
@@ -116,56 +87,21 @@ def get_app(func, types, producer,
             self._ret_value.close()
             super().join()
             return ret_value
-            
 
         def _create_dataframe(self):
             df = Dataframe(
                 self.appname, self.all_types,
-                details=self.dataframe_details,
                 server_port=self.server_port,
-                connection_as=self.connection_as,
-                dump_graph=self.dump_graph,
-                resolver=self.resolver,
-                autoresolve=self.autoresolve,
-                mem_instrument=self.mem_instrument,
-                instrument=self.cr)
+                remotes=self.dataframe_details,
+                resolver=self.resolver)
             #print(self.appname, self.all_types, details, df.details)
             return df
-    return App
+    return Node
 
-
-class app(object):
-    def __init__(
-            self, Types=list(), Producer=list(), GetterSetter=list(),
-            Getter=list(), Setter=list(), Deleter=list()):
-        self.producer = set(Producer)
-        self.getter_setter = set(GetterSetter)
-        self.getter = set(Getter)
-        self.setter = set(Setter)
-        self.deleter = set(Deleter)
-        self.types = set(Types)
-
-    def __call__(self, func):
-        return get_app(
-            func, self.types, self.producer, self.getter_setter,
-            self.getter, self.setter, self.deleter)
-
-def Node(
-        target, appname=None,
-        dataframe=None, server_port=0,
-        Types=list(), Producer=list(), GetterSetter=list(),
-        Getter=list(), Setter=list(), Deleter=list(),
-        threading=False,
-        instrument=None, dump_graph=None,
-        connection_as=ConnectionStyle.TSocket, resolver=None,
-        autoresolve=AutoResolve.FullResolve, mem_instrument=False):
+def Node(target, appname=None, Types=list(),
+         remotes=None, server_port=0, threading=False, resolver=None):
     if not appname:
         appname = "{0}_{1}".format(target.__name__, str(uuid4()))
-    app_cls = get_app(
-        target, set(Types), set(Producer), set(GetterSetter),
-        set(Getter), set(Setter), set(Deleter), threading=threading)
+    app_cls = get_app(target, set(Types), threading=threading)
     return app_cls(
-        appname, dataframe=dataframe, server_port=server_port,
-        instrument=instrument, dump_graph=dump_graph,
-        connection_as=connection_as, resolver=resolver,
-        autoresolve=autoresolve, mem_instrument=mem_instrument)
+        appname, remotes=remotes, server_port=server_port, resolver=resolver)

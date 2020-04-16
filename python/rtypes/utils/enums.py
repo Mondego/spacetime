@@ -10,6 +10,8 @@ class Datatype(object):
 
     TUPLE = 20
     LIST = 21
+
+    CUSTOM_DIFF = 30
     
     BASICTYPES = set([
         INTEGER, STRING, FLOAT, BOOLEAN, BYTES])
@@ -17,3 +19,7 @@ class Datatype(object):
 class Rtype(object):
     SET = "set"
     SUBSET = "subset"
+
+class DiffType(object):
+    NEW = 0
+    MOD = 1

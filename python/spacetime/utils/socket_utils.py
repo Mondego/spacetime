@@ -2,6 +2,21 @@ from struct import pack, unpack
 import traceback
 import cbor
 
+def receive_data(con, length):
+    stack = list()
+    while length:
+        data = con.recv(length)
+        stack.append(data)
+        length = length - len(data)
+
+    return b"".join(stack)
+
+def send_all(con, data):
+    while data:
+        sent = con.send(data)
+        if len(data) == sent:
+            break
+        data = data[sent:]
 
 async def send_data(writer, data):
     try:

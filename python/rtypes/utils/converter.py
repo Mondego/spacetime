@@ -85,7 +85,6 @@ def unconvert(value, dim_type, df=None):
             value["value"]["data"],
             dtype=loads(
                 value["value"]["type"])).reshape(value["value"]["shape"])
-        
     if value["type"] == Datatype.FOREIGNKEY:
         obj = None
         if df:

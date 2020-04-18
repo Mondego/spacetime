@@ -2,12 +2,12 @@ from uuid import uuid4
 from collections import deque, OrderedDict
 from threading import Condition
 
-from spacetime.remote import Remote
 from spacetime.utils.enums import Event
 from spacetime.utils import utils
 from spacetime.utils.rwlock import RWLockFair as RWLock
 from rtypes.utils.enums import DiffType
 from rtypes.utils.converter import unconvert, convert
+
 
 def rlock(func):
     def read_locked_func(self, *args, **kwargs):
@@ -15,12 +15,13 @@ def rlock(func):
             return func(self, *args, **kwargs)
     return read_locked_func
 
+
 def wlock(func):
     def write_locked_func(self, *args, **kwargs):
         with self.rwlock.gen_wlock():
             return func(self, *args, **kwargs)
     return write_locked_func
-    
+
 
 class Version(object):
     def __repr__(self):
@@ -63,6 +64,7 @@ class Edge(object):
         self.to_v = to_v
         self.delta = delta
 
+
 class EidGroup():
     @property
     def delta(self):
@@ -72,7 +74,7 @@ class EidGroup():
 
     @property
     def new_eid(self):
-        return 
+        return
 
     def __init__(self, start, eids, nodes):
         self.start = start
@@ -82,7 +84,7 @@ class EidGroup():
         self.tracked_sets = list()
         self.version_to_group = dict()
         self._delta = None
-    
+
     def add_edge(self, edge):
         if edge.from_v not in self.version_to_group:
             # This is now a new group.
@@ -152,6 +154,7 @@ class EidGroup():
         prev_obj["dims"].update(next_obj["dims"])
         return prev_obj
 
+
 class VersionGraph(object):
     def __init__(self, nodename, types, resolver=None, log_to_std=False):
         self.logger = utils.get_logger(f"version_graph_{nodename}", log_to_std)
@@ -180,18 +183,19 @@ class VersionGraph(object):
 
         # vid -> vobj
         self.alias = dict()
+        self.reverse_alias = dict()
 
         # Supporting roles
         self.resolver = resolver
-       
+
         self.forward_edge_map = dict()
         self.graph_change_event = Condition()
         self.rwlock = RWLock()
-        
+
         # GC stuff
         self.node_to_eid = dict()
         self.eids = set()
-        self.state_to_node = dict()
+        self.version_to_node = dict()
         self.node_to_version = dict()
 
     def _add_single_edge(self, from_v, to_v, delta, eid):
@@ -242,6 +246,7 @@ class VersionGraph(object):
         if (from_v, eid) in self.forward_edge_map:
             existing_to_v = self.forward_edge_map[(from_v, eid)]
             self.alias[to_vid] = existing_to_v.vid
+            self.reverse_alias.setdefault(existing_to_v.vid, set()).add(to_vid)
             return from_v, existing_to_v
         return from_v, Version(to_vid)
 
@@ -256,7 +261,8 @@ class VersionGraph(object):
                     if any(sib.children.intersection(version.children)
                            for sib in parent.children if sib != version):
                         continue
-                    sib = next(sib for sib in parent.children if sib != version)
+                    sib = next(
+                        sib for sib in parent.children if sib != version)
                     merge_versions.append(self._merge(parent, sib, version))
                 if not version.children:
                     head = version
@@ -428,7 +434,7 @@ class VersionGraph(object):
 
     def _read_dimension_at(self, version, dtype, oid, dimname):
         dtpname = dtype.__r_meta__.name
-        dimmap = self.tp_to_dim [dtype.__r_meta__.name]
+        dimmap = self.tp_to_dim[dtype.__r_meta__.name]
         if dimmap[dimname].custom_diff:
             deltas = deque()
             for edge in self.get_edges_to_root(version):
@@ -498,7 +504,6 @@ class VersionGraph(object):
         self.garbage_collect()
         return self.head
 
-
     def _build_causal_chain(self):
         to_see = deque([self.tail])
         eid_to_parent = OrderedDict()
@@ -521,13 +526,14 @@ class VersionGraph(object):
             all_eids_in_version[version] = parent_eids.union(eids_to_version)
             to_see.extend(version.children)
         return eid_to_parent, all_eids_in_version, all_eids
-    
+
     def _build_node_requirement_map(self, all_eids_in_version, all_eids):
         eid_missing_to_nodes = dict()
         for node in self.node_to_version:
-            seen = all_eids_in_version[self.node_to_version[node]["READ"]].union(
-                all_eids_in_version[self.node_to_version[node]["WRITE"]])
-            for eid in (all_eids - seen):
+            seen = (
+                all_eids_in_version[self.node_to_version[node]["READ"]].union(
+                    all_eids_in_version[self.node_to_version[node]["WRITE"]]))
+            for eid in all_eids - seen:
                 eid_missing_to_nodes.setdefault(eid, list()).append(node)
         return eid_missing_to_nodes
 
@@ -571,9 +577,47 @@ class VersionGraph(object):
                 edge = self.edges[(version, child)]
                 group = eid_to_group[edge.eid]
                 group.add_edge(edge)
+            to_see.extend(version.children)
 
     def _clean_unneeded_branches(self):
-        pass
+        to_see = deque([self.tail])
+        while to_see:
+            version = to_see.popleft()
+            if (len(version.parents) == 1
+                    and len(version.children) == 1
+                    and version not in self.version_to_node
+                    and any(
+                        child in self.version_to_node
+                        for child in next(p for p in version.parents).children
+                        if child != version)):
+                self._delete_version(version)
+            to_see.extend(version.children)
+
+    def _delete_version(self, version):
+        if version not in self.versions:
+            return
+
+        for parent in version.parents:
+            if (parent, version) in self.edges[(parent, version)]:
+                del self.forward_edge_map[
+                    (parent, self.edges[(parent, version)].eid)]
+                del self.edges[(parent, version)]
+
+        for child in version.children:
+            if (version, child) in self.edges[(version, child)]:
+                del self.forward_edge_map[
+                    (version, self.edges[(version, child)].eid)]
+                del self.edges[(version, child)]
+
+        if version.vid in self.reverse_alias:
+            for vid in self.reverse_alias[version.vid]:
+                del self.alias[vid]
+            del self.reverse_alias[version.vid]
+
+        if version in self.version_to_node:
+            del self.version_to_node
+
+        del self.versions[version]
 
     def garbage_collect(self):
         # A map of eid -> set of eids that it depends on.
@@ -611,20 +655,7 @@ class VersionGraph(object):
             self._add_single_edge(from_v, to_v, delta, eid)
 
         for version in versions_to_delete:
-            if version not in self.versions:
-                continue
-            for parent in version.parents:
-                if (parent, version) in self.edges[(parent, version)]:
-                    del self.forward_edge_map[
-                        (parent, self.edges[(parent, version)].eid)]
-                    del self.edges[(parent, version)]
-            for child in version.children:
-                if (version, child) in self.edges[(version, child)]:
-                    del self.forward_edge_map[
-                        (version, self.edges[(version, child)].eid)]
-                    del self.edges[(version, child)]
-            #TODO need to delete from alias
-            del self.versions[version]
+            self._delete_version(version)
 
     def choose_alias(self, version):
         alias_vid = (
@@ -632,7 +663,7 @@ class VersionGraph(object):
             if version in self.alias else
             version)
         return alias_vid
-  
+
     @rlock
     def get_edges_to_head(self, node, version):
         version = self.choose_alias(version)
@@ -673,34 +704,34 @@ class VersionGraph(object):
         self.update_refs_as_confirm_get(node, self.versions[head])
 
     def update_refs_as_get(self, node, version):
-        self.state_to_node.setdefault(version, set()).add(node)
+        self.version_to_node.setdefault(version, set()).add(node)
 
     def update_refs_as_put(self, node, head):
         prev_write = self.versions["ROOT"]
-        if node in self.node_to_state:
+        if node in self.node_to_version:
             prev_write = self.node_to_version[node]["WRITE"]
         else:
-            self.node_to_state[node] = {
+            self.node_to_version[node] = {
                 "READ": self.versions["ROOT"], "WRITE": self.versions["ROOT"]}
-        self.node_to_state[node]["WRITE"] = head
-        self.state_to_node.setdefault(head, set())
-        if (prev_write in self.state_to_node
-                and prev_write in self.state_to_node[prev_write]):
-            self.state_to_node[prev_write].remove(prev_write)
+        self.node_to_version[node]["WRITE"] = head
+        self.version_to_node.setdefault(head, set())
+        if (prev_write in self.version_to_node
+                and prev_write in self.version_to_node[prev_write]):
+            self.version_to_node[prev_write].remove(prev_write)
 
     def update_refs_as_confirm_get(self, node, version):
         prev_read = self.versions["ROOT"]
-        if node in self.node_to_state:
+        if node in self.node_to_version:
             prev_read = self.node_to_version[node]["READ"]
         else:
-            self.node_to_state[node] = {
+            self.node_to_version[node] = {
                 "READ": self.versions["ROOT"], "WRITE": self.versions["ROOT"]}
 
-        self.node_to_state[node]["READ"] = version
-        if (prev_read != self.node_to_state[node]["WRITE"]
-                and prev_read in self.state_to_node
-                and node in self.state_to_node[prev_read]):
-            self.state_to_node[prev_read].remove(node)
+        self.node_to_version[node]["READ"] = version
+        if (prev_read != self.node_to_version[node]["WRITE"]
+                and prev_read in self.version_to_node
+                and node in self.version_to_node[prev_read]):
+            self.version_to_node[prev_read].remove(node)
 
     def wait_for_change(self, versions, timeout):
         success = True
@@ -713,5 +744,4 @@ class VersionGraph(object):
                 timeout if timeout > 0 else None)
         if not success:
             raise TimeoutError(
-                "No new version received in time {0}".format(
-                    timeout))
+                "No new version received in time {0}".format(timeout))

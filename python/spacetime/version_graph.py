@@ -63,6 +63,94 @@ class Edge(object):
         self.to_v = to_v
         self.delta = delta
 
+class EidGroup():
+    @property
+    def delta(self):
+        if not self._delta:
+            self._delta = self.calculate_delta()
+        return self._delta
+
+    @property
+    def new_eid(self):
+        return 
+
+    def __init__(self, start, eids, nodes):
+        self.start = start
+        self.eids = eids
+        self.nodes = nodes
+        self.end = start
+        self.tracked_sets = list()
+        self.version_to_group = dict()
+        self._delta = None
+    
+    def add_edge(self, edge):
+        if edge.from_v not in self.version_to_group:
+            # This is now a new group.
+            new_group = [
+                {edge}, edge.from_v, edge.to_v, {edge.from_v, edge.to_v}]
+            self.tracked_sets.append(new_group)
+            self.version_to_group[edge.from_v] = new_group
+            self.version_to_group[edge.to_v] = new_group
+        else:
+            group = self.version_to_group[edge.from_v]
+            group[0].add(edge)
+            group[2] = edge.to_v
+            group[3].add(edge.to_v)
+            self.version_to_group[edge.to_v] = group
+
+    def calculate_delta(self):
+        edges, start, _, _ = self.tracked_sets[0]
+        edge_map = {
+            (e.from_v, e.to_v): e
+            for e in edges
+        }
+
+        updated_delta = dict()
+        version_obj = start
+        while version_obj.children:
+            child_version_obj = next(v for v in version_obj.children)
+            if (version_obj, child_version_obj) not in edge_map:
+                break
+            edge = edge_map[(version_obj, child_version_obj)]
+            updated_delta = self._merge_delta(updated_delta, edge.delta)
+            version_obj = child_version_obj
+        return updated_delta
+
+    def _merge_delta(self, prev_delta, next_delta):
+        merge_delta = dict()
+        for tpname, tp_delta in prev_delta.items():
+            merge_delta[tpname] = (
+                self._merge_tp_delta(tpname, tp_delta, next_delta[tpname])
+                if tpname in next_delta else
+                tp_delta)
+            merge_delta.update({
+                tpname: tp_delta
+                for tpname, tp_delta in next_delta.items()
+                if tpname not in prev_delta})
+        return merge_delta
+
+    def _merge_tp_delta(self, tpname, prev_delta, next_delta):
+        merge_delta = dict()
+        for oid, obj_delta in prev_delta.items():
+            if oid in next_delta:
+                if (obj_delta["types"][tpname] == Event.New
+                        and next_delta[oid]["types"][tpname] == Event.Delete):
+                    continue
+                merge_delta[oid] = self._merge_obj_delta(
+                    tpname, obj_delta, next_delta[oid])
+            else:
+                merge_delta[oid] = obj_delta
+        merge_delta.update({
+            oid: obj_delta
+            for oid, obj_delta in next_delta.items()
+            if oid not in prev_delta})
+        return merge_delta
+
+    def _merge_obj_delta(self, tpname, prev_obj, next_obj):
+        if next_obj["types"][tpname] == Event.Delete:
+            return next_obj
+        prev_obj["dims"].update(next_obj["dims"])
+        return prev_obj
 
 class VersionGraph(object):
     def __init__(self, nodename, types, resolver=None, log_to_std=False):
@@ -407,16 +495,12 @@ class VersionGraph(object):
         head = self._complete_graph(self._add_edges(edges))
         self.update_refs_as_put(nodename, head)
         self.head = head
-        # self.head = self.garbage_collect(head)
+        self.garbage_collect()
         return self.head
 
 
-    def garbage_collect(self, head):
+    def _build_causal_chain(self):
         to_see = deque([self.tail])
-        # A map of eid -> set of eids that it depends on.
-        # The first occurence of eid is used to determine the set
-        # as this is the definitive set.
-
         eid_to_parent = OrderedDict()
         incoming_eids = {self.tail: set()}
         all_eids_in_version = {self.tail: set()}
@@ -436,39 +520,112 @@ class VersionGraph(object):
             incoming_eids[version] = eids_to_version
             all_eids_in_version[version] = parent_eids.union(eids_to_version)
             to_see.extend(version.children)
-        
+        return eid_to_parent, all_eids_in_version, all_eids
+    
+    def _build_node_requirement_map(self, all_eids_in_version, all_eids):
         eid_missing_to_nodes = dict()
-        seen_by = dict()
         for node in self.node_to_version:
             seen = all_eids_in_version[self.node_to_version[node]["READ"]].union(
                 all_eids_in_version[self.node_to_version[node]["WRITE"]])
-            seen_by[node] = seen
             for eid in (all_eids - seen):
                 eid_missing_to_nodes.setdefault(eid, list()).append(node)
-        
-        # groups = set()
-        # eid_to_group = dict()
-        # eids_to_check = set()
-        # for eid, prev_eids in eid_parent:
-            
+        return eid_missing_to_nodes
 
+    def _create_dependency_groups(self, eid_to_parent, eid_missing_to_nodes):
+        groups = set()
+        eid_to_group = dict()
+        none_groups = set()
+        for eid, dependent_eids in eid_to_parent:
+            nodes_that_require = eid_missing_to_nodes.setdefault(eid, set())
+            added = False
+            if not dependent_eids:
+                potential_group = set()
+                for group in none_groups:
+                    if group.nodes == nodes_that_require:
+                        potential_group.add(group)
+                if len(potential_group) == 1:
+                    group = potential_group.pop()
+                    group.eids.add(eid)
+                    eid_to_group[eid] = group
+                    added = True
+            for dep_eid in dependent_eids:
+                dep_group = eid_to_group[dep_eid]
+                if dep_group.nodes == nodes_that_require:
+                    dep_group.eids.add(eid)
+                    dep_group.end = eid
+                    eid_to_group[eid] = dep_group
+                    added = True
+            if not added:
+                new_group = EidGroup({eid}, eid, nodes_that_require)
+                if not dependent_eids:
+                    none_groups.add(new_group)
+                eid_to_group[eid] = new_group
+                groups.add(new_group)
+        return groups, eid_to_group
 
-
-
-
-
-        '''
-        edges_to_add = set()
-        versions_to_delete = set()
+    def _add_edges_to_groups(self, eid_to_group):
         to_see = deque([self.tail])
         while to_see:
             version = to_see.popleft()
-            incoming_needed = {tuple(eid_missing_to_nodes.setdefault(self.edges[(parent, version)].eid, tuple())) for parent in version.parents}
-            outgoing_needed = {tuple(eid_missing_to_nodes.setdefault(self.edges[(version, children)].eid, tuple())) for children in version.children}
-            if len(incoming_needed)+len(outgoing_needed) != len(incoming_needed.union(outgoing_needed)):
-                versions_to_delete = version
-        '''                
-             
+            for child in version.children:
+                edge = self.edges[(version, child)]
+                group = eid_to_group[edge.eid]
+                group.add_edge(edge)
+
+    def _clean_unneeded_branches(self):
+        pass
+
+    def garbage_collect(self):
+        # A map of eid -> set of eids that it depends on.
+        # The first occurence of eid is used to determine the set
+        # as this is the definitive set.
+
+        self._clean_unneeded_branches()
+
+        eid_to_parent, all_eids_in_version, all_eids = (
+            self._build_causal_chain())
+
+        eid_missing_to_nodes = self._build_node_requirement_map(
+            all_eids_in_version, all_eids)
+
+        groups, eid_to_group = self._create_dependency_groups(
+            eid_to_parent, eid_missing_to_nodes)
+
+        self._add_edges_to_groups(eid_to_group)
+
+        edges_to_add = list()
+        versions_to_delete = set()
+        for group in groups:
+            for _, start, end, versions in group.tracked_sets:
+                if not group.nodes and start != self.tail:
+                    versions_to_delete.update(versions - {end})
+                    continue
+                if (start, end) not in self.edges:
+                    edges_to_add.append(
+                        Edge(start, end, group.delta, group.new_eid))
+                versions_to_delete.update(versions - {start, end})
+
+        for from_v, to_v, delta, eid in edges_to_add:
+            if from_v in versions_to_delete or to_v in versions_to_delete:
+                continue
+            self._add_single_edge(from_v, to_v, delta, eid)
+
+        for version in versions_to_delete:
+            if version not in self.versions:
+                continue
+            for parent in version.parents:
+                if (parent, version) in self.edges[(parent, version)]:
+                    del self.forward_edge_map[
+                        (parent, self.edges[(parent, version)].eid)]
+                    del self.edges[(parent, version)]
+            for child in version.children:
+                if (version, child) in self.edges[(version, child)]:
+                    del self.forward_edge_map[
+                        (version, self.edges[(version, child)].eid)]
+                    del self.edges[(version, child)]
+            #TODO need to delete from alias
+            del self.versions[version]
+
     def choose_alias(self, version):
         alias_vid = (
             self.alias[version]

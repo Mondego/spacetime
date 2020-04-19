@@ -58,6 +58,9 @@ class Edge(object):
     def __hash__(self):
         return hash((self.eid, self.from_v))
 
+    def __iter__(self):
+        return iter((self.from_v, self.to_v, self.delta, self.eid))
+
     def __init__(self, from_v, to_v, delta, eid):
         self.eid = eid
         self.from_v = from_v
@@ -541,7 +544,7 @@ class VersionGraph(object):
         groups = set()
         eid_to_group = dict()
         none_groups = set()
-        for eid, dependent_eids in eid_to_parent:
+        for eid, dependent_eids in eid_to_parent.items():
             nodes_that_require = eid_missing_to_nodes.setdefault(eid, set())
             added = False
             if not dependent_eids:
@@ -562,7 +565,7 @@ class VersionGraph(object):
                     eid_to_group[eid] = dep_group
                     added = True
             if not added:
-                new_group = EidGroup({eid}, eid, nodes_that_require)
+                new_group = EidGroup(eid, {eid}, nodes_that_require)
                 if not dependent_eids:
                     none_groups.add(new_group)
                 eid_to_group[eid] = new_group
@@ -594,17 +597,17 @@ class VersionGraph(object):
             to_see.extend(version.children)
 
     def _delete_version(self, version):
-        if version not in self.versions:
+        if version.vid not in self.versions:
             return
 
         for parent in version.parents:
-            if (parent, version) in self.edges[(parent, version)]:
+            if (parent, version) in self.edges:
                 del self.forward_edge_map[
                     (parent, self.edges[(parent, version)].eid)]
                 del self.edges[(parent, version)]
 
         for child in version.children:
-            if (version, child) in self.edges[(version, child)]:
+            if (version, child) in self.edges:
                 del self.forward_edge_map[
                     (version, self.edges[(version, child)].eid)]
                 del self.edges[(version, child)]
@@ -617,7 +620,7 @@ class VersionGraph(object):
         if version in self.version_to_node:
             del self.version_to_node
 
-        del self.versions[version]
+        del self.versions[version.vid]
 
     def garbage_collect(self):
         # A map of eid -> set of eids that it depends on.

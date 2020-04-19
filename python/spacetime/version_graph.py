@@ -74,7 +74,7 @@ class EidGroup():
 
     @property
     def new_eid(self):
-        return
+        return str(uuid4())
 
     def __init__(self, start, eids, nodes):
         self.start = start
@@ -530,11 +530,15 @@ class VersionGraph(object):
     def _build_node_requirement_map(self, all_eids_in_version, all_eids):
         eid_missing_to_nodes = dict()
         for node in self.node_to_version:
-            seen = (
-                all_eids_in_version[self.node_to_version[node]["READ"]].union(
-                    all_eids_in_version[self.node_to_version[node]["WRITE"]]))
-            for eid in all_eids - seen:
-                eid_missing_to_nodes.setdefault(eid, list()).append(node)
+            for eid in all_eids:
+                if eid not in all_eids_in_version[
+                        self.node_to_version[node]["READ"]]:
+                    eid_missing_to_nodes.setdefault(
+                        eid, list()).append(node+"_READ")
+                if eid not in all_eids_in_version[
+                        self.node_to_version[node]["WRITE"]]:
+                    eid_missing_to_nodes.setdefault(
+                        eid, list()).append(node+"_WRITE")
         return eid_missing_to_nodes
 
     def _create_dependency_groups(self, eid_to_parent, eid_missing_to_nodes):

@@ -93,7 +93,7 @@ class Remote(Thread):
                 # Send bool status back.
                 if not wait:
                     con.send(pack("!?", True))
-                self.accept_push(req_app, package)
+                self.accept_push(req_app, remote_head, package)
                 if wait:
                     con.send(pack("!?", True))
                 self.version_from_remote = remote_head
@@ -178,7 +178,7 @@ class Remote(Thread):
             # Send bool status back.
             self.sock_as_client.send(pack("!?", True))
             self.version_from_self = remote_head
-            self.version_graph.put(self.remotename, package)
+            self.version_graph.put(self.remotename, remote_head, package)
         except TimeoutError:
             raise
         except Exception as e:
@@ -186,8 +186,8 @@ class Remote(Thread):
             print(traceback.format_exc())
             raise
 
-    def accept_push(self, req_app, package):
-        self.version_graph.put(req_app, package)
+    def accept_push(self, req_app, remote_head, package):
+        self.version_graph.put(req_app, remote_head, package)
 
     def accept_fetch(self, req_app, versions, wait=False, timeout=0):
         if wait:

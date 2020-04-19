@@ -506,13 +506,13 @@ class VersionGraph(object):
         return edges, self.head.vid
 
     @wlock
-    def put(self, nodename, edges):
+    def put(self, nodename, pushed_head, edges):
         # self.logger.info(
         #     f"Put request: "
         #     f"{', '.join(f'{f[:4]}->{t[:4]}' for f,t,_,_ in edges)}")
         self.logger.info(f"Put request: {len(edges)}")
         head = self._complete_graph(self._add_edges(edges))
-        self.update_refs_as_put(nodename, head)
+        self.update_refs_as_put(nodename, pushed_head)
         self.head = head
         self.garbage_collect()
         return self.head
@@ -726,15 +726,16 @@ class VersionGraph(object):
     def update_refs_as_get(self, node, version):
         self.version_to_node.setdefault(version, set()).add(node)
 
-    def update_refs_as_put(self, node, head):
+    def update_refs_as_put(self, node, pushed_head):
+        head_version = self.versions[pushed_head]
         prev_write = self.versions["ROOT"]
         if node in self.node_to_version:
             prev_write = self.node_to_version[node]["WRITE"]
         else:
             self.node_to_version[node] = {
                 "READ": self.versions["ROOT"], "WRITE": self.versions["ROOT"]}
-        self.node_to_version[node]["WRITE"] = head
-        self.version_to_node.setdefault(head, set())
+        self.node_to_version[node]["WRITE"] = head_version
+        self.version_to_node.setdefault(head_version, set())
         if (prev_write in self.version_to_node
                 and prev_write in self.version_to_node[prev_write]):
             self.version_to_node[prev_write].remove(prev_write)

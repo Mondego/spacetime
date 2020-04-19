@@ -105,6 +105,7 @@ class Heap(object):
             f"Commit: {(self.version, self.diff.version)}")
         self.version_graph.put(
             self.name,
+            self.diff.version,
             [(self.version, self.diff.version, self.diff, self.diff.version)])
         self.version = self.diff.version
         self.diff = Diff()

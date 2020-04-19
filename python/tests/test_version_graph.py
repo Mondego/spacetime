@@ -45,7 +45,7 @@ class TestVersionManaer(unittest.TestCase):
     def test_basic_put(self):
         version_graph = VersionGraph("VG", set(), dict())
         version_graph.put(
-            "VG", [("ROOT", "0", {"test_key": "test_value"}, "Root-0")])
+            "VG", "0", [("ROOT", "0", {"test_key": "test_value"}, "Root-0")])
         self.check_graph(
             version_graph,
             [("ROOT", "0", {"test_key": "test_value"}, "Root-0")])
@@ -54,7 +54,7 @@ class TestVersionManaer(unittest.TestCase):
     def test_selection256_put(self):
         version_graph = VersionGraph("VG", set(), dict())
         version_graph.put(
-            "VG", [
+            "VG", "C", [
                     ("ROOT", "B", {'test_key': 'test_value'}, "Root-B"),
                     ("ROOT", "C", {'test_key': 'test_value'}, "Root-C")
             ]
@@ -68,9 +68,9 @@ class TestVersionManaer(unittest.TestCase):
     def test_basic_put_continue(self):
         version_graph = VersionGraph("VG", set(), dict())
         version_graph.put(
-            "VG", [("ROOT", "0", {"test_key": "test_value"}, "Root-0")])
+            "VG", "0", [("ROOT", "0", {"test_key": "test_value"}, "Root-0")])
         version_graph.put(
-            "VG", [("0", "1", {"testkey": "testvalue"}, "0-1")])
+            "VG", "1", [("0", "1", {"testkey": "testvalue"}, "0-1")])
         self.check_graph(
             version_graph,
             [("ROOT", "0", {"test_key": "test_value"}, "Root-0"),
@@ -79,9 +79,9 @@ class TestVersionManaer(unittest.TestCase):
     def test_merge_put_simple(self):
         version_graph = VersionGraph("VG", set(), dict())
         version_graph.put(
-            "VG", [("ROOT", "0", {"test_key": "test_value"}, "Root-0")])
+            "VG", "0", [("ROOT", "0", {"test_key": "test_value"}, "Root-0")])
         version_graph.put(
-            "VG", [("ROOT", "1", {"testkey": "testvalue"}, "Root-1")])
+            "VG", "1", [("ROOT", "1", {"testkey": "testvalue"}, "Root-1")])
         self.assertEqual(
             len([v for v in version_graph.versions.values() if not v.children]),
             1)
@@ -97,11 +97,11 @@ class TestVersionManaer(unittest.TestCase):
     def test_merge_put_two_levels(self):
         version_graph = VersionGraph("VG", set(), dict())
         version_graph.put(
-            "VG", [("ROOT", "0", {"testkey0": "testvalue0"}, "Root-0")])
+            "VG", "0", [("ROOT", "0", {"testkey0": "testvalue0"}, "Root-0")])
         version_graph.put(
-            "VG", [("0", "1", {"testkey1": "testvalue1"}, "0-1")])
+            "VG", "1", [("0", "1", {"testkey1": "testvalue1"}, "0-1")])
         version_graph.put(
-            "VG", [("ROOT", "2", {"testkey2": "testvalue2"}, "Root-2")])
+            "VG", "2", [("ROOT", "2", {"testkey2": "testvalue2"}, "Root-2")])
         self.assertEqual(
             len([v for v in version_graph.versions.values() if not v.children]),
             1)
@@ -124,8 +124,8 @@ class TestVersionManaer(unittest.TestCase):
 
     def test_get_simple(self):
         version_graph = VersionGraph("VG", set(), dict())
-        version_graph.put("VG", [("ROOT", "0", "data(R->0)", "Root-0")])
-        version_graph.put("VG", [("0", "1", "data(0->1)", "0-1")])
+        version_graph.put("VG", "0", [("ROOT", "0", "data(R->0)", "Root-0")])
+        version_graph.put("VG", "1", [("0", "1", "data(0->1)", "0-1")])
         edges, head1 = version_graph.get("VG", {"ROOT"})
         self.assertEqual("1", head1)
         self.assertSetEqual(
@@ -144,8 +144,8 @@ class TestVersionManaer(unittest.TestCase):
             "tp2": "data(R->1)"
         }
         version_graph = VersionGraph("VG", set(), dict())
-        version_graph.put("VG", [("ROOT", "0", data1, "Root-0")])
-        version_graph.put("VG", [("ROOT", "1", data2, "Root-1")])
+        version_graph.put("VG", "0", [("ROOT", "0", data1, "Root-0")])
+        version_graph.put("VG", "1", [("ROOT", "1", data2, "Root-1")])
         self.assertEqual(
             len([v for v in version_graph.versions.values() if not v.children]),
             1)
@@ -178,11 +178,11 @@ class TestVersionManaer(unittest.TestCase):
         }
         vg1 = VersionGraph("vg1", set(), dict())
         vg2 = VersionGraph("vg2", set(), dict())
-        vg1.put("vg1", [("ROOT", "0", data1, "Root-0")])
-        vg1.put("vg1", [("ROOT", "1", data2, "Root-1")])
+        vg1.put("vg1", "0", [("ROOT", "0", data1, "Root-0")])
+        vg1.put("vg1", "1", [("ROOT", "1", data2, "Root-1")])
 
-        vg2.put("vg2", [("ROOT", "1", data2, "Root-1")])
-        vg2.put("vg2", [("ROOT", "0", data1, "Root-0")])
+        vg2.put("vg2", "1", [("ROOT", "1", data2, "Root-1")])
+        vg2.put("vg2", "0", [("ROOT", "0", data1, "Root-0")])
 
         self.assertEqual(
             len([v for v in vg1.versions.values() if not v.children]), 1)
@@ -194,7 +194,7 @@ class TestVersionManaer(unittest.TestCase):
             v.vid for v in vg2.versions.values() if not v.children)
         self.assertNotEqual(m01_vg1, m01_vg2)
 
-        vg1.put("vg1", [(m01_vg1, "2", data3, "M(0,1)-2")])
+        vg1.put("vg1", "2", [(m01_vg1, "2", data3, "M(0,1)-2")])
         self.assertEqual(
             len([v for v in vg1.versions.values() if not v.children]), 1)
         edges, head_vg1 = vg1.get("vg1", {"0", "1"})
@@ -204,7 +204,7 @@ class TestVersionManaer(unittest.TestCase):
              ("1", m01_vg1): (data1, "Root-0"),
              (m01_vg1, "2"): (data3, "M(0,1)-2")},
             {(f,t): (d,i) for f,t,d,i in edges})
-        vg2.put("vg2", edges)
+        vg2.put("vg2", head_vg1, edges)
 
         self.check_graph(
             vg2,
@@ -217,9 +217,9 @@ class TestVersionManaer(unittest.TestCase):
 
     def test_get_with_two_versions(self):
         version_graph = VersionGraph("VG", set(), dict())
-        version_graph.put("VG", [("ROOT", "0", "data(R->0)", "Root-0")])
-        version_graph.put("VG", [("0", "1", "data(0->1)", "0-1")])
-        version_graph.put("VG", [("1", "2", "data(1->2)", "1-2")])
+        version_graph.put("VG", "0", [("ROOT", "0", "data(R->0)", "Root-0")])
+        version_graph.put("VG", "1", [("0", "1", "data(0->1)", "0-1")])
+        version_graph.put("VG", "2", [("1", "2", "data(1->2)", "1-2")])
         edges, head1 = version_graph.get("VG", {"ROOT", "1"})
         self.assertEqual("2", head1)
         self.assertSetEqual(

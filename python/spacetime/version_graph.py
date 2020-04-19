@@ -28,6 +28,9 @@ class Version(object):
     def __repr__(self):
         return self.vid
 
+    def __str__(self):
+        return str(self.vid)
+
     def __eq__(self, version):
         return (
             self.vid == version.vid
@@ -60,7 +63,7 @@ class Version(object):
 
 class Edge(object):
     def __repr__(self):
-        return " ".join((self.eid, self.from_v, self.to_v))
+        return " ".join((self.eid, str(self.from_v), str(self.to_v)))
 
     def __eq__(self, edge):
         return (

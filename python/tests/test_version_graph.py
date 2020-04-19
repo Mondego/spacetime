@@ -16,8 +16,7 @@ class TestVersionManaer(unittest.TestCase):
         for from_vid, to_vid, delta, eid in test_edges:
             from_v = versions.setdefault(from_vid, Version(from_vid))
             to_v = versions.setdefault(to_vid, Version(to_vid))
-            from_v.children.add(to_v)
-            to_v.parents.add(from_v)
+            from_v.add_child(to_v)
             edges[(from_v, to_v)] = Edge(from_v, to_v, delta, eid)
             forward_edges[(from_v, eid)] = to_v
 

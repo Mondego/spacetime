@@ -108,8 +108,8 @@ class VersionGraph(object):
                 # Assert that they are equivalent edges.
                 pass
             self.add_edge(edge)
-            self.versions[edge.end].parents.add(self.versions[edge.start])
-            self.versions[edge.start].children.add(self.versions[edge.end])
+            self.versions[edge.start].add_child(self.versions[edge.end])
+            
         self.merge(created)
 
     def merge(self, created):

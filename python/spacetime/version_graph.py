@@ -40,9 +40,20 @@ class Version(object):
 
     def __init__(self, vid, children=None, parents=None):
         self.vid = vid
+        # if children or parents are set, it is purely in test cases
+        # to ensure the mechanics work.
+        # children and parents are not to be set in constructor
+        # outside of test cases.
         self.children = children if children else set()
         self.parents = parents if parents else set()
 
+    def add_child(self, child):
+        self.children.add(child)
+        child.parents.add(self)
+
+    def remove_child(self, child):
+        self.children.remove(child)
+        child.parents.remove(self)
 
 class Edge(object):
     def __repr__(self):
@@ -204,8 +215,7 @@ class VersionGraph(object):
     def _add_single_edge(self, from_v, to_v, delta, eid):
         self.edges[(from_v, to_v)] = Edge(from_v, to_v, delta, eid)
         self.forward_edge_map[(from_v, eid)] = to_v
-        from_v.children.add(to_v)
-        to_v.parents.add(from_v)
+        from_v.add_child(to_v)
 
     def _add_edges(self, edges):
         newly_added = set()
@@ -603,18 +613,21 @@ class VersionGraph(object):
     def _delete_version(self, version):
         if version.vid not in self.versions:
             return
-
-        for parent in version.parents:
+        parents = set(version.parents)
+        for parent in parents:
             if (parent, version) in self.edges:
                 del self.forward_edge_map[
                     (parent, self.edges[(parent, version)].eid)]
                 del self.edges[(parent, version)]
+                parent.remove_child(version)
 
-        for child in version.children:
+        children = set(version.children)
+        for child in children:
             if (version, child) in self.edges:
                 del self.forward_edge_map[
                     (version, self.edges[(version, child)].eid)]
                 del self.edges[(version, child)]
+                version.remove_child(child)
 
         if version.vid in self.reverse_alias:
             for vid in self.reverse_alias[version.vid]:
@@ -622,7 +635,7 @@ class VersionGraph(object):
             del self.reverse_alias[version.vid]
 
         if version in self.version_to_node:
-            del self.version_to_node
+            del self.version_to_node[version]
 
         del self.versions[version.vid]
 

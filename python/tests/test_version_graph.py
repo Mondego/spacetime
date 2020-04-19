@@ -1,8 +1,14 @@
 import unittest
+import os
+import sys
+
+import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from spacetime.version_graph import VersionGraph, Edge, Version
 
 
-class TestVersionManager(unittest.TestCase):
+class TestVersionManaer(unittest.TestCase):
     def check_graph(self, version_graph, test_edges):
         versions = dict()
         edges = dict()
@@ -45,6 +51,21 @@ class TestVersionManager(unittest.TestCase):
             version_graph,
             [("ROOT", "0", {"test_key": "test_value"}, "Root-0")])
 
+    @pytest.mark.skip(reason="Graph/nodes haven't been setup right")
+    def test_selection256_put(self):
+        version_graph = VersionGraph("VG", set(), dict())
+        version_graph.put(
+            "VG", [
+                    ("ROOT", "B", {'test_key': 'test_value'}, "Root-B"),
+                    ("ROOT", "C", {'test_key': 'test_value'}, "Root-C")
+            ]
+        )
+        self.check_graph(
+            version_graph, [
+                    ("ROOT", "B", {'test_key': 'test_value'}, "Root-B"),
+                    ("ROOT", "C", {'test_key': 'test_value'}, "Root-C")
+            ]
+        )
     def test_basic_put_continue(self):
         version_graph = VersionGraph("VG", set(), dict())
         version_graph.put(

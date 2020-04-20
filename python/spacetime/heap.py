@@ -103,10 +103,7 @@ class Heap(object):
     def commit(self):
         self.version_graph.logger.info(
             f"Commit: {(self.version, self.diff.version)}")
-        self.version_graph.put(
-            self.name,
-            self.diff.version,
-            [(self.version, self.diff.version, self.diff, self.diff.version)])
+        self.version_graph.put_as_heap(self.name, self.version, self.diff)
         self.version = self.diff.version
         self.diff = Diff()
 

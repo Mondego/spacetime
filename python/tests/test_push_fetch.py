@@ -83,7 +83,7 @@ class TestFullStateDataframeBasic(unittest.TestCase):
         self.assertEqual(c.oid, 0)
         head = df.heap.diff.version
         df.commit()
-        df.version_graph.put("TEST_ALT", [(
+        df.version_graph.put({"TEST_ALT": "NEXT"}, [(
             head, "NEXT", {
                 Car.__r_meta__.name: {
                     0: {

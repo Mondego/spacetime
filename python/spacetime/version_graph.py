@@ -1,3 +1,4 @@
+import time
 from uuid import uuid4
 from collections import deque, OrderedDict
 from threading import Condition
@@ -38,7 +39,7 @@ class Version(object):
     def __hash__(self):
         return hash(self.vid)
 
-    def __init__(self, vid, children=None, parents=None):
+    def __init__(self, vid, children=None, parents=None, creation_time=None):
         self.vid = vid
         # if children or parents are set, it is purely in test cases
         # to ensure the mechanics work.
@@ -46,6 +47,8 @@ class Version(object):
         # outside of test cases.
         self.children = children if children else set()
         self.parents = parents if parents else set()
+        self.creation_time = (
+            creation_time if creation_time else time.perf_counter())
 
     def add_child(self, child):
         self.children.add(child)
@@ -175,7 +178,7 @@ class VersionGraph(object):
         self.nodes = {
             nodename: ("ROOT", "ROOT")
         }
-
+        self.nodename = nodename
         self.types = types
         self.type_map = {tp.__r_meta__.name: tp for tp in types}
         self.tpnames = {
@@ -217,7 +220,7 @@ class VersionGraph(object):
         self.forward_edge_map[(from_v, eid)] = to_v
         from_v.add_child(to_v)
 
-    def _add_edges(self, edges):
+    def _add_edges(self, edges, version_ts):
         newly_added = set()
         to_be_processed = list(edges)
         prev_unprocessed_count = len(to_be_processed)
@@ -225,7 +228,8 @@ class VersionGraph(object):
             unprocessed_count = 0
             next_tbp = list()
             for from_vid, to_vid, delta, eid in to_be_processed:
-                from_v, to_v = self._resolve_versions(from_vid, to_vid, eid)
+                from_v, to_v = self._resolve_versions(
+                    from_vid, to_vid, eid, version_ts)
                 if from_v.vid not in self.versions:
                     next_tbp.append((from_vid, to_vid, delta, eid))
                     unprocessed_count += 1
@@ -243,13 +247,13 @@ class VersionGraph(object):
             prev_unprocessed_count = unprocessed_count
         return newly_added
 
-    def _resolve_versions(self, from_vid, to_vid, eid):
+    def _resolve_versions(self, from_vid, to_vid, eid, version_ts):
         from_vid = self.choose_alias(from_vid)
 
         from_v = (
             self.versions[from_vid]
             if from_vid in self.versions else
-            Version(from_vid))
+            Version(from_vid, creation_time=version_ts))
 
         to_vid = self.choose_alias(to_vid)
 
@@ -261,9 +265,9 @@ class VersionGraph(object):
             self.alias[to_vid] = existing_to_v.vid
             self.reverse_alias.setdefault(existing_to_v.vid, set()).add(to_vid)
             return from_v, existing_to_v
-        return from_v, Version(to_vid)
+        return from_v, Version(to_vid, creation_time=version_ts)
 
-    def _complete_graph(self, newly_added):
+    def _complete_graph(self, newly_added, version_ts):
         head = self.head
         while newly_added:
             merge_versions = list()
@@ -276,14 +280,15 @@ class VersionGraph(object):
                         continue
                     sib = next(
                         sib for sib in parent.children if sib != version)
-                    merge_versions.append(self._merge(parent, sib, version))
+                    merge_versions.append(
+                        self._merge(parent, sib, version, version_ts))
                 if not version.children:
                     head = version
             newly_added = merge_versions
         return head
 
-    def _merge(self, parent, sibling, version):
-        new_v = Version(str(uuid4()))
+    def _merge(self, parent, sibling, version, version_ts):
+        new_v = Version(str(uuid4()), creation_time=version_ts)
         self.versions[new_v.vid] = new_v
         current_merge, conf_merge = self._delta_transform(
             parent, self.edges[(parent, version)].delta,
@@ -502,20 +507,40 @@ class VersionGraph(object):
         # self.logger.info(
         #     f"Get request: (RESPONSE) "
         #     f"{', '.join(f'{f[:4]}->{t[:4]}' for f,t,_,_ in edges)}")
-        self.update_refs_as_get(nodename, self.head)
-        return edges, self.head.vid
+        self._partial_update_refs("R-{0}".format(nodename), self.head)
+        return edges, self.head.vid, self.get_refs(nodename)
 
     @wlock
-    def put(self, nodename, pushed_head, edges):
+    def put(self, remote_refs, edges):
         # self.logger.info(
         #     f"Put request: "
         #     f"{', '.join(f'{f[:4]}->{t[:4]}' for f,t,_,_ in edges)}")
+        version_ts = time.perf_counter()
         self.logger.info(f"Put request: {len(edges)}")
-        head = self._complete_graph(self._add_edges(edges))
-        self.update_refs_as_put(nodename, pushed_head)
+        head = self._complete_graph(
+            self._add_edges(edges, version_ts), version_ts)
+        self._update_refs(remote_refs)
         self.head = head
         self.garbage_collect()
         return self.head
+
+    def put_as_heap(self, heapname, version, diff):
+        # self.logger.info(
+        #     f"Put request: "
+        #     f"{', '.join(f'{f[:4]}->{t[:4]}' for f,t,_,_ in edges)}")
+        refs = {heapname: diff.version}
+        return self.put(refs, [(version, diff.version, diff, diff.version)])
+
+    def get_refs(self, remotename):
+        refs = {
+            nodename: version.vid
+            for nodename, version in self.node_to_version.items()}
+        read_remotename = "R-{0}".format(remotename)
+
+        if read_remotename in refs:
+            refs["W-{0}".format(self.nodename)] = refs[read_remotename]
+            del refs[read_remotename]
+        return refs
 
     def _build_causal_chain(self):
         to_see = deque([self.tail])
@@ -544,14 +569,8 @@ class VersionGraph(object):
         eid_missing_to_nodes = dict()
         for node in self.node_to_version:
             for eid in all_eids:
-                if eid not in all_eids_in_version[
-                        self.node_to_version[node]["READ"]]:
-                    eid_missing_to_nodes.setdefault(
-                        eid, list()).append(node+"_READ")
-                if eid not in all_eids_in_version[
-                        self.node_to_version[node]["WRITE"]]:
-                    eid_missing_to_nodes.setdefault(
-                        eid, list()).append(node+"_WRITE")
+                if eid not in all_eids_in_version[self.node_to_version[node]]:
+                    eid_missing_to_nodes.setdefault(eid, list()).append(node)
         return eid_missing_to_nodes
 
     def _create_dependency_groups(self, eid_to_parent, eid_missing_to_nodes):
@@ -701,7 +720,7 @@ class VersionGraph(object):
                 version_obj = next_version_obj
             except StopIteration:
                 break
-        self.update_refs_as_get(node, version_obj)
+        self._partial_update_refs(node, version_obj)
 
     def get_edges_to_root(self, version_obj):
         version = self.choose_alias(version_obj.vid)
@@ -720,39 +739,37 @@ class VersionGraph(object):
             except StopIteration:
                 break
 
-    def confirm_fetch(self, node, head):
-        self.update_refs_as_confirm_get(node, self.versions[head])
+    def confirm_fetch(self, node, vid):
+        if node in self.node_to_version:
+            if self._clean_refs_if_later(node, self.versions[vid]):
+                self._add_ref(node, self.versions[vid])
+        else:
+            self._add_ref(node, self.versions[vid])
 
-    def update_refs_as_get(self, node, version):
+    def _partial_update_refs(self, node, version):
         self.version_to_node.setdefault(version, set()).add(node)
 
-    def update_refs_as_put(self, node, pushed_head):
-        head_version = self.versions[pushed_head]
-        prev_write = self.versions["ROOT"]
-        if node in self.node_to_version:
-            prev_write = self.node_to_version[node]["WRITE"]
-        else:
-            self.node_to_version[node] = {
-                "READ": self.versions["ROOT"], "WRITE": self.versions["ROOT"]}
-        self.node_to_version[node]["WRITE"] = head_version
-        self.version_to_node.setdefault(head_version, set())
-        if (prev_write in self.version_to_node
-                and prev_write in self.version_to_node[prev_write]):
-            self.version_to_node[prev_write].remove(prev_write)
+    def _update_refs(self, remote_refs):
+        for rnode, vid in remote_refs.items():
+            self.confirm_fetch(rnode, vid)
 
-    def update_refs_as_confirm_get(self, node, version):
-        prev_read = self.versions["ROOT"]
-        if node in self.node_to_version:
-            prev_read = self.node_to_version[node]["READ"]
-        else:
-            self.node_to_version[node] = {
-                "READ": self.versions["ROOT"], "WRITE": self.versions["ROOT"]}
+    def _clean_refs_if_later(self, rnode, version):
+        prev_version = self.node_to_version[rnode]
+        if (prev_version == version
+                or prev_version.creation_time >= version.creation_time):
+            return False
+        # This means that the reference is new.
+        # Need to update it.
+        if (prev_version in self.version_to_node
+                and rnode in self.version_to_node[prev_version]):
+            self.version_to_node[prev_version].remove(rnode)
+            if not self.version_to_node[prev_version]:
+                del self.version_to_node[prev_version]
+        return True
 
-        self.node_to_version[node]["READ"] = version
-        if (prev_read != self.node_to_version[node]["WRITE"]
-                and prev_read in self.version_to_node
-                and node in self.version_to_node[prev_read]):
-            self.version_to_node[prev_read].remove(node)
+    def _add_ref(self, node, version):
+        self.node_to_version[node] = version
+        self.version_to_node.setdefault(version, set()).add(node)
 
     def wait_for_change(self, versions, timeout):
         success = True

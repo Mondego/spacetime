@@ -103,17 +103,21 @@ class Remote(Thread):
                 timeout = data[enums.TransferFields.WaitTimeout] if wait else 0
                 versions = data[enums.TransferFields.Versions]
                 try:
-                    dict_to_send, head = self.accept_fetch(
+                    dict_to_send, head, remote_refs = self.accept_fetch(
                         req_app, versions, wait=wait, timeout=timeout)
                     data_to_send = cbor.dumps({
                         enums.TransferFields.AppName: self.name,
-                        enums.TransferFields.Data: dict_to_send,
+                        enums.TransferFields.Data: {
+                            "DATA": dict_to_send,
+                            "REFS": remote_refs
+                        },
                         enums.TransferFields.Status: enums.StatusCode.Success,
                         enums.TransferFields.Versions: head})
                     con.send(pack("!L", len(data_to_send)))
                     send_all(con, data_to_send)
                     if unpack("!?", con.recv(1))[0]:
-                        self.version_graph.confirm_fetch(req_app, head)
+                        self.version_graph.confirm_fetch(
+                            "R-{0}".format(req_app), head)
                         self.version_from_remote = head
                 except TimeoutError:
                     data_to_send = cbor.dumps({
@@ -129,20 +133,25 @@ class Remote(Thread):
 
 
     def push(self, wait=False):
-        diff_data, head = self.version_graph.get(self.remotename, self.versions)
+        diff_data, head, remote_refs = self.version_graph.get(
+            self.remotename, self.versions)
         try:
             package = {
                 enums.TransferFields.AppName: self.ownname,
                 enums.TransferFields.RequestType: enums.RequestType.Push,
                 enums.TransferFields.Versions: head,
-                enums.TransferFields.Data: diff_data,
+                enums.TransferFields.Data: {
+                    "DATA": diff_data,
+                    "REFS": remote_refs
+                },
                 enums.TransferFields.Wait: wait
             }
             data = cbor.dumps(package)
             self.sock_as_client.send(pack("!L", len(data)))
             send_all(self.sock_as_client, data)
             succ = unpack("!?", self.sock_as_client.recv(1))[0]
-            self.version_graph.confirm_fetch(self.remotename, head)
+            self.version_graph.confirm_fetch(
+                "R-{0}".format(self.remotename), head)
             self.version_from_self = head
             return succ
         except Exception as e:
@@ -178,7 +187,7 @@ class Remote(Thread):
             # Send bool status back.
             self.sock_as_client.send(pack("!?", True))
             self.version_from_self = remote_head
-            self.version_graph.put(self.remotename, remote_head, package)
+            self.version_graph.put(package["REFS"], package["DATA"])
         except TimeoutError:
             raise
         except Exception as e:
@@ -187,7 +196,7 @@ class Remote(Thread):
             raise
 
     def accept_push(self, req_app, remote_head, package):
-        self.version_graph.put(req_app, remote_head, package)
+        self.version_graph.put(package["REFS"], package["DATA"])
 
     def accept_fetch(self, req_app, versions, wait=False, timeout=0):
         if wait:

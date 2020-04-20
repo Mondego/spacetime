@@ -740,6 +740,7 @@ class VersionGraph(object):
                 break
 
     def confirm_fetch(self, node, vid):
+        vid = self.choose_alias(vid)
         if node in self.node_to_version:
             if self._clean_refs_if_later(node, self.versions[vid]):
                 self._add_ref(node, self.versions[vid])

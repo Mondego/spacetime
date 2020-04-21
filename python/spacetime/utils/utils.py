@@ -7,9 +7,36 @@ from spacetime.utils.enums import Event
 from rtypes.utils.enums import DiffType
 #from copy import deepcopy
 
+import networkx as nx
+import matplotlib.pyplot as plt
+
 class container(object):
     pass
 
+def visualize_graph(version_graph):
+    G = nx.DiGraph()
+    root = version_graph.versions["ROOT"]
+    the_queue = [root]
+    visited = []
+    # visited.append()
+    G.add_node(root)
+    while the_queue:
+        parent = the_queue.pop(0)
+        for i in parent.children:
+            if (parent, i) not in visited:
+                the_queue.append(i)
+                visited.append((parent, i))
+                try:
+                    G.add_edge(parent, i[:7])
+                except:
+                    G.add_edge(parent, i)
+
+    del visited
+
+    # pos = graphviz_layout(G, prog='dot')
+    plt.plot()
+    nx.draw(G, with_labels=True)
+    plt.show()
 
 def get_logger(name, log_to_std):
     logger = logging.getLogger(name)

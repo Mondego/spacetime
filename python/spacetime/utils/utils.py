@@ -7,13 +7,13 @@ from spacetime.utils.enums import Event
 from rtypes.utils.enums import DiffType
 #from copy import deepcopy
 
-import networkx as nx
-import matplotlib.pyplot as plt
-
 class container(object):
     pass
 
 def visualize_graph(version_graph):
+    import networkx as nx
+    import matplotlib.pyplot as plt
+
     G = nx.DiGraph()
     root = version_graph.versions["ROOT"]
     the_queue = [root]
@@ -37,6 +37,23 @@ def visualize_graph(version_graph):
     plt.plot()
     nx.draw(G, with_labels=True)
     plt.show()
+
+def dump_graph(version_graph, filename):
+    import networkx as nx
+    import matplotlib.pyplot as plt
+
+    G = nx.DiGraph()
+    for edge in version_graph.edges:
+        from_v, to_v = edge
+        G.add_edge(from_v.vid[:4], to_v.vid[:4])
+    for node, version in version_graph.node_to_version.items():
+        G.add_edge(node, version.vid[:7])
+
+    # pos = graphviz_layout(G, prog='dot')
+    plt.plot()
+    nx.draw(G, with_labels=True)
+    plt.savefig(filename)
+    plt.close()
 
 def get_logger(name, log_to_std):
     logger = logging.getLogger(name)

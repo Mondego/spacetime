@@ -63,8 +63,8 @@ def get_app(func, types, threading=False):
             # Run the main function of the app.
             self._ret_value.put(self.func(dataframe, *self.args, **self.kwargs))
             # Merge the final changes back to the dataframe.
-            dataframe.commit()
-            dataframe.push()
+            # dataframe.commit()
+            # dataframe.push()
 
         def _start(self, *args, **kwargs):
             self.args = args
@@ -100,6 +100,8 @@ def get_app(func, types, threading=False):
 
 def Node(target, appname=None, Types=list(),
          remotes=None, server_port=0, threading=False, resolver=None):
+    if remotes is None:
+        remotes = dict()
     if not appname:
         appname = "{0}_{1}".format(target.__name__, str(uuid4()))
     app_cls = get_app(target, set(Types), threading=threading)

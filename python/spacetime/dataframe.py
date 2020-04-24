@@ -1,5 +1,5 @@
 import socket
-from threading import Thread
+from threading import Thread, RLock
 from struct import pack, unpack
 
 from spacetime.remote import Remote
@@ -31,9 +31,11 @@ class Dataframe(Thread):
         self.version_graph = VersionGraph(
             self.appname, self.types, resolver=resolver, log_to_std=log_to_std)
 
+        self.remote_lock = RLock()
         # Initiates all connections to remotes.
         # map from Remote name -> Remote Obj
-        self.remotes = self._connect_to(remotes)
+        with self.remote_lock:
+            self.remotes = self._connect_to(remotes)
 
         self.heap = Heap(self.appname, types, self.version_graph)
         self.start()
@@ -47,12 +49,17 @@ class Dataframe(Thread):
         return sync_socket
 
     def add_remote(self, name, details):
-        if name in self.remotes and self.remotes[name].outgoing_connection:
-            self.remotes[name].outgoing_close()
-        if name not in self.remotes:
-            self._connect_to({name: details})
-        else:
-            self.remotes[name].connect_as_client(details)
+        self.logger.info(f"Adding new server {name}")
+        with self.remote_lock:
+            if name in self.remotes and self.remotes[name].outgoing_connection:
+                self.remotes[name].outgoing_close()
+                self.logger.info(f"Reset server {name}")
+            if name not in self.remotes:
+                self.remotes.update(self._connect_to({name: details}))
+                self.logger.info(f"Connected to new server {name}")
+            else:
+                self.remotes[name].connect_as_client(details)
+                self.logger.info(f"Reestablished server {name}")
 
     def _connect_to(self, remotes):
         if not remotes:
@@ -79,19 +86,22 @@ class Dataframe(Thread):
     def listen(self):
         while not self.shutdown:
             con_socket, _ = self.main_socket.accept()
-            raw_nl = con_socket.recv(4)
-            if not raw_nl:
-                continue
-            name_length = unpack("!L", raw_nl)[0]
-            name = str(receive_data(con_socket, name_length), encoding="utf-8")
-            self.logger.info(f"Obtained a new client {name}")
-            if name in self.remotes and self.remotes[name].incoming_connection:
-                self.remotes[name].incoming_close()
-            if name not in self.remotes:
-                self.remotes[name] = Remote(
-                    self.appname, name, self.version_graph,
-                    log_to_std=self.log_to_std)
-            self.remotes[name].set_sock_as_server(con_socket)
+            with self.remote_lock:
+                raw_nl = con_socket.recv(4)
+                if not raw_nl:
+                    continue
+                name_length = unpack("!L", raw_nl)[0]
+                name = str(receive_data(con_socket, name_length), encoding="utf-8")
+                self.logger.info(f"Obtained a new client {name}")
+                if name in self.remotes and self.remotes[name].incoming_connection:
+                    self.remotes[name].incoming_close()
+                    self.logger.info(f"Reset client {name}")
+                if name not in self.remotes:
+                    self.remotes[name] = Remote(
+                        self.appname, name, self.version_graph,
+                        log_to_std=self.log_to_std)
+                    self.logger.info(f"Created new client {name}")
+                self.remotes[name].set_sock_as_server(con_socket)
 
     # Heap Functions
     def add_one(self, dtype, obj):

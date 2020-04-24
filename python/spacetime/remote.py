@@ -1,7 +1,7 @@
 import socket
 import cbor
 import traceback
-from threading import Thread
+from threading import Thread, RLock
 from struct import unpack, pack
 
 from spacetime.utils.socket_utils import send_all, receive_data
@@ -10,7 +10,7 @@ from spacetime.utils import enums, utils
 class Remote(Thread):
     @property
     def versions(self):
-        return (self.version_from_self, self.version_from_remote)
+        return (self.read_version, self.write_version)
 
     def __init__(
             self, ownname, remotename, version_graph, log_to_std=False):
@@ -18,13 +18,15 @@ class Remote(Thread):
         self.remotename = remotename
         self.sock_as_client = None
         self.sock_as_server = None
-        self.version_from_remote = "ROOT"
-        self.version_from_self = "ROOT"
+        self.read_version = "ROOT"
+        self.write_version = "ROOT"
         self.version_graph = version_graph
         self.incoming_connection = False
         self.outgoing_connection = False
         self.logger = utils.get_logger(
             f"Remote_{ownname}<->{remotename}", log_to_std)
+        self.outgoing_request = None
+        self.connection_lock = RLock()
         super().__init__(daemon=True)
 
     def connect_as_client(self, location):
@@ -77,6 +79,17 @@ class Remote(Thread):
             # Receive data
             raw_data = receive_data(con, content_length)
             data = cbor.loads(raw_data)
+            # if (self.outgoing_request
+            #         and data[
+            #             enums.TransferFields.timestamp] > self.outgoing_request[
+            #                 enums.TransferFields.timestamp]):
+            #     data_to_send = cbor.dumps({
+            #         enums.TransferFields.AppName: self.name,
+            #         enums.TransferFields.Status: enums.StatusCode.ReLock})
+            #     con.send(pack("!L", len(data_to_send)))
+            #     send_all(con, data_to_send)
+            #     return
+            
             # Get app name
             req_app = data[enums.TransferFields.AppName]
             # # Versions
@@ -93,10 +106,14 @@ class Remote(Thread):
                 # Send bool status back.
                 if not wait:
                     con.send(pack("!?", True))
+                self.logger.info(
+                    f"Accept Push, {req_app}, {remote_head}, {package['REFS']}")
                 self.accept_push(req_app, remote_head, package)
                 if wait:
                     con.send(pack("!?", True))
-                self.version_from_remote = remote_head
+                self.write_version = (
+                    package["REFS"]["W-{0}".format(self.remotename)])
+            
             # Received pull request.
             elif (data[enums.TransferFields.RequestType]
                   is enums.RequestType.Pull):
@@ -113,12 +130,17 @@ class Remote(Thread):
                         },
                         enums.TransferFields.Status: enums.StatusCode.Success,
                         enums.TransferFields.Versions: head})
+                    self.logger.info(
+                        f"Accept Fetch, {req_app}, {versions}, "
+                        f"{head}, {remote_refs}")
                     con.send(pack("!L", len(data_to_send)))
                     send_all(con, data_to_send)
                     if unpack("!?", con.recv(1))[0]:
-                        self.version_graph.confirm_fetch(
-                            "R-{0}".format(req_app), head)
-                        self.version_from_remote = head
+                        # self.version_graph.confirm_fetch(
+                        #     "R-{0}".format(req_app), head)
+                        self.read_version = (
+                            package["REFS"]["W-{0}".format(self.ownname)])
+            
                 except TimeoutError:
                     data_to_send = cbor.dumps({
                         enums.TransferFields.AppName: self.name,
@@ -147,12 +169,14 @@ class Remote(Thread):
                 enums.TransferFields.Wait: wait
             }
             data = cbor.dumps(package)
+            self.logger.info(f"Push, {self.remotename}, {head}, {remote_refs}")
             self.sock_as_client.send(pack("!L", len(data)))
             send_all(self.sock_as_client, data)
             succ = unpack("!?", self.sock_as_client.recv(1))[0]
-            self.version_graph.confirm_fetch(
-                "R-{0}".format(self.remotename), head)
-            self.version_from_self = head
+            # self.version_graph.confirm_fetch(
+            #     "R-{0}".format(self.remotename), head)
+            self.read_version = (
+                remote_refs["W-{0}".format(self.ownname)])
             return succ
         except Exception as e:
             print ("PUSH", e)
@@ -186,7 +210,11 @@ class Remote(Thread):
             package = data[enums.TransferFields.Data]
             # Send bool status back.
             self.sock_as_client.send(pack("!?", True))
-            self.version_from_self = remote_head
+            self.write_version = (
+                package["REFS"]["W-{0}".format(self.remotename)])
+            self.logger.info(
+                f"Fetch, {self.versions}, {self.remotename}, "
+                f"{remote_head}, {package['REFS']}")
             self.version_graph.put(package["REFS"], package["DATA"])
         except TimeoutError:
             raise

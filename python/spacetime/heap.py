@@ -98,7 +98,7 @@ class Heap(object):
         #     f"{[(edge.from_v.vid, edge.to_v.vid) for edge in edges]}")
         for edge in edges:
             self._receive_data(edge.delta, edge.to_v.vid)
-        self.version_graph.confirm_fetch(self.name, self.version)
+        # self.version_graph.confirm_fetch(self.name, self.version)
 
     def commit(self):
         self.version_graph.logger.info(

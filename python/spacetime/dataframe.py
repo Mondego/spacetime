@@ -16,12 +16,14 @@ class Dataframe(Thread):
 
     def __init__(
             self, appname, types, server_port=0,
-            remotes=None, resolver=None, log_to_std=False):
+            remotes=None, resolver=None, log_to_std=False, log_to_file=False):
         self.appname = appname
         self.types = types
         self.shutdown = False
         self.log_to_std = log_to_std
-        self.logger = utils.get_logger("Dataframe", self.log_to_std)
+        self.log_to_file = log_to_file
+        self.logger = utils.get_logger(
+            "Dataframe", self.log_to_std, self.log_to_file)
 
         super().__init__(daemon=True)
         # Set up socket that receives connections initiated by remotes.
@@ -29,7 +31,8 @@ class Dataframe(Thread):
         self.server_port = self.main_socket.getsockname()[1]
 
         self.version_graph = VersionGraph(
-            self.appname, self.types, resolver=resolver, log_to_std=log_to_std)
+            self.appname, self.types, resolver=resolver,
+            log_to_std=log_to_std, log_to_file=log_to_file)
 
         self.remote_lock = RLock()
         # Initiates all connections to remotes.
@@ -72,13 +75,14 @@ class Dataframe(Thread):
     def _create_connection(self, remote, details):
         remote_obj = Remote(
             self.appname, remote, self.version_graph,
-            log_to_std=self.log_to_std)
+            log_to_std=self.log_to_std, log_to_file=self.log_to_file)
         remote_obj.connect_as_client(details)
         self.logger.info(f"Obtained a new server {remote}")
         return remote_obj
 
     def run(self):
         self.listen()
+        self.logger.info("Shutting down dataframe.")
         self.main_socket.close()
         for remote in self.remotes.values():
             remote.close()
@@ -99,7 +103,8 @@ class Dataframe(Thread):
                 if name not in self.remotes:
                     self.remotes[name] = Remote(
                         self.appname, name, self.version_graph,
-                        log_to_std=self.log_to_std)
+                        log_to_std=self.log_to_std,
+                        log_to_file=self.log_to_file)
                     self.logger.info(f"Created new client {name}")
                 self.remotes[name].set_sock_as_server(con_socket)
 
@@ -174,3 +179,12 @@ class Dataframe(Thread):
         self.commit()
         self.push()
         self.pull()
+
+    def close(self):
+        self.shutdown = True
+        close_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        close_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        close_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        close_socket.connect(("127.0.0.1", self.server_port))
+        close_socket.close()
+        self.join()

@@ -11,6 +11,8 @@ class TransferFields(object):
     WaitTimeout = 5
     Status = 6
     Types = 7
+    TransactionId = 8
+    Confirmed = 9
 
 class Event(object):
     New = 0

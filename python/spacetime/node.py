@@ -36,7 +36,8 @@ def get_app(func, types, threading=False):
             return self._port
 
         def __init__(
-                self, appname, remotes=None, server_port=0, resolver=None):
+                self, appname, remotes=None, server_port=0, resolver=None,
+                log_to_std=False, log_to_file=False):
             self._port = None
             self.appname = appname
             self.types = types
@@ -50,6 +51,8 @@ def get_app(func, types, threading=False):
 
             self.server_port = server_port
             self.resolver = resolver
+            self.log_to_std = log_to_std
+            self.log_to_file = log_to_file
             self._ret_value = Queue()
             super().__init__()
             self.daemon = False
@@ -65,6 +68,7 @@ def get_app(func, types, threading=False):
             # Merge the final changes back to the dataframe.
             # dataframe.commit()
             # dataframe.push()
+            dataframe.close()
 
         def _start(self, *args, **kwargs):
             self.args = args
@@ -93,17 +97,21 @@ def get_app(func, types, threading=False):
                 self.appname, self.all_types,
                 server_port=self.server_port,
                 remotes=self.dataframe_details,
-                resolver=self.resolver)
+                resolver=self.resolver,
+                log_to_std=self.log_to_std,
+                log_to_file=self.log_to_file)
             #print(self.appname, self.all_types, details, df.details)
             return df
     return Node
 
 def Node(target, appname=None, Types=list(),
-         remotes=None, server_port=0, threading=False, resolver=None):
+         remotes=None, server_port=0, threading=False, resolver=None,
+         log_to_std=False, log_to_file=False):
     if remotes is None:
         remotes = dict()
     if not appname:
         appname = "{0}_{1}".format(target.__name__, str(uuid4()))
     app_cls = get_app(target, set(Types), threading=threading)
     return app_cls(
-        appname, remotes=remotes, server_port=server_port, resolver=resolver)
+        appname, remotes=remotes, server_port=server_port, resolver=resolver,
+        log_to_std=log_to_std, log_to_file=log_to_file)

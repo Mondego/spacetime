@@ -7,6 +7,7 @@ from spacetime.utils.enums import Event
 from rtypes.utils.enums import DiffType
 #from copy import deepcopy
 
+
 class container(object):
     pass
 
@@ -47,7 +48,7 @@ def dump_graph(version_graph, filename):
         from_v, to_v = edge
         G.add_edge(from_v.vid[:4], to_v.vid[:4])
     for node, version in version_graph.node_to_version.items():
-        G.add_edge(node, version.vid[:7])
+        G.add_edge(node, version.vid[:4])
 
     # pos = graphviz_layout(G, prog='dot')
     plt.plot()
@@ -55,22 +56,30 @@ def dump_graph(version_graph, filename):
     plt.savefig(filename)
     plt.close()
 
-def get_logger(name, log_to_std):
+def get_logger(name, log_to_std, log_to_file):
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
     if log_to_std:
         ch = logging.StreamHandler()
         ch.setLevel(logging.INFO)
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         ch.setFormatter(formatter)
         logger.addHandler(ch)
-    # if not os.path.exists("Logs"):
-    #     os.makedirs("Logs")
-    #fh = logging.FileHandler(os.path.join("Logs", name + ".log"))
-    #fh.setLevel(logging.DEBUG)
-    #fh.setFormatter(formatter)
-    #logger.addHandler(fh)
+
+    if log_to_file:
+        if not os.path.exists("Logs"):
+            os.makedirs("Logs")
+        fh = logging.FileHandler(os.path.join("Logs", name + ".log"))
+        fh.setLevel(logging.INFO)
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
+        ufh = logging.FileHandler(
+            os.path.join("Logs/spacetime.log"))
+        ufh.setLevel(logging.INFO)
+        ufh.setFormatter(formatter)
+        logger.addHandler(ufh)
 
     return logger
 

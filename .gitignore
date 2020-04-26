@@ -22,3 +22,4 @@ python/stats
 python/spacetime.egg-info
 python/build
 .idea
+DUMP/

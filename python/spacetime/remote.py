@@ -38,6 +38,7 @@ class Remote(Thread):
         req_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         req_socket.connect(location)
         self.sock_as_client = req_socket
+        print("##### In connect_as_client", req_socket)
         name = bytes(self.ownname, encoding="utf=8")
         self.sock_as_client.send(pack("!L", len(name)))
         send_all(self.sock_as_client, name)
@@ -194,6 +195,7 @@ class Remote(Thread):
             
             data = cbor.dumps(package)
             self.logger.info(f"Push, {self.remotename}, {head}, {remote_refs}")
+            # print("##### In push")
             self.sock_as_client.send(pack("!L", len(data)))
             send_all(self.sock_as_client, data)
             resp_length = unpack("!L", self.sock_as_client.recv(4))[0]

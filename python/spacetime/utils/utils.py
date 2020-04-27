@@ -232,6 +232,40 @@ class instrument_func(object):
     def record_instrumentation(self, obj, *args):
         obj.instrument_record.put("\t".join(map(str, args)) + "\n")
 
+class instrument_vg_put:
+    def __init__(self, name):
+        pass
+
+    def __call__(self, func):
+        def replacement(obj, *args, **kwargs):
+            version_ts = time.perf_counter()
+            self.logger.info(f"Put request: {len(edges)}")
+            pre_gc_start = time.perf_counter()
+            pre_gc_proc_start = time.process_time()
+            head = self._complete_graph(
+                self._add_edges(edges, version_ts), version_ts)
+            self._update_refs(remote_refs)
+            self.head = head
+            pre_gc_end = time.perf_counter()
+            pre_gc_proc_end = time.process_time()
+
+            gc_start = time.perf_counter()
+            gc_proc_start = time.process_time()
+            self.garbage_collect()
+            gc_end = time.perf_counter()
+            gc_proc_end = time.process_time()
+            self.benchmark_q.put({"nodename": self.nodename,
+                                  "put_start": pre_gc_start,
+                                  "pre_gc": pre_gc_end - pre_gc_start,
+                                  "pre_gc_proc": pre_gc_proc_end - pre_gc_proc_start,
+                                  "gc": gc_end - gc_start,
+                                  "gc_proc": gc_proc_end - gc_proc_start,
+                                  "put_end": gc_end,
+                                  "versions_len": len(self.versions)})
+            return self.head
+
+        return replacement
+
 def dim_diff(dtpname, original, new, original_obj, new_obj, dimmap):
     # return dims that are in new but not in/different in the original.
     change = {"dims": dict(), "types": dict()}

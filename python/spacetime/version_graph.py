@@ -262,7 +262,13 @@ class VersionGraph(object):
                     newly_added.add(to_v)
 
                 if (from_v, to_v) not in self.edges:
-                    self._add_single_edge(from_v, to_v, delta, eid)
+                    if (from_v, eid) not in self.forward_edge_map:
+                        self._add_single_edge(from_v, to_v, delta, eid)
+                    else:
+                        self._equate_versions(
+                            self.forward_edge_map[(from_v, eid)], to_v)
+                        if to_v in newly_added:
+                            newly_added.remove(to_v)
             to_be_processed = next_tbp
             if unprocessed_count == prev_unprocessed_count:
                 raise RuntimeError(
@@ -270,6 +276,19 @@ class VersionGraph(object):
                     next_tbp, self.alias)
             prev_unprocessed_count = unprocessed_count
         return newly_added
+
+    def _equate_versions(self, original, alternate):
+        for parent in alternate.parents:
+            edge = self.edges[(parent, alternate)]
+            if (parent, original) not in self.edges:
+                self._add_single_edge(parent, original, edge.delta, edge.eid)
+        for child in alternate.children:
+            edge = self.edges[(alternate, child)]
+            if (original, child) not in self.edges:
+                self._add_single_edge(original, child, edge.delta, edge.eid)
+        self.alias[alternate.vid] = original.vid
+        self.reverse_alias.setdefault(original.vid, set()).add(alternate.vid)
+        self._delete_version(alternate)
 
     def _resolve_versions(self, from_vid, to_vid, eid, version_ts):
         from_vid = self.choose_alias(from_vid)
@@ -343,6 +362,7 @@ class VersionGraph(object):
                 if not version.children:
                     head = version
             newly_added = merge_versions
+
         return head
 
     def _merge(self, parent, sibling, version, version_ts):
@@ -602,6 +622,8 @@ class VersionGraph(object):
             self._add_edges(req_node, edges, version_ts), version_ts)
         self._update_refs(remote_refs)
         self.head = head
+        assert len([v for v in self.versions.values() if len(v.children) == 0]) == 1
+        assert len([v for v in self.versions.values() if len(v.parents) == 0]) == 1
         if DUMP_GRAPH:
             utils.dump_graph(
                 self, f"DUMP/{self.nodename}-{version_ts}-0GETBEFORE.png")
@@ -609,7 +631,8 @@ class VersionGraph(object):
         if DUMP_GRAPH:
             utils.dump_graph(
                 self, f"DUMP/{self.nodename}-{version_ts}-1GETAFTER.png")
-        # assert len([v for v in self.versions.values() if len(v.children) == 0]) == 1
+        assert len([v for v in self.versions.values() if len(v.children) == 0]) == 1
+        assert len([v for v in self.versions.values() if len(v.parents) == 0]) == 1
         self.logger.info(
             f"Put request: {len(edges)}, {remote_refs}, "
             f"{self.head}, {self.node_to_version}")

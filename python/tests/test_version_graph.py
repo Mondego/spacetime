@@ -334,3 +334,43 @@ class TestVersionManager(unittest.TestCase):
              ("5", "6"), ("5", "7"), ("4", "7"),
              ("6", "9"), ("7", "9"), ("7", "8"),
              ("9", "10"), ("8", "10")})
+
+    def test_vg_3way1(self):
+        vg = VersionGraph("VG", set(), dict())
+        vg.put(
+            "RANDOM1",
+            {"p1": "A", "p2": "B", "p3": "C"},
+            [("ROOT", "A", {}, "1"), ("ROOT", "B", {}, "2"), ("ROOT", "C", {}, "3"),
+             ("A", "AB", {}, "2"), ("B", "AB", {}, "1"), ("B", "BC", {}, "3"), ("C", "BC", {}, "2"),
+             ("AB", "ABC1", {}, "3"), ("BC", "ABC1", {}, "1")])
+        vg.put(
+            "RANDOM2",
+            {"p1": "A", "p2": "B", "p3": "C"},
+            [("ROOT", "A", {}, "1"), ("ROOT", "B", {}, "2"), ("ROOT", "C", {}, "3"),
+             ("A", "AB", {}, "2"), ("B", "AB", {}, "1"), ("A", "AC", {}, "3"), ("C", "AC", {}, "1"),
+             ("AB", "ABC2", {}, "3"), ("AC", "ABC2", {}, "2")])
+        self.assertSetEqual(
+            set({(v1.vid, v2.vid) for v1, v2 in vg.edges.keys()}),
+            {("ROOT", "A"), ("ROOT", "B"), ("ROOT", "C"),
+             ("A", "AB"), ("B", "AB"), ("A", "AC"), ("C", "AC"), ("B", "BC"), ("C", "BC"),
+             ("AB", "ABC1"), ("BC", "ABC1"), ("AC", "ABC1")})
+
+    def test_vg_3way2(self):
+        vg = VersionGraph("VG", set(), dict())
+        vg.put(
+            "RANDOM1",
+            {"p1": "A", "p2": "B", "p3": "C"},
+            [("ROOT", "A", {}, "1"), ("ROOT", "B", {}, "2"), ("ROOT", "C", {}, "3"),
+             ("A", "AB", {}, "2"), ("B", "AB", {}, "1"), ("B", "BC", {}, "3"), ("C", "BC", {}, "2"),
+             ("AB", "ABC1", {}, "3"), ("BC", "ABC1", {}, "1")])
+        vg.put(
+            "RANDOM2",
+            {"p1": "A", "p2": "B", "p3": "C"},
+            [("ROOT", "A", {}, "1"), ("ROOT", "B", {}, "2"), ("ROOT", "C", {}, "3"),
+             ("A", "AB", {}, "2"), ("B", "AB", {}, "1"), ("A", "AC", {}, "3"), ("C", "AC", {}, "1"),
+             ("AC", "ABC2", {}, "2"), ("AB", "ABC2", {}, "3")])
+        self.assertSetEqual(
+            set({(v1.vid, v2.vid) for v1, v2 in vg.edges.keys()}),
+            {("ROOT", "A"), ("ROOT", "B"), ("ROOT", "C"),
+             ("A", "AB"), ("B", "AB"), ("A", "AC"), ("C", "AC"), ("B", "BC"), ("C", "BC"),
+             ("AB", "ABC1"), ("BC", "ABC1"), ("AC", "ABC1")})

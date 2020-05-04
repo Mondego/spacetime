@@ -110,7 +110,7 @@ class Remote(Thread):
                     self.version_graph._delete_old_reference(
                         self.remotename, c_tid)
                 self.logger.info(
-                    f"Accept Push, {req_app}, {remote_head}, {package['REFS']}")
+                    f"Accept Push, {req_app}, {remote_head}, {package['REFS']}, {package['DATA']}")
                 self.accept_push(req_app, remote_head, package)
                 with self.connection_lock:
                     self.confirmed_transactions.append(r_tid)

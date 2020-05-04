@@ -594,8 +594,8 @@ class VersionGraph(object):
         return edges, self.head.vid, self.get_refs(nodename), transaction_id
 
     @wlock
-    @instrument_vg_put
-    def put(self, remote_refs, edges):
+    # @instrument_vg_put
+    def put(self, req_node, remote_refs, edges):
         # self.logger.info(
         #     f"Put request: "
         #     f"{', '.join(f'{f[:4]}->{t[:4]}' for f,t,_,_ in edges)}")

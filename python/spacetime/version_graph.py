@@ -6,6 +6,7 @@ from threading import Condition
 from spacetime.utils.enums import Event
 from spacetime.utils import utils
 from spacetime.utils.rwlock import RWLockFair as RWLock
+from spacetime.utils.utils import instrument_vg_put
 from rtypes.utils.enums import DiffType
 from rtypes.utils.converter import unconvert, convert
 
@@ -613,6 +614,7 @@ class VersionGraph(object):
         return edges, self.head.vid, self.get_refs(nodename), transaction_id
 
     @wlock
+    # @instrument_vg_put
     def put(self, req_node, remote_refs, edges):
         # self.logger.info(
         #     f"Put request: "
@@ -636,6 +638,22 @@ class VersionGraph(object):
         self.logger.info(
             f"Put request: {len(edges)}, {remote_refs}, "
             f"{self.head}, {self.node_to_version}")
+       #  pre_gc_end = time.perf_counter()
+       #  pre_gc_proc_end = time.process_time()
+
+       #  gc_start = time.perf_counter()
+       #  gc_proc_start = time.process_time()
+       #  self.garbage_collect()
+       #  gc_end = time.perf_counter()
+       #  gc_proc_end = time.process_time()
+       #  self.benchmark_q.put({"nodename": self.nodename,
+       #                        "put_start": pre_gc_start,
+       #                        "pre_gc": pre_gc_end-pre_gc_start,
+       #                        "pre_gc_proc": pre_gc_proc_end-pre_gc_proc_start,
+       #                        "gc": gc_end-gc_start,
+       #                        "gc_proc": gc_proc_end-gc_proc_start,
+       #                        "put_end": gc_end,
+       #                        "versions_len": len(self.versions)})
         return self.head
 
     def put_as_heap(self, heapname, version, diff):

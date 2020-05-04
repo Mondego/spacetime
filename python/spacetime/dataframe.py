@@ -52,17 +52,12 @@ class Dataframe(Thread):
         return sync_socket
 
     def add_remote(self, name, details):
-        self.logger.info(f"Adding new server {name}")
-        with self.remote_lock:
-            if name in self.remotes and self.remotes[name].outgoing_connection:
-                self.remotes[name].outgoing_close()
-                self.logger.info(f"Reset server {name}")
-            if name not in self.remotes:
-                self.remotes.update(self._connect_to({name: details}))
-                self.logger.info(f"Connected to new server {name}")
-            else:
-                self.remotes[name].connect_as_client(details)
-                self.logger.info(f"Reestablished server {name}")
+        if name in self.remotes and self.remotes[name].outgoing_connection:
+            self.remotes[name].outgoing_close()
+        if name not in self.remotes:
+            self.remotes.update(self._connect_to({name: details}))
+        else:
+            self.remotes[name].connect_as_client(details)
 
     def _connect_to(self, remotes):
         if not remotes:

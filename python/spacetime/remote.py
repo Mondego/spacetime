@@ -3,6 +3,7 @@ import cbor
 import traceback
 from threading import Thread, RLock
 from struct import unpack, pack
+from multiprocessing import Event
 
 from spacetime.utils.socket_utils import send_all, receive_data
 from spacetime.utils import enums, utils
@@ -26,9 +27,10 @@ class Remote(Thread):
         self.outgoing_connection = False
         self.logger = utils.get_logger(
             f"Remote_{ownname}<->{remotename}", log_to_std, log_to_file)
-        self.confirmed_transactions = list()
-        self.connection_lock = RLock()
+        self.transactions = dict()
         self.socket_protector = RLock()
+        self.incoming_free = Event()
+        self.incoming_free.set()
         self.shutdown = False
         super().__init__(daemon=True)
 
@@ -38,7 +40,7 @@ class Remote(Thread):
         req_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         req_socket.connect(location)
         self.sock_as_client = req_socket
-        print("##### In connect_as_client", req_socket)
+        #print("##### In connect_as_client", req_socket)
         name = bytes(self.ownname, encoding="utf=8")
         self.sock_as_client.send(pack("!L", len(name)))
         send_all(self.sock_as_client, name)
@@ -69,8 +71,10 @@ class Remote(Thread):
                 break
             with self.socket_protector:
                 content_length = unpack("!L", raw_cl)[0]
+                self.incoming_free.clear()
                 self.process_incoming_connection(
                     self.sock_as_server, content_length)
+                self.incoming_free.set()
 
     def close(self):
         self.shutdown = True
@@ -99,25 +103,34 @@ class Remote(Thread):
                 package = data[enums.TransferFields.Data]
                 remote_head = data[enums.TransferFields.Versions]
                 r_tid = data[enums.TransferFields.TransactionId]
+                self.transactions[remote_head] = r_tid
                 # Send bool status back.
                 if not wait:
-                    with self.connection_lock:
-                        resp = cbor.dumps(self.confirmed_transactions)
-                        self.confirmed_transactions = list()
+                    confirmed_v = self.version_graph.get_confirmed(req_app)
+                    confirmed_t = list()
+                    for v in confirmed_v:
+                        if v in self.transactions:
+                            confirmed_t.append(self.transactions[v])
+                            del self.transactions[v]
+                    resp = cbor.dumps(confirmed_t)
                     con.send(pack("!L", len(resp)))
                     send_all(con, resp)
                 for c_tid in data[enums.TransferFields.Confirmed]:
                     self.version_graph._delete_old_reference(
                         self.remotename, c_tid)
+                # if data[enums.TransferFields.Confirmed]:
+                #     self.version_graph.pre_gc()
                 self.logger.info(
                     f"Accept Push, {req_app}, {remote_head}, {package['REFS']}, {package['DATA']}")
                 self.accept_push(req_app, remote_head, package)
-                with self.connection_lock:
-                    self.confirmed_transactions.append(r_tid)
                 if wait:
-                    with self.connection_lock:
-                        resp = cbor.dumps(self.confirmed_transactions)
-                        self.confirmed_transactions = list()
+                    confirmed_v = self.version_graph.get_confirmed(req_app)
+                    confirmed_t = list()
+                    for v in confirmed_v:
+                        if v in self.transactions:
+                            confirmed_t.append(self.transactions[v])
+                            del self.transactions[v]
+                    resp = cbor.dumps(confirmed_t)
                     con.send(pack("!L", len(resp)))
                     send_all(con, resp)
                 self.write_version = (
@@ -135,9 +148,12 @@ class Remote(Thread):
                 try:
                     dict_to_send, head, remote_refs, tid = self.accept_fetch(
                         req_app, versions, wait=wait, timeout=timeout)
-                    with self.connection_lock:
-                        confirmed = self.confirmed_transactions
-                        self.confirmed_transactions = list()
+                    confirmed_v = self.version_graph.get_confirmed(req_app)
+                    confirmed_t = list()
+                    for v in confirmed_v:
+                        if v in self.transactions:
+                            confirmed_t.append(self.transactions[v])
+                            del self.transactions[v]
                     data_to_send = cbor.dumps({
                         enums.TransferFields.AppName: self.name,
                         enums.TransferFields.Data: {
@@ -147,7 +163,7 @@ class Remote(Thread):
                         enums.TransferFields.Status: enums.StatusCode.Success,
                         enums.TransferFields.Versions: head,
                         enums.TransferFields.TransactionId: tid, 
-                        enums.TransferFields.Confirmed: confirmed})
+                        enums.TransferFields.Confirmed: confirmed_t})
 
                     self.logger.info(
                         f"Accept Fetch, {req_app}, {versions}, "
@@ -174,12 +190,16 @@ class Remote(Thread):
 
 
     def push(self, wait=False):
+        self.wait_for_any_incoming()
         diff_data, head, remote_refs, tid = self.version_graph.get(
             self.remotename)
         try:
-            with self.connection_lock:
-                confirmed = self.confirmed_transactions
-                self.confirmed_transactions = list()
+            confirmed_v = self.version_graph.get_confirmed(self.remotename)
+            confirmed_t = list()
+            for v in confirmed_v:
+                if v in self.transactions:
+                    confirmed_t.append(self.transactions[v])
+                    del self.transactions[v]
             package = {
                 enums.TransferFields.AppName: self.ownname,
                 enums.TransferFields.RequestType: enums.RequestType.Push,
@@ -190,7 +210,7 @@ class Remote(Thread):
                 },
                 enums.TransferFields.Wait: wait,
                 enums.TransferFields.TransactionId: tid,
-                enums.TransferFields.Confirmed: confirmed
+                enums.TransferFields.Confirmed: confirmed_t
             }
             
             data = cbor.dumps(package)
@@ -213,17 +233,21 @@ class Remote(Thread):
 
     def fetch(self, wait=False, timeout=0):
         try:
-            with self.connection_lock:
-                confirmed = self.confirmed_transactions
-                self.confirmed_transactions = list()
+            self.wait_for_any_incoming()
 
+            confirmed_v = self.version_graph.get_confirmed(self.remotename)
+            confirmed_t = list()
+            for v in confirmed_v:
+                if v in self.transactions:
+                    confirmed_t.append(self.transactions[v])
+                    del self.transactions[v]
             data = cbor.dumps({
                 enums.TransferFields.AppName: self.ownname,
                 enums.TransferFields.RequestType: enums.RequestType.Pull,
                 enums.TransferFields.Versions: self.versions,
                 enums.TransferFields.Wait: wait,
                 enums.TransferFields.WaitTimeout: timeout,
-                enums.TransferFields.Confirmed: confirmed
+                enums.TransferFields.Confirmed: confirmed_t
             })
 
             self.sock_as_client.send(pack("!L", len(data)))
@@ -244,6 +268,7 @@ class Remote(Thread):
             package = data[enums.TransferFields.Data]
             # Send bool status back.
             r_tid = data[enums.TransferFields.TransactionId]
+            self.transactions[remote_head] = r_tid
             for c_tid in data[enums.TransferFields.Confirmed]:
                 self.version_graph._delete_old_reference(self.remotename, c_tid)
             self.sock_as_client.send(pack("!?", True))
@@ -253,10 +278,10 @@ class Remote(Thread):
             self.logger.info(
                 f"Fetch, {self.versions}, {self.remotename}, "
                 f"{remote_head}, {package['REFS']}")
+            # if data[enums.TransferFields.Confirmed]:
+            #     self.version_graph.pre_gc()
             self.version_graph.put(
                 self.remotename, package["REFS"], package["DATA"])
-            with self.connection_lock:
-                self.confirmed_transactions.append(r_tid)
         except TimeoutError:
             raise
         except Exception as e:
@@ -271,3 +296,6 @@ class Remote(Thread):
         if wait:
             self.version_graph.wait_for_change(versions, timeout=timeout)
         return self.version_graph.get(req_app, versions)
+
+    def wait_for_any_incoming(self):
+        self.incoming_free.wait()

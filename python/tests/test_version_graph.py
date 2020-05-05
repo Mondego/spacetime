@@ -374,3 +374,24 @@ class TestVersionManager(unittest.TestCase):
             {("ROOT", "A"), ("ROOT", "B"), ("ROOT", "C"),
              ("A", "AB"), ("B", "AB"), ("A", "AC"), ("C", "AC"), ("B", "BC"), ("C", "BC"),
              ("AB", "ABC1"), ("BC", "ABC1"), ("AC", "ABC1")})
+
+    def test_vg_gc_broken_eg(self):
+        vg = VersionGraph("producer1", set(), dict())
+        vg.put(
+            "producer1",
+            {"producer1": "D", "x": "A", "y": "D", "z": "E", "a": "D", "b": "E"},
+            [("ROOT", "A", {}, "0"), ("A", "AB", {}, "1"),
+             ("AB", "D", {}, "2"), ("AB", "E", {}, "3"), ("D", "F", {}, "3"),
+             ("E", "F", {}, "2")])
+        self.assertSetEqual(
+            set({(v1.vid, v2.vid) for v1, v2 in vg.edges.keys()}),
+            {("ROOT", "A"), ("A", "AB"), ("AB", "D"), ("AB", "E"),
+             ("D", "F"), ("E", "F")})
+        vg.put(
+            "producer1",
+            {"producer1": "G"},
+            [("F", "G", {}, "4")])
+        self.assertSetEqual(
+            set({(v1.vid, v2.vid) for v1, v2 in vg.edges.keys()}),
+            {("ROOT", "A"), ("A", "AB"), ("AB", "D"), ("AB", "E"),
+             ("D", "F"), ("E", "F"), ("F", "G")})

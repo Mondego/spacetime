@@ -32,8 +32,8 @@ def producer(df, count, num_nodes, start_index, started, event, rdetails):
         print ([b.oid for b in df.read_all(BasicType)])
     print ("FINAL COUNT", start_index, [b.oid for b in df.read_all(BasicType)])
 
-NUM_PRODUCERS = 2
-TOTAL_OBJ_COUNT = 12
+NUM_PRODUCERS = 3
+TOTAL_OBJ_COUNT = 6
 
 PRODUCERS = [
     (Node(

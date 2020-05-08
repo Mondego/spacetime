@@ -40,3 +40,4 @@ class StatusCode(object):
 
     GeneralException = 400
     Timeout = 401
+    LockReject = 402

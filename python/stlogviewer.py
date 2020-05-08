@@ -12,7 +12,7 @@ from pprint import pprint
 from collections import OrderedDict
 import re
 
-LOGPATH = os.path.join("Logs", "spacetime.log")
+LOGPATH = os.path.join("Logs", "spacetime.mod.log")
 STATEDUMP_ROOT = os.path.join("Logs", "statedump")
 NOW_STR = datetime.datetime.now().strftime("%y-%m-%d_%H-%M-%S")
 TGT_DIR = os.path.join(STATEDUMP_ROOT, NOW_STR)
@@ -139,6 +139,7 @@ def hierarchy_pos(G, root, levels=None, width=1., height=1.):
 class STLViewer:
     def __init__(self, fullpath, no_of_lines):
         self.vg_name_graph = OrderedDict() # Example: {'producer1': nx.graph1, ...}
+        self.vg_operations = dict()
         self.uuid_to_name = dict({"ROOT": "ROOT"}) # Example: '27e50ed7-c752-4b62-bd00-e1edd4cf09b6' -> 1
         self.uuid_to_name_next = 0
         self.process_spacetime_log(fullpath, no_of_lines)
@@ -151,11 +152,14 @@ class STLViewer:
     def ensure_vg_exists(self, version_graph_name):
         if not version_graph_name in self.vg_name_graph:
             self.vg_name_graph[version_graph_name] = nx.DiGraph()
+            self.vg_operations[version_graph_name] = list()
 
     def get_or_create_uuid_to_name(self, key):
         if not key in self.uuid_to_name:
             self.uuid_to_name_next += 1
-            self.uuid_to_name[key] = str(self.uuid_to_name_next)
+            #self.uuid_to_name[key] = str(self.uuid_to_name_next)
+            self.uuid_to_name[key] = key
+            print("Mapping", key, self.uuid_to_name[key])
 
         return self.uuid_to_name[key]
 
@@ -163,7 +167,7 @@ class STLViewer:
     def create_version(self, annotated_line):
         version_graph_name = annotated_line['component_name']
         version = annotated_line['message'].split()[-1]
-        print(version_graph_name, version)
+        #print(version_graph_name, version)
 
         self.ensure_vg_exists(version_graph_name)
 
@@ -171,8 +175,28 @@ class STLViewer:
 
         version = self.get_or_create_uuid_to_name(version)
 
-        the_graph.add_node(version)
-        print(self.vg_name_graph)
+        #the_graph.add_node(version)
+        #print(self.vg_name_graph)
+        return False
+
+    def create_edge(self, annotated_line):
+        version_graph_name = annotated_line['component_name']
+        start, end, eid = re.match(
+            r"Adding new edge \(([a-zA-Z0-9\-]+), ([a-zA-Z0-9\-]+), E:([a-zA-Z0-9\-]+)\)",
+            annotated_line['message'].strip()).groups()
+        #print(version_graph_name, "EDGE", start, end)
+
+        self.ensure_vg_exists(version_graph_name)
+
+        #the_graph = self.vg_name_graph[version_graph_name]
+
+        start_v = self.get_or_create_uuid_to_name(start)
+        end_v = self.get_or_create_uuid_to_name(end)
+        eid = self.get_or_create_uuid_to_name(eid)
+        self.vg_operations[version_graph_name].append(
+            ["ADD EDGE", start_v, end_v, eid])
+        #print(self.vg_name_graph)
+        return False
 
     def extract_parent_child(self, commit_line):
         '''
@@ -208,7 +232,7 @@ class STLViewer:
         pass
 
     def default_handler(self, annotated_line):
-        pass
+        return False
 
     def extract_node12_merge(self, message):
         res = re.search(r"Creating merge version of ([^,]+),\s+([^\s]+)\s+as\s+([^\s$]+)", message)
@@ -230,38 +254,60 @@ class STLViewer:
     def set_alias(self, annotated_line):
         new_name, old_name = self.extract_new_old_uuid(annotated_line['message'])
         self.uuid_to_name[new_name] = self.uuid_to_name[old_name]
+        return False
 
     def extract_version_to_delete(self, message):
-        res = re.search(r'Deleting version\s+([^$\s]+)', message)
+        res = re.search(r'Deleting version\s+([a-zA-Z0-9\-]+)', message)
         return res.group(1)
 
     def delete_version(self, annotated_line):
         del_uuid = self.extract_version_to_delete(annotated_line['message'])
         version_graph_name = annotated_line['component_name']
-        the_graph = self.vg_name_graph[version_graph_name]
-        try:
-            the_graph.remove_node(self.uuid_to_name[del_uuid])
-        except:
-            print("ERROR: Couldn't remove", self.uuid_to_name[del_uuid])
+        self.vg_operations[version_graph_name].append(
+            ["DEL VERSION", del_uuid])
+        # the_graph = self.vg_name_graph[version_graph_name]
+        # try:
+        #     the_graph.remove_node(self.uuid_to_name[del_uuid])
+        # except:
+        #     print("ERROR: Couldn't remove", del_uuid)
+        #     raise
+        return False
 
+    def apply_operations(self, annotated_line):
+        version_graph_name = annotated_line['component_name']
+        the_graph = self.vg_name_graph[version_graph_name]
+        if not self.vg_operations[version_graph_name]:
+            return False
+        for args in self.vg_operations[version_graph_name]:
+            cmd = args[0]
+            if cmd == "ADD EDGE":
+                start_v, end_v, eid = args[1:]
+                if start_v not in the_graph:
+                    the_graph.add_node(start_v)
+                if end_v not in the_graph:
+                    the_graph.add_node(end_v)
+                the_graph.add_edge(start_v, end_v, weights=eid)
+            elif cmd == "DEL VERSION":
+                del_uuid = args[1]
+                the_graph.remove_node(self.uuid_to_name[del_uuid])
+        self.vg_operations[version_graph_name] = list()
+        return True
 
     ### end HANDLER
 
     def represent(self, annotated_line):
         instr_handler = {
-            'Creating version': self.create_version,
-            'Creating merge': self.create_merge,
-            'Completed CHECKOUT': self.complete_checkout,
-            'Setting alias': self.set_alias,
+            'Adding new edge': self.create_edge,
             'Deleting version': self.delete_version,
-            'Accept Push': self.accept_push,
-            'Commit': self.commit,
+            'Put request': self.apply_operations,
             'default': self.default_handler
         }
 
         for key in instr_handler:
             if annotated_line['message'].startswith(key):
-                instr_handler[key](annotated_line)
+                return instr_handler[key](annotated_line)
+            if 'ERROR' in annotated_line['log_level']:
+                return self.apply_operations(annotated_line)
 
     def replace_uuids(self, the_title):
         uuids = re.findall(r'\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b', the_title)
@@ -294,11 +340,13 @@ class STLViewer:
             plt.suptitle('ln'+str(count), fontsize=14)
             pos = graphviz_layout(graph, prog='dot')
             nx.draw(graph, pos=pos, with_labels=True, ax=ax)
+            labels = nx.get_edge_attributes(graph,'weights')
+            nx.draw_networkx_edge_labels(graph,pos,edge_labels=labels)
 
         # plt.tight_layout()
         tgt_file = os.path.join(TGT_DIR, str(count) + '.png')
         plt.savefig(tgt_file, dpi=60)
-        print('Done with ', tgt_file)
+        #print('Done with ', tgt_file)
         # plt.show()
 
 
@@ -309,25 +357,30 @@ class STLViewer:
         for line in thelog:
             # TODO: identify "loop"
             annotated_line = self.read(line)
-            if not (annotated_line['component_name'].lower().startswith("version_graph") or
-                annotated_line['component_name'].lower().startswith('remote_')):
-                count += 1
-                if count == no_of_lines:
-                    break
-                else:
-                    continue
-
+            try:
+                if not (annotated_line['component_name'].lower().startswith("version_graph") or
+                    annotated_line['component_name'].lower().startswith('remote_')):
+                    count += 1
+                    if count == no_of_lines:
+                        break
+                    else:
+                        continue
+            except KeyError:
+                print ("Error in ", count)
+                raise
             # print(tokens)
-            self.represent(annotated_line)
-            self.output(annotated_line, count+1)
+            if self.represent(annotated_line):
+                self.output(annotated_line, count+1)
 
             # represent present line in graph
             count += 1
             if count == no_of_lines:
                 break
-
+        if any([self.apply_operations({'component_name': vg}) for vg in self.vg_name_graph]):
+            self.output({'component_name': ""}, count+1)
+            
         # dump out picture of state
 
 
 if __name__ == "__main__":
-    s = STLViewer("Logs/spacetime.log", None)  # stop processing after 1 lines
+    s = STLViewer("Logs/spacetime.mod.log", None)  # stop processing after 1 lines

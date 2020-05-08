@@ -1,4 +1,6 @@
 import socket
+import random
+import cbor
 from threading import Thread, RLock
 from struct import pack, unpack
 
@@ -24,7 +26,7 @@ class Dataframe(Thread):
         self.log_to_file = log_to_file
         self.logger = utils.get_logger(
             "Dataframe", self.log_to_std, self.log_to_file)
-
+        self.random = random.random()
         super().__init__(daemon=True)
         # Set up socket that receives connections initiated by remotes.
         self.main_socket = self.setup_main_socket(server_port)
@@ -39,6 +41,8 @@ class Dataframe(Thread):
         # map from Remote name -> Remote Obj
         with self.remote_lock:
             self.remotes = self._connect_to(remotes)
+        for remote in self.remotes:
+            self.remotes[remote].receive_server_info()
 
         self.heap = Heap(self.appname, types, self.version_graph)
         self.start()
@@ -63,6 +67,7 @@ class Dataframe(Thread):
             else:
                 self.remotes[name].connect_as_client(details)
                 self.logger.info(f"Reestablished server {name}")
+        self.remotes[name].receive_server_info()
 
     def _connect_to(self, remotes):
         if not remotes:
@@ -74,7 +79,7 @@ class Dataframe(Thread):
 
     def _create_connection(self, remote, details):
         remote_obj = Remote(
-            self.appname, remote, self.version_graph,
+            self.appname, remote, self.version_graph, self.random,
             log_to_std=self.log_to_std, log_to_file=self.log_to_file)
         remote_obj.connect_as_client(details)
         self.logger.info(f"Obtained a new server {remote}")
@@ -92,21 +97,28 @@ class Dataframe(Thread):
             con_socket, _ = self.main_socket.accept()
             with self.remote_lock:
                 raw_nl = con_socket.recv(4)
+                print (raw_nl)
                 if not raw_nl:
                     continue
                 name_length = unpack("!L", raw_nl)[0]
-                name = str(receive_data(con_socket, name_length), encoding="utf-8")
-                self.logger.info(f"Obtained a new client {name}")
+                name_dict = cbor.loads(receive_data(con_socket, name_length))
+                self.logger.info(f"Received {name_dict}")
+                con_socket.send(pack("!d", self.random))
+                self.logger.info(f"Sent {self.random}")
+                name = list(name_dict.keys()).pop()
+                remote_random = name_dict[name]
+
+                self.logger.info(f"Obtained a new client {name} {remote_random}")
                 if name in self.remotes and self.remotes[name].incoming_connection:
                     self.remotes[name].incoming_close()
                     self.logger.info(f"Reset client {name}")
                 if name not in self.remotes:
                     self.remotes[name] = Remote(
-                        self.appname, name, self.version_graph,
+                        self.appname, name, self.version_graph, self.random,
                         log_to_std=self.log_to_std,
                         log_to_file=self.log_to_file)
                     self.logger.info(f"Created new client {name}")
-                self.remotes[name].set_sock_as_server(con_socket)
+                self.remotes[name].set_sock_as_server(con_socket, remote_random)
 
     # Heap Functions
     def add_one(self, dtype, obj):

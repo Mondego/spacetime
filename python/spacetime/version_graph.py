@@ -1,4 +1,6 @@
 import time
+import re
+import traceback
 from uuid import uuid4
 from collections import deque, OrderedDict
 from threading import Condition
@@ -18,8 +20,9 @@ def rlock(func):
         try:
             with self.rwlock.gen_rlock():
                 return func(self, *args, **kwargs)
-        except AssertionError:
-            print ("Assertion")
+        except Exception:
+            self.logger.error(
+                 f"EXCEPTION ON READ: NODENAME: {self.nodename},\n ALIAS: {self.alias},\n NODETOVERSION: {self.node_to_version},\n VERSIONTONODE: {self.version_to_node},\n EDGES: {list(self.edges.keys())},\n FEM: {list(self.forward_edge_map)},\n ARGS: {args}\n{traceback.format_exc()}")
             raise
         # except Exception:
         #     self.logger.error(
@@ -32,11 +35,13 @@ def wlock(func):
     def write_locked_func(self, *args, **kwargs):
         try:
             with self.rwlock.gen_wlock():
+                self.logger.info(f"START OF {func.__name__}, {args}")
                 edges_s = str(self.edges)
+                fem_s = str(self.forward_edge_map)
                 return func(self, *args, **kwargs)
-        except AssertionError:
+        except Exception:
             self.logger.error(
-                 f"ASSERT ON WRITE: NODENAME: {self.nodename},\n ALIAS: {self.alias},\n NODETOVERSION: {self.node_to_version},\n VERSIONTONODE: {self.version_to_node},\n EDGES: {list(self.edges.keys())},\n ARGS: {args}\n OLD EDGES: {edges_s}")
+                 f"EXCEPTION ON WRITE: NODENAME: {self.nodename},\n ALIAS: {self.alias},\n NODETOVERSION: {self.node_to_version},\n VERSIONTONODE: {self.version_to_node},\n EDGES: {list(self.edges.keys())},\n FEM: {list(self.forward_edge_map)},\n ARGS: {args}\n OLD EDGES: {edges_s}\n OLD FEM: {fem_s}\n{traceback.format_exc()}")
             raise
         # except Exception:
         #     self.logger.error(
@@ -253,25 +258,42 @@ class VersionGraph(object):
         self.confirm_to_gc = False
 
     def _add_single_edge(self, from_v, to_v, delta, eid):
-        self.logger.info(f"Adding new edge ({from_v.vid}, {to_v.vid})")
+        self.logger.info(f"Adding new edge ({from_v.vid}, {to_v.vid}, E:{eid})")
         self.edges[(from_v, to_v)] = Edge(from_v, to_v, delta, eid)
         self.forward_edge_map[(from_v, eid)] = to_v
         from_v.add_child(to_v)
 
-    def _add_edges(self, remotename, edges, version_ts):
+    def _add_edges(self, remotename, edges, version_ts, refs):
         newly_added = set()
         to_be_processed = list(edges)
         prev_unprocessed_count = len(to_be_processed)
+        banned = set()
         while to_be_processed:
             unprocessed_count = 0
             next_tbp = list()
             for from_vid, to_vid, delta, eid in to_be_processed:
+                if eid in banned:
+                    self.logger.info(
+                        f"({from_v}, {to_v}) with EID: {eid} is banned.")
+                    continue
                 from_v, to_v = self._resolve_versions(
                     remotename, from_vid, to_vid, eid, version_ts)
                 if from_v.vid not in self.versions:
                     next_tbp.append((from_vid, to_vid, delta, eid))
                     unprocessed_count += 1
                     continue
+
+                if from_v.vid in self.versions and to_v.vid in self.versions and (from_v, to_v) not in self.edges:
+                    found = False
+                    for parent in from_v.parents:
+                        if parent.children and any(to_v in sib.children for sib in parent.children if sib != from_v):
+                            found = True
+                            break
+                    if not found:
+                        self.logger.info(
+                            f"Banning ({from_v}, {to_v}) with EID: {eid}")
+                        banned.add(eid)
+                        continue
 
                 if to_v.vid not in self.versions:
                     self.versions[to_v.vid] = to_v
@@ -288,10 +310,17 @@ class VersionGraph(object):
                             newly_added.remove(to_v)
             to_be_processed = next_tbp
             if unprocessed_count == prev_unprocessed_count:
-                raise RuntimeError(
-                    self.nodename, "Cannot add some edges",
-                    next_tbp, self.alias)
+                break
             prev_unprocessed_count = unprocessed_count
+        if to_be_processed:
+            reverse_refs = {vid for ref_node, vid in refs.items()}
+            for from_vid, to_vid, _, eid in to_be_processed:
+                from_v, to_v = self._resolve_versions(
+                    remotename, from_vid, to_vid, eid, version_ts)
+                if to_v.vid not in self.versions or from_v.vid in reverse_refs:
+                    raise RuntimeError(
+                        self.nodename, "Cannot add some edges",
+                        next_tbp, self.alias)
         return newly_added
 
     def _equate_versions(self, remotename, original, alternate):
@@ -335,33 +364,37 @@ class VersionGraph(object):
         return from_v, Version(to_vid, creation_time=version_ts)
 
     def _build_bridge_node(self, newly_added, version_ts):
-        to_see = deque([self.tail])
+        to_see = deque([self.head])
         while to_see:
             version = to_see.popleft()
+
             for parent in version.parents:
                 if parent.children == {version}:
                     continue
+                
                 if any(sib.children.intersection(version.children)
                        for sib in parent.children
                        if (sib != version
-                               and version in newly_added
-                               and sib not in newly_added)):
+                               and sib in newly_added
+                               and version not in newly_added)):
                     continue
                 try:
                     sib = next(
                         sib for sib in parent.children
                         if (sib != version
-                            and version in newly_added
-                            and sib not in newly_added))
+                            and version not in newly_added
+                            and sib in newly_added))
                 except StopIteration:
                     # There are no candidates of any type.
                     continue
+                self.logger.info(f"Bridging nodes {parent}, {sib}, {version} "
+                                 f"HEAD: {self.head}")
                 newly_added.add(
                     self._merge(parent, sib, version, version_ts))
                 # Once we add one bridge node, the rest of the nodes
                 # will stitch together.
                 return newly_added
-            to_see.extend(version.children)
+            to_see.extend(version.parents)
         return newly_added
 
     def _complete_graph(self, newly_added, version_ts):
@@ -387,22 +420,39 @@ class VersionGraph(object):
         return head
 
     def _merge(self, parent, sibling, version, version_ts):
-        new_v = Version(str(uuid4()), creation_time=version_ts)
-        self.logger.info(
-            f"Creating merge version of {sibling.vid}, "
-            f"{version.vid} as {new_v.vid}")
-        self.versions[new_v.vid] = new_v
+        sib_to_new_eid = self.edges[(parent, version)].eid
+        version_to_new_eid = self.edges[(parent, sibling)].eid
+
+        if (sibling, sib_to_new_eid) in self.forward_edge_map:
+            new_v = self.forward_edge_map[(sibling, sib_to_new_eid)]
+        elif (version, version_to_new_eid) in self.forward_edge_map:
+            new_v = self.forward_edge_map[(version, version_to_new_eid)]
+        else:
+            new_v = Version(str(uuid4()), creation_time=version_ts)
+
+        if new_v.vid not in self.versions:
+            self.logger.info(
+                f"Creating merge version of {sibling.vid}, "
+                f"{version.vid} as {new_v.vid}")
+            self.versions[new_v.vid] = new_v
+        else:
+            self.logger.info(
+                f"Setting merge version of {sibling.vid}, "
+                f"{version.vid} as {new_v.vid}")
+
         current_merge, conf_merge = self._delta_transform(
             parent, self.edges[(parent, version)].delta,
             self.edges[(parent, sibling)].delta, False)
-        self._add_single_edge(
-            sibling, new_v,
-            conf_merge,
-            self.edges[(parent, version)].eid)
-        self._add_single_edge(
-            version, new_v,
-            current_merge,
-            self.edges[(parent, sibling)].eid)
+
+        if (sibling, new_v) in self.edges:
+            assert self.edges[(sibling, new_v)].delta == conf_merge
+        else:
+            self._add_single_edge(sibling, new_v, conf_merge, sib_to_new_eid)
+        if (version, new_v) in self.edges:
+            assert self.edges[(version, new_v)].delta == current_merge
+        else:
+            self._add_single_edge(
+                version, new_v, current_merge, version_to_new_eid)
         return new_v
 
     def _delta_transform(
@@ -595,21 +645,34 @@ class VersionGraph(object):
         return vid
 
     @rlock
+    def reset_get(self, nodename, tid, prev_vid):
+        oldname = "O-{0}-{1}".format(nodename, tid)
+        readname = "R-{0}-{1}".format(nodename, self.nodename)
+        if oldname in self.node_to_version:
+            self._delete_old_reference(nodename, tid, gc=False)
+        if readname in self.node_to_version:
+            self._del_ref(readname)
+        if prev_vid != "ROOT":
+            self._add_ref(readname, self.versions[prev_vid])
+        self.logger.info(f"Reseting the Get request {nodename}, {tid}, {prev_vid}, {self.node_to_version}")
+
+    @rlock
     def get(self, nodename, versions=None):
+        read_nodename = "R-{0}-{1}".format(nodename, self.nodename)
+        prev_read = (self.node_to_version[read_nodename].vid
+            if read_nodename in self.node_to_version else
+            self.tail.vid)
         if not versions:
-            read_nodename = "R-{0}-{1}".format(nodename, self.nodename)
             write_nodename = "W-{0}-{1}".format(nodename, self.nodename)
             versions = {
-                (self.node_to_version[read_nodename].vid
-                 if read_nodename in self.node_to_version else
-                 self.tail.vid),
+                prev_read,
                 (self.node_to_version[write_nodename].vid
                  if write_nodename in self.node_to_version else
                  self.tail.vid)}
         before_req = {
             self.versions[self.choose_alias(from_vid)] for from_vid in versions}
         if self.head in before_req:
-            return list(), self.head.vid
+            return list(), self.head.vid, self.get_refs(nodename), None, prev_read
 
         to_see = deque([self.head])
         edges = list()
@@ -621,11 +684,19 @@ class VersionGraph(object):
                     (self.node_alias_match(nodename, parent.vid),
                      self.node_alias_match(nodename, version.vid),
                      edge.delta, edge.eid))
-                if (parent not in before_req
-                        and not parent.children.intersection(before_req)):
+                if parent in before_req:
+                    continue
+                if not parent.children.intersection(before_req):
                     to_see.append(parent)
                 else:
+                # elif (parent.children.intersection(before_req)
+                #       and parent.creation_time > min(
+                #           c.creation_time for c in parent.children.intersection(
+                #               before_req))):
+                    to_see.append(parent)
                     before_req.add(parent)
+                # else:
+                #     before_req.add(parent)
         # By reversing it, the adding of nodes is more efficient.
         edges.reverse()
         # self.logger.info(
@@ -639,7 +710,7 @@ class VersionGraph(object):
         self.logger.info(
             f"Get request: (FROM) {nodename} {versions} "
             f"(TO) {self.head.vid}, {self.node_to_version}")
-        return edges, self.head.vid, self.get_refs(nodename), transaction_id
+        return edges, self.head.vid, self.get_refs(nodename), transaction_id, prev_read
 
     @wlock
     # @instrument_vg_put
@@ -656,15 +727,36 @@ class VersionGraph(object):
             self.garbage_collect(ignore=vids)
             self.confirm_to_gc = False
         head = self._complete_graph(
-            self._add_edges(req_node, edges, version_ts), version_ts)
+            self._add_edges(req_node, edges, version_ts, remote_refs),
+            version_ts,)
         self._update_refs(remote_refs)
         self.head = head
         writename = "W-{0}-{1}".format(req_node, self.nodename)
+        readname = "R-{0}-{1}".format(req_node, self.nodename)
         if req_node != self.nodename and writename in remote_refs:
             remotehead = self.choose_alias(remote_refs[writename])
             self.version_to_required.setdefault(remotehead, set()).add(req_node)
             if req_node not in self.node_to_confirmed:
                 self.node_to_confirmed[req_node] = list()
+            mergename = "M-{0}-{1}".format(req_node, self.nodename)
+            if (readname in self.node_to_version
+                    and self.node_to_version[readname].vid not in vids):
+                # That means that the write happened concurrently to the 
+                # previous read.
+                # Time to guard the join of remotehead and readhead.
+                self._add_ref(
+                    mergename,
+                    self._get_join(
+                        self.versions[remotehead],
+                        self.node_to_version[readname]))
+            if mergename in self.node_to_version:
+                alt_vid = self.node_alias_match(
+                    req_node, self.node_to_version[mergename].vid)
+                if alt_vid in vids:
+                    # That means that the previous mergename is in this update.
+                    # we can delete that merge marker.
+                    self._del_ref(mergename)
+
         assert len([v for v in self.versions.values() if len(v.children) == 0]) == 1
         assert len([v for v in self.versions.values() if len(v.parents) == 0]) == 1
         if DUMP_GRAPH:
@@ -701,6 +793,31 @@ class VersionGraph(object):
     def pre_gc(self):
         self.garbage_collect()
 
+    def _get_join(self, version1, version2):
+        if version1 == version2:
+            return version1
+        to_see_v1 = deque([version1])
+        to_see_v2 = deque([version2])
+        while to_see_v1 and to_see_v2:
+            v1 = to_see_v1.popleft()
+            v2 = to_see_v2.popleft()
+            common_children = v1.children.intersection(v2.children)
+            if common_children:
+                assert len(common_children) == 1
+                return common_children.pop()
+            if v1 in v2.children:
+                return v1
+            if v2 in v1.children:
+                return v2
+            to_see_v1.extend(v1.children)
+            to_see_v2.extend(v2.children)
+            if not to_see_v1 and to_see_v2:
+                to_see_v1.append(v1)
+            if to_see_v1 and not to_see_v2:
+                to_see_v2.append(v2)
+
+        raise RuntimeError(f"Cannot find the join of {version1} and {version2}")
+
     def put_as_heap(self, heapname, version, diff):
         # self.logger.info(
         #     f"Put request: "
@@ -710,16 +827,16 @@ class VersionGraph(object):
             heapname, refs, [(version, diff.version, diff, diff.version)])
 
     def get_refs(self, remotename):
-        read_remotename = "R-{0}-{1}".format(remotename, self.nodename)
-        write_remotename = "W-{0}-{1}".format(remotename, self.nodename)
-        refs = {
-            nodename: version.vid
-            for nodename, version in self.node_to_version.items()
-            if (not nodename.startswith("O-")
-                and nodename not in {
-                    remotename, read_remotename, write_remotename})}
-
-        refs["W-{0}-{1}".format(self.nodename, remotename)] = self.head.vid
+        rematch = re.compile(f"[RWM]\-{remotename}")
+        refs = dict()
+        for nodename, version in self.node_to_version.items():
+            if (nodename.startswith("O-")
+                    or rematch.match(nodename)
+                    or nodename.endswith(remotename)):
+                continue
+            refs[nodename] = self.node_alias_match(remotename, version.vid)
+        refs["W-{0}-{1}".format(self.nodename, remotename)] = (
+            self.node_alias_match(remotename, self.head.vid))
         return refs
 
     def _build_causal_chain(self):
@@ -774,13 +891,14 @@ class VersionGraph(object):
                     group.eids.add(eid)
                     eid_to_group[eid] = group
                     added = True
-            for dep_eid in dependent_eids:
+            elif all(eid_to_group[dep_eid].nodes == nodes_that_require
+                   for dep_eid in dependent_eids):
+                dep_eid = next(deid for deid in dependent_eids)
                 dep_group = eid_to_group[dep_eid]
-                if dep_group.nodes == nodes_that_require:
-                    dep_group.eids.add(eid)
-                    dep_group.end = eid
-                    eid_to_group[eid] = dep_group
-                    added = True
+                dep_group.eids.add(eid)
+                dep_group.end = eid
+                eid_to_group[eid] = dep_group
+                added = True
             if not added:
                 new_group = EidGroup(eid, {eid}, nodes_that_require, self.logger)
                 if not dependent_eids:
@@ -830,8 +948,10 @@ class VersionGraph(object):
         parents = set(version.parents)
         for parent in parents:
             if (parent, version) in self.edges:
-                del self.forward_edge_map[
-                    (parent, self.edges[(parent, version)].eid)]
+                fe_key = (parent, self.edges[(parent, version)].eid)
+                if fe_key in self.forward_edge_map:
+                    # This should always be true.
+                    del self.forward_edge_map[fe_key]
                 self.logger.info(f"Deleting edge ({parent.vid}, {version.vid})")
                 del self.edges[(parent, version)]
                 parent.remove_child(version)
@@ -839,8 +959,11 @@ class VersionGraph(object):
         children = set(version.children)
         for child in children:
             if (version, child) in self.edges:
-                del self.forward_edge_map[
-                    (version, self.edges[(version, child)].eid)]
+                fe_key = (version, self.edges[(version, child)].eid)
+                if fe_key in self.forward_edge_map:
+                    #TODO fix the error for when this is False.
+                    # No idea why it happens.
+                    del self.forward_edge_map[fe_key]
                 self.logger.info(f"Deleting edge ({version.vid}, {child.vid})")
                 del self.edges[(version, child)]
                 version.remove_child(child)
@@ -936,8 +1059,10 @@ class VersionGraph(object):
                 version_obj = next_version_obj
             except StopIteration:
                 break
-        self.logger.info(f"Completed CHECKOUT till {version_obj}.")
         self.confirm_fetch(node, version_obj.vid)
+        self.logger.info(
+            f"Completed CHECKOUT till {version_obj}. {self.node_to_version}")
+        
 
     def get_edges_to_root(self, version_obj):
         version = self.choose_alias(version_obj.vid)
@@ -958,6 +1083,8 @@ class VersionGraph(object):
 
     def confirm_fetch(self, node, vid):
         vid = self.choose_alias(vid)
+        if vid not in self.versions:
+            return
         if node in self.node_to_version:
             if self._clean_refs_if_later(node, self.versions[vid]):
                 self._add_ref(node, self.versions[vid])
@@ -965,7 +1092,7 @@ class VersionGraph(object):
             self._add_ref(node, self.versions[vid])
 
     @rlock
-    def _delete_old_reference(self, nodename, tid):
+    def _delete_old_reference(self, nodename, tid, gc=True):
         old_nodename = "O-{0}-{1}".format(nodename, tid)
         if old_nodename in self.node_to_version:
             version = self.node_to_version[old_nodename]
@@ -980,7 +1107,7 @@ class VersionGraph(object):
                 #     del self.version_to_node[version]
             del self.node_to_version[old_nodename]
             self.logger.info(f"Deleting reference to {old_nodename}")
-        self.confirm_to_gc = True
+        self.confirm_to_gc = gc
 
     @rlock
     def get_confirmed(self, nodename):
@@ -1001,7 +1128,7 @@ class VersionGraph(object):
     def _clean_refs_if_later(self, rnode, version):
         prev_version = self.node_to_version[rnode]
         if (prev_version == version
-                or prev_version.creation_time >= version.creation_time):
+                or prev_version.creation_time > version.creation_time):
             return False
         # This means that the reference is new.
         # Need to update it.
@@ -1015,6 +1142,14 @@ class VersionGraph(object):
     def _add_ref(self, node, version):
         self.node_to_version[node] = version
         self.version_to_node.setdefault(version, set()).add(node)
+
+    def _del_ref(self, marker):
+        if marker in self.node_to_version:
+            version = self.node_to_version[marker]
+            del self.node_to_version[marker]
+            self.version_to_node[version].remove(marker)
+            if not self.version_to_node[version]:
+                del self.version_to_node[version]
 
     def wait_for_change(self, versions, timeout):
         success = True

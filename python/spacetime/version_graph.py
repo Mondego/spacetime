@@ -739,6 +739,13 @@ class VersionGraph(object):
             if req_node not in self.node_to_confirmed:
                 self.node_to_confirmed[req_node] = list()
             mergename = "M-{0}-{1}".format(req_node, self.nodename)
+            if mergename in self.node_to_version:
+                alt_vid = self.node_alias_match(
+                    req_node, self.node_to_version[mergename].vid)
+                if alt_vid in vids:
+                    # That means that the previous mergename is in this update.
+                    # we can delete that merge marker.
+                    self._del_ref(mergename)
             if (readname in self.node_to_version
                     and self.node_to_version[readname].vid not in vids):
                 # That means that the write happened concurrently to the 
@@ -749,13 +756,6 @@ class VersionGraph(object):
                     self._get_join(
                         self.versions[remotehead],
                         self.node_to_version[readname]))
-            if mergename in self.node_to_version:
-                alt_vid = self.node_alias_match(
-                    req_node, self.node_to_version[mergename].vid)
-                if alt_vid in vids:
-                    # That means that the previous mergename is in this update.
-                    # we can delete that merge marker.
-                    self._del_ref(mergename)
 
         assert len([v for v in self.versions.values() if len(v.children) == 0]) == 1
         assert len([v for v in self.versions.values() if len(v.parents) == 0]) == 1
@@ -1129,6 +1129,8 @@ class VersionGraph(object):
         prev_version = self.node_to_version[rnode]
         if (prev_version == version
                 or prev_version.creation_time > version.creation_time):
+            # TODO This condition might be wrong.
+            # Better to look to see which happened before which.
             return False
         # This means that the reference is new.
         # Need to update it.

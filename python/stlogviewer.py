@@ -139,6 +139,7 @@ def hierarchy_pos(G, root, levels=None, width=1., height=1.):
 class STLViewer:
     def __init__(self, fullpath, no_of_lines):
         self.vg_name_graph = OrderedDict() # Example: {'producer1': nx.graph1, ...}
+        self.vg_name_markers = dict()
         self.vg_operations = dict()
         self.uuid_to_name = dict({"ROOT": "ROOT"}) # Example: '27e50ed7-c752-4b62-bd00-e1edd4cf09b6' -> 1
         self.uuid_to_name_next = 0
@@ -153,6 +154,7 @@ class STLViewer:
         if not version_graph_name in self.vg_name_graph:
             self.vg_name_graph[version_graph_name] = nx.DiGraph()
             self.vg_operations[version_graph_name] = list()
+            self.vg_name_markers[version_graph_name] = dict()
 
     def get_or_create_uuid_to_name(self, key):
         if not key in self.uuid_to_name:
@@ -273,7 +275,28 @@ class STLViewer:
         #     raise
         return False
 
+    def update_rwm_markers(self, annotated_line):
+        msg = annotated_line['message']
+        if msg.find('EXCEPTION') != -1:
+            return
+        msg = msg.replace('Put request: ', '')
+        msg = '[' + msg  + ']'
+        msg = msg.replace('producer', 'p')
+        temp = eval(msg)
+        node_to_version = temp[-1]
+        version_to_nodes = {}
+
+        for n,v in node_to_version.items():
+            version_to_nodes.setdefault(str(v), set()).add(n)
+
+        version_graph_name = annotated_line['component_name']
+        self.vg_name_markers[version_graph_name] = version_to_nodes
+
+
+
+
     def apply_operations(self, annotated_line):
+        self.update_rwm_markers(annotated_line)
         version_graph_name = annotated_line['component_name']
         the_graph = self.vg_name_graph[version_graph_name]
         if not self.vg_operations[version_graph_name]:
@@ -339,6 +362,13 @@ class STLViewer:
             # pos = hierarchy_pos(graph, "ROOT")
             plt.suptitle('ln'+str(count), fontsize=14)
             pos = graphviz_layout(graph, prog='dot')
+            for n, markers in self.vg_name_markers[vg_name].items():
+                mark_str = '\n'.join(markers)
+                try:
+                    x, y = pos[n]
+                    plt.text(x, y + 5, s=mark_str, bbox=dict(facecolor='red', alpha=0.5), horizontalalignment='center')
+                except Exception as e:
+                    print(e)
             nx.draw(graph, pos=pos, with_labels=True, ax=ax)
             labels = nx.get_edge_attributes(graph,'weights')
             nx.draw_networkx_edge_labels(graph,pos,edge_labels=labels)

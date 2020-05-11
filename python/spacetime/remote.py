@@ -227,7 +227,7 @@ class Remote(Thread):
                         # self.version_graph.confirm_fetch(
                         #     "R-{0}".format(req_app), head)
                         self.read_version = (
-                            package["REFS"]["W-{0}-{1}".format(
+                            remote_refs["W-{0}-{1}".format(
                                 self.ownname, self.remotename)])
                 except TimeoutError:
                     # SEND TIMEOUTER (FETCH 2)

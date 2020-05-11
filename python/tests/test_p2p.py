@@ -306,7 +306,7 @@ def client_df1(send_q, recv_q, server_ready, client_ready):
     assert (c2.ypos is 0)
     assert (c2.oid is 2)
 
-    assert len(df.version_graph.versions) == 5, len(df.version_graph.versions)
+    assert len(df.version_graph.versions) == 6, len(df.version_graph.versions)
     # df.pull()
     # df.checkout()
     # cars = df.read_all(Car)

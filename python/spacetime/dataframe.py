@@ -97,7 +97,6 @@ class Dataframe(Thread):
             con_socket, _ = self.main_socket.accept()
             with self.remote_lock:
                 raw_nl = con_socket.recv(4)
-                print (raw_nl)
                 if not raw_nl:
                     continue
                 name_length = unpack("!L", raw_nl)[0]

@@ -171,12 +171,12 @@ class TestVersionManager(unittest.TestCase):
             "VG0", {"VG0": "0"}, [("ROOT", "0", "data(R->0)", "Root-0")])
         version_graph.put(
             "VG1", {"VG1": "1"}, [("0", "1", "data(0->1)", "0-1")])
-        edges, head1, refs, tid = version_graph.get("VG", {"ROOT"})
+        edges, head1, refs, tid, _ = version_graph.get("VG", {"ROOT"})
         self.assertEqual("1", head1)
         self.assertSetEqual(
             {("ROOT", "0", "data(R->0)", "Root-0"),
              ("0", "1", "data(0->1)", "0-1")}, set(edges))
-        edges, head2, refs, tid = version_graph.get("VG", {"0"})
+        edges, head2, refs, tid, _ = version_graph.get("VG", {"0"})
         self.assertEqual("1", head2)
         self.assertSetEqual(
             {("0", "1", "data(0->1)", "0-1")}, set(edges))
@@ -196,7 +196,7 @@ class TestVersionManager(unittest.TestCase):
             1)
         end_v = next(
             v.vid for v in version_graph.versions.values() if not v.children)
-        edges, head1, refs, tid = version_graph.get("VG", {"ROOT"})
+        edges, head1, refs, tid, _ = version_graph.get("VG", {"ROOT"})
         self.assertEqual(end_v, head1)
         # self.visualize_graph((version_graph))
         self.assertDictEqual(
@@ -205,7 +205,7 @@ class TestVersionManager(unittest.TestCase):
              ("0", end_v): (data2, "Root-1"),
              ("1", end_v): (data1, "Root-0")},
             {(f, t): (d, i) for f, t, d, i in edges})
-        edges, head2, refs, tid = version_graph.get("VG", {"0", "1"})
+        edges, head2, refs, tid, _ = version_graph.get("VG", {"0", "1"})
         self.assertEqual(end_v, head2)
         self.assertDictEqual(
             {("0", end_v): (data2, "Root-1"),
@@ -243,7 +243,7 @@ class TestVersionManager(unittest.TestCase):
         vg1.put("vg13", {"vg13": "2"}, [(m01_vg1, "2", data3, "M(0,1)-2")])
         self.assertEqual(
             len([v for v in vg1.versions.values() if not v.children]), 1)
-        edges, head_vg1, refs, tid = vg1.get("vg1", {"0", "1"})
+        edges, head_vg1, refs, tid, _ = vg1.get("vg1", {"0", "1"})
         self.assertEqual(head_vg1, "2")
         self.assertDictEqual(
             {("0", m01_vg1): (data2, "Root-1"),
@@ -269,7 +269,7 @@ class TestVersionManager(unittest.TestCase):
             "VG1", {"VG1": "1"}, [("0", "1", "data(0->1)", "0-1")])
         version_graph.put(
             "VG2", {"VG2": "2"}, [("1", "2", "data(1->2)", "1-2")])
-        edges, head1, refs, tid = version_graph.get("VG", {"ROOT", "1"})
+        edges, head1, refs, tid, _ = version_graph.get("VG", {"ROOT", "1"})
         self.assertEqual("2", head1)
         self.assertSetEqual(
             {("1", "2", "data(1->2)", "1-2")}, set(edges))
@@ -395,3 +395,58 @@ class TestVersionManager(unittest.TestCase):
             set({(v1.vid, v2.vid) for v1, v2 in vg.edges.keys()}),
             {("ROOT", "A"), ("A", "AB"), ("AB", "D"), ("AB", "E"),
              ("D", "F"), ("E", "F"), ("F", "G")})
+    
+    def test_vg_gc_broken_eg2(self):
+        vg = VersionGraph("producer1", set(), dict())
+        vg.put(
+            "producer1",
+            {'producer1': "22", 'O-producer1-0': "23",
+             'W-producer1-producer0': "30", 'O-producer1-34': "32",
+             'O-producer1-36': "35", 'R-producer1-producer0': "35"},
+            [("ROOT", "18", {}, "24"), ("18", "23", {},"0"),
+             ("18", "22", {}, "22"), ("23", "30", {}, "22"),
+             ("22", "30", {}, "0"), ("30", "32", {}, "27"),
+             ("32", "35", {}, "35")])
+        self.assertSetEqual(
+            set({(v1.vid, v2.vid) for v1, v2 in vg.edges.keys()}),
+            {("ROOT", "18"), ("18", "23"), ("18", "22"), ("23", "30"),
+             ("22", "30"), ("30", "32"), ("32", "35")})
+        vg._delete_old_reference("producer1", "0")
+        self.assertDictEqual(
+            vg.node_to_version,
+            {'producer1': vg.versions["22"],
+             'W-producer1-producer0': vg.versions["30"],
+             'O-producer1-34': vg.versions["32"],
+             'O-producer1-36': vg.versions["35"],
+             'R-producer1-producer0': vg.versions["35"]})
+        vg.put(
+            "producer0",
+            {'producer0': '38'},
+            [("35", "38", {}, "38")])
+        self.assertSetEqual(
+            set({(v1.vid, v2.vid) for v1, v2 in vg.edges.keys()}),
+            {("ROOT", "22"), ("22", "30"), ("30", "32"),
+             ("32", "35"), ("35", "38")})
+
+    def test_vg_gc_broken_eg3(self):
+        vg = VersionGraph("producer1", set(), dict())
+        vg.put(
+            "producer1",
+            {'p1': '24'},
+            [("ROOT", '24', {}, '47')])
+        vg.put(
+            "producer1",
+            {'producer1': '24', 'R-producer0-producer1': '24', 'O-producer0-28': '24',
+             'producer0': '45', 'producer2': '23', 'W-producer2-producer0': '23',
+             'W-producer0-producer1': '45'},
+            [['ROOT', '12', {}, '46'], ['ROOT', '12', {}, '46'], ['ROOT', '12', {}, '46'],
+             ['12', '38', {}, '47'], ['24', '38', {}, '46'], ['12', '23', {}, '23'], 
+             ['12', '38', {}, '47'], ['24', '38', {}, '46'], ['38', '44', {}, '23'], 
+             ['23', '44', {}, '47'], ['38', '39', {}, '36'], ['44', '45', {}, '36'], 
+             ['39', '45', {}, '23']])
+        self.assertSetEqual(
+            set({(v1.vid, v2.vid) for v1, v2 in vg.edges.keys()}),
+            {('ROOT', '12'), ('ROOT', '24'),
+             ('12', '38'), ('12', '23'), ('24', '38'),
+             ('38', '44'), ('23', '44'), ('38', '39'), ('44', '45'),
+             ('39', '45')})

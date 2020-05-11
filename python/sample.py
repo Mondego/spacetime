@@ -64,7 +64,7 @@ for pnode, detail, event, i in PRODUCERS:
         #{DETAILS[i+1 if i != (len(DETAILS)-1) else 0]}) # Round Robin
         #{DETAILS[i-1], DETAILS[i+1 if i != (len(DETAILS)-1) else 0]}) # Daisy Chain
         {DETAILS[0]} if i != 0 else set()) # Server Client
-        #set(DETAILS) - detail) # ROYAL RUMBLE
+        #set(DETAILS) - {detail}) # ROYAL RUMBLE
 for _, _, event, _ in PRODUCERS:
     event.wait()
 START.set()

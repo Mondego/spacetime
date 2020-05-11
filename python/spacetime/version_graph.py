@@ -118,11 +118,16 @@ class EidGroup():
             self._delta = self.calculate_delta()
         return self._delta
 
-    def __init__(self, start, eids, nodes, logger):
-        self.start = start
+    @property
+    def snapable(self):
+        for group in self.tracked_sets:
+            if self.eids != group[4]:
+                return False
+        return True
+
+    def __init__(self, eids, nodes, logger):
         self.eids = eids
         self.nodes = nodes
-        self.end = start
         self.tracked_sets = list()
         self.version_to_group = dict()
         self._delta = None
@@ -133,7 +138,8 @@ class EidGroup():
         if edge.from_v not in self.version_to_group:
             # This is now a new group.
             new_group = [
-                {edge}, edge.from_v, edge.to_v, {edge.from_v, edge.to_v}]
+                {edge}, edge.from_v, edge.to_v, {edge.from_v, edge.to_v},
+                {edge.eid}]
             self.tracked_sets.append(new_group)
             self.version_to_group[edge.from_v] = new_group
             self.version_to_group[edge.to_v] = new_group
@@ -142,10 +148,11 @@ class EidGroup():
             group[0].add(edge)
             group[2] = edge.to_v
             group[3].add(edge.to_v)
+            group[4].add(edge.eid)
             self.version_to_group[edge.to_v] = group
 
     def calculate_delta(self):
-        edges, start, end, _ = self.tracked_sets[0]
+        edges, start, end, _, _ = self.tracked_sets[0]
         edge_map = {
             (e.from_v, e.to_v): e
             for e in edges
@@ -842,6 +849,8 @@ class VersionGraph(object):
     def _build_causal_chain(self):
         to_see = deque([self.tail])
         eid_to_parent = OrderedDict()
+        parent_to_eid = dict()
+        parent_to_eid[None] = set()
         incoming_eids = {self.tail: set()}
         all_eids_in_version = {self.tail: set()}
         all_eids = set()
@@ -859,12 +868,20 @@ class VersionGraph(object):
                 except:
                     print (all_eids_in_version, self.edges, len(self.versions))
                     raise
+
                 if edge_id not in eid_to_parent:
                     eid_to_parent[edge_id] = incoming_eids[parent]
+                if edge_id not in parent_to_eid:
+                    for p in incoming_eids[parent]:
+                        parent_to_eid[p].add(edge_id)
+                    if not incoming_eids[parent]:
+                        parent_to_eid[None].add(edge_id)
+                    parent_to_eid[edge_id] = set()
             incoming_eids[version] = eids_to_version
             all_eids_in_version[version] = parent_eids.union(eids_to_version)
             to_see.extend(version.children)
-        return eid_to_parent, all_eids_in_version, all_eids
+        
+        return parent_to_eid, all_eids_in_version, all_eids
 
     def _build_node_requirement_map(self, all_eids_in_version, all_eids):
         eid_missing_to_nodes = dict()
@@ -874,37 +891,36 @@ class VersionGraph(object):
                     eid_missing_to_nodes.setdefault(eid, list()).append(node)
         return eid_missing_to_nodes
 
-    def _create_dependency_groups(self, eid_to_parent, eid_missing_to_nodes):
-        groups = set()
-        eid_to_group = dict()
-        none_groups = set()
-        for eid, dependent_eids in eid_to_parent.items():
-            nodes_that_require = eid_missing_to_nodes.setdefault(eid, set())
-            added = False
-            if not dependent_eids:
-                potential_group = set()
-                for group in none_groups:
-                    if group.nodes == nodes_that_require:
-                        potential_group.add(group)
-                if len(potential_group) == 1:
-                    group = potential_group.pop()
-                    group.eids.add(eid)
-                    eid_to_group[eid] = group
-                    added = True
-            elif all(eid_to_group[dep_eid].nodes == nodes_that_require
-                   for dep_eid in dependent_eids):
-                dep_eid = next(deid for deid in dependent_eids)
-                dep_group = eid_to_group[dep_eid]
-                dep_group.eids.add(eid)
-                dep_group.end = eid
-                eid_to_group[eid] = dep_group
-                added = True
-            if not added:
-                new_group = EidGroup(eid, {eid}, nodes_that_require, self.logger)
-                if not dependent_eids:
-                    none_groups.add(new_group)
-                eid_to_group[eid] = new_group
-                groups.add(new_group)
+    def _create_dependency_groups(self, dependency_graph, eid_missing_to_nodes):
+        none_eid_grp = EidGroup(set(), set(), self.logger)
+        groups = {none_eid_grp}
+        eid_to_group = {None: none_eid_grp, none_eid_grp.new_eid: none_eid_grp}
+        to_see = deque([None])
+        while to_see:
+            eid = to_see.popleft()
+            nodes_that_require = eid_to_group[eid].nodes
+            if eid not in dependency_graph or not dependency_graph[eid]:
+                continue
+            if all(eid_missing_to_nodes.setdefault(child_eid, set()) == nodes_that_require for child_eid in dependency_graph[eid]):
+                group = eid_to_group[eid]
+                group.eids.update(dependency_graph[eid])
+                final_deps = set()
+                for child_eid in dependency_graph[eid]:
+                    eid_to_group[child_eid] = group
+                    if child_eid in dependency_graph:
+                        final_deps.update(dependency_graph[child_eid])
+                        del dependency_graph[child_eid]
+                dependency_graph[group.new_eid] = final_deps
+                to_see.append(group.new_eid)
+            elif eid in dependency_graph and dependency_graph[eid]:
+                for child_eid in dependency_graph[eid]:
+                    to_see.append(child_eid)
+                    eid_to_group[child_eid] = EidGroup(
+                        {child_eid},
+                        eid_missing_to_nodes.setdefault(child_eid, set()),
+                        self.logger)
+                    eid_to_group[eid_to_group[child_eid].new_eid] = eid_to_group[child_eid]
+                    groups.add(eid_to_group[child_eid])
         return groups, eid_to_group
 
     def _add_edges_to_groups(self, eid_to_group):
@@ -929,7 +945,8 @@ class VersionGraph(object):
             seen.add(version)
             while (len(version.parents) == 1
                    and len(version.children) == 1
-                   and version not in self.version_to_node
+                   and not (version in self.version_to_node 
+                            and self.version_to_node[version])
                    and any(
                        (sibling in self.version_to_node
                         or len(sibling.children) > 1)
@@ -998,21 +1015,23 @@ class VersionGraph(object):
 
         self._clean_unneeded_branches(ignore=ignore)
 
-        eid_to_parent, all_eids_in_version, all_eids = (
+        parent_to_eid, all_eids_in_version, all_eids = (
             self._build_causal_chain())
 
         eid_missing_to_nodes = self._build_node_requirement_map(
             all_eids_in_version, all_eids)
 
         groups, eid_to_group = self._create_dependency_groups(
-            eid_to_parent, eid_missing_to_nodes)
+            parent_to_eid, eid_missing_to_nodes)
 
         self._add_edges_to_groups(eid_to_group)
 
         edges_to_add = list()
         versions_to_delete = set()
         for group in groups:
-            for _, start, end, versions in group.tracked_sets:
+            if not group.snapable:
+                continue
+            for _, start, end, versions, _ in group.tracked_sets:
                 if not group.nodes and start != self.tail:
                     self.logger.info(
                         f"UUpdating versions to delete with {versions - {end}}")

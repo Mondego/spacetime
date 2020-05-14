@@ -5,7 +5,7 @@ from rtypes.utils.converter import convert
 class Diff(dict):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.version = str(uuid4())
+        self.version = uuid4().int
 
     def add(self, dtype, objs, dimmap):
         dtpname = dtype.__r_meta__.name

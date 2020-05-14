@@ -24,10 +24,6 @@ def rlock(func):
             self.logger.error(
                  f"EXCEPTION ON READ: NODENAME: {self.nodename},\n ALIAS: {self.alias},\n NODETOVERSION: {self.node_to_version},\n VERSIONTONODE: {self.version_to_node},\n EDGES: {list(self.edges.keys())},\n FEM: {list(self.forward_edge_map)},\n ARGS: {args}\n{traceback.format_exc()}")
             raise
-        # except Exception:
-        #     self.logger.error(
-        #         f"READ: {self.nodename}, {self.alias}, {self.node_to_version}, {list(self.edges.keys())}")
-        #     raise
     return read_locked_func
 
 
@@ -43,16 +39,12 @@ def wlock(func):
             self.logger.error(
                  f"EXCEPTION ON WRITE: NODENAME: {self.nodename},\n ALIAS: {self.alias},\n NODETOVERSION: {self.node_to_version},\n VERSIONTONODE: {self.version_to_node},\n EDGES: {list(self.edges.keys())},\n FEM: {list(self.forward_edge_map)},\n ARGS: {args}\n OLD EDGES: {edges_s}\n OLD FEM: {fem_s}\n{traceback.format_exc()}")
             raise
-        # except Exception:
-        #     self.logger.error(
-        #         f"WRITE: {self.nodename}, {self.alias}, {self.node_to_version}, {list(self.edges.keys())}, {args}")
-        #     raise
     return write_locked_func
 
 
 class Version(object):
     def __repr__(self):
-        return self.vid
+        return str(self.vid)
 
     def __str__(self):
         return str(self.vid)
@@ -132,7 +124,15 @@ class EidGroup():
         self.version_to_group = dict()
         self._delta = None
         self.new_eid = str(uuid4())
+        self._final_eid = None
         self.logger = logger
+
+    @property
+    def final_eid(self):
+        if self._final_eid is None:
+            self._final_eid = (
+                sum(self.eids)%1000000000000000000000000000000000000000000)
+        return self._final_eid
 
     def add_edge(self, edge):
         if edge.from_v not in self.version_to_group:
@@ -435,7 +435,7 @@ class VersionGraph(object):
         elif (version, version_to_new_eid) in self.forward_edge_map:
             new_v = self.forward_edge_map[(version, version_to_new_eid)]
         else:
-            new_v = Version(str(uuid4()), creation_time=version_ts)
+            new_v = Version(uuid4().int, creation_time=version_ts)
 
         if new_v.vid not in self.versions:
             self.logger.info(
@@ -1039,7 +1039,7 @@ class VersionGraph(object):
                     continue
                 if (start, end) not in self.edges:
                     edges_to_add.append(
-                        Edge(start, end, group.delta, group.new_eid))
+                        Edge(start, end, group.delta, group.final_eid))
                 self.logger.info(
                     f"LUpdating versions to delete with "
                     f"{versions - {start, end}}, {versions}")

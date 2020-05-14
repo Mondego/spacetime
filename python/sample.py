@@ -42,8 +42,8 @@ if os.path.exists("Logs"):
         if f.endswith(".log"):
             os.remove(f"Logs/{f}")
 
-NUM_PRODUCERS = 3
-TOTAL_OBJ_COUNT = 12
+NUM_PRODUCERS = 2
+TOTAL_OBJ_COUNT = 30
 
 PRODUCERS = [
     (Node(
@@ -63,8 +63,8 @@ for pnode, detail, event, i in PRODUCERS:
         TOTAL_OBJ_COUNT, NUM_PRODUCERS, i, event, START, STOP,
         #{DETAILS[i+1 if i != (len(DETAILS)-1) else 0]}) # Round Robin
         #{DETAILS[i-1], DETAILS[i+1 if i != (len(DETAILS)-1) else 0]}) # Daisy Chain
-        {DETAILS[0]} if i != 0 else set()) # Server Client
-        #set(DETAILS) - {detail}) # ROYAL RUMBLE
+        #{DETAILS[0]} if i != 0 else set()) # Server Client
+        set(DETAILS) - {detail}) # ROYAL RUMBLE
 for _, _, event, _ in PRODUCERS:
     event.wait()
 START.set()

@@ -9,7 +9,7 @@ from spacetime.utils.enums import Event
 class container(object):
     pass
 
-
+num = 0
 def get_logger(name):
     if not os.path.exists("Logs"):
         os.makedirs("Logs")

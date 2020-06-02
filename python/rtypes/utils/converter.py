@@ -92,7 +92,7 @@ def unconvert(value, dim_type, df=None):
             obj = df.read_one(dim_type, value["value"])
         if not obj:
             obj = container()
-            obj.__r_oid__ = value["value"]
+            obj.__r_oid__ = str(value["value"])
             obj.__class__ = dim_type
         return obj
     if value["type"] == Datatype.TUPLE:

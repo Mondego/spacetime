@@ -87,6 +87,7 @@ class ManagedHeap(object):
             self.diff = Diff()
 
     def read_one(self, dtype, oid):
+        oid = str(oid)
         dtpname = dtype.__r_meta__.name
         with self.access_lock.gen_rlock():
             if self._exists(dtype, oid):

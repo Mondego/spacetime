@@ -2,9 +2,11 @@ from uuid import uuid4
 from multiprocessing import Process, Queue
 from threading import Thread
 import cProfile
+import time
 
-from spacetime.dataframe import Dataframe
+# from spacetime.dataframe import Dataframe
 from spacetime.utils.enums import VersionBy, ConnectionStyle, AutoResolve
+from spacetime.dataframecpp import DataframeCPP as Dataframe
 
 def get_details(dataframe):
     if isinstance(dataframe , Dataframe):
@@ -91,6 +93,10 @@ def get_app(func, types, producer,
             # Merge the final changes back to the dataframe.
             dataframe.commit()
             dataframe.push()
+            # if not dataframe.repository.is_connected():
+            #     time.sleep(3)
+            dataframe.force_del_repo()
+            # del dataframe
             if self.instrument:
                 self.cr.create_stats()
                 self.cr.dump_stats(self.instrument)

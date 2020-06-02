@@ -184,6 +184,10 @@ class TestVersionManager(unittest.TestCase):
         self.assertEqual(package2, edge2.payload)
 
         vm.receive_data("TEST_APP1", ["0", "2"], package4)
+
+        for k in vg["2":]:
+            print(k)
+
         node3 = vg.head
         self.assertSetEqual(
             set(["ROOT", "0", "1", "2", node3.current]), set(vg.nodes.keys()))
@@ -220,6 +224,9 @@ class TestVersionManager(unittest.TestCase):
         vm.receive_data("TEST_APP1", ["ROOT", "0"], package1)
         
         r_package1, r_versions1 = vm.retrieve_data("TEST_APP1", "ROOT")
+
+        print("AAAA")
+        print(r_package1)
         self.assertDictEqual(package1, r_package1)
         self.assertListEqual(["ROOT", "0"], r_versions1)
 

@@ -204,7 +204,7 @@ class VersionManager():
                     start, dtype, oid,
                     with_change=conf_obj_change)  # conflicting
                 yours = new if from_external else conflicting
-                theirs = conflicting if from_external else theirs
+                theirs = conflicting if from_external else new
                 obj_merge, obj_conf_merge = self.resolve_with_custom_merge(
                     dtype, oid,
                     self.make_temp_obj(start, dtype, oid),  # original
@@ -245,7 +245,7 @@ class VersionManager():
     def make_temp_obj(self, version, dtype, oid, with_change=dict()):
         obj = utils.container()
         obj.__class__ = dtype
-        obj.__r_oid__ = oid
+        obj.__r_oid__ = str(oid)
         obj.__r_temp__ = {
             dimname: (
                 with_change["dims"][dimname]

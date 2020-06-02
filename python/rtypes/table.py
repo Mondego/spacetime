@@ -41,16 +41,17 @@ class RtypesTable(object):
 
         if oid is None and value is None:
             raise RuntimeError("Primary key cannot be None.")
-            
+
+        str_value = str(value)
         if oid is not None:
             # Oid is being reset, but the object is not controlled by the dataframe.
             self.object_table[oid][dimname] = convert(dim_obj.dim_type, value)
-            self.object_table[value] = self.object_table[oid]
+            self.object_table[str_value] = self.object_table[oid]
             del self.object_table[oid]
         else:
             # oid is being assigned for the first time.
-            self.object_table[value] = dict()
-            self.object_table[value][dimname] = convert(dim_obj.dim_type, value)
+            self.object_table[str_value] = dict()
+            self.object_table[str_value][dimname] = convert(dim_obj.dim_type, value)
         return value
 
 

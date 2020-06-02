@@ -29,7 +29,7 @@ def get_property(dimname, dim_obj):
             else:
                 cls.__r_table__.set_primarykey(
                     oid, dimname, dim_obj, value)
-            self.__r_oid__ = value
+            self.__r_oid__ = str(value)
         else:
             if df_attached:
                 if oid is None:
@@ -39,8 +39,8 @@ def get_property(dimname, dim_obj):
                 self.__r_df__.write_dimension(
                     cls, oid, dimname, convert(dim_obj.dim_type, value))
             else:
-                self.__r_oid__ = cls.__r_table__.set(
-                    oid, dimname, dim_obj, value)
+                self.__r_oid__ = str(cls.__r_table__.set(
+                    oid, dimname, dim_obj, value))
         if hasattr(self, "__r_temp__") and self.__r_temp__ is not None:
             self.__r_temp__[dimname] = convert(dim_obj.dim_type, value)
 

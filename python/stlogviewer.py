@@ -148,7 +148,7 @@ class STLViewer:
     def read(self, line):
         return dict(
             zip(['timestamp', 'component_name', 'log_level', 'message'],
-                line.split(' - ')))
+                line.split(' - ', 4)))
 
     def ensure_vg_exists(self, version_graph_name):
         if not version_graph_name in self.vg_name_graph:
@@ -370,8 +370,11 @@ class STLViewer:
                 except Exception as e:
                     print(e)
             nx.draw(graph, pos=pos, with_labels=True, ax=ax)
+            #if annotated_line['component_name'] == vg_name and count == 743:
+                # nx.write_gpickle(graph, 'ln743.pickle')
             labels = nx.get_edge_attributes(graph,'weights')
-            nx.draw_networkx_edge_labels(graph,pos,edge_labels=labels)
+            # nx.draw_networkx_edge_labels(graph,pos,edge_labels=labels, bbox=dict(alpha=0))
+            nx.draw_networkx_edge_labels(graph,pos,edge_labels=labels, label_pos=0.7)
 
         # plt.tight_layout()
         tgt_file = os.path.join(TGT_DIR, str(count) + '.png')
@@ -386,7 +389,10 @@ class STLViewer:
         count = 0
         for line in thelog:
             # TODO: identify "loop"
+            if line == "\n": continue
             annotated_line = self.read(line)
+            print("==")
+            print(line[:100])
             try:
                 if not (annotated_line['component_name'].lower().startswith("version_graph") or
                     annotated_line['component_name'].lower().startswith('remote_')):
@@ -397,6 +403,8 @@ class STLViewer:
                         continue
             except KeyError:
                 print ("Error in ", count)
+                print("annotated line", annotated_line)
+                print("line", line)
                 raise
             # print(tokens)
             if self.represent(annotated_line):

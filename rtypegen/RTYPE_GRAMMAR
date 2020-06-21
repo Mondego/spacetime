@@ -1,0 +1,21 @@
+@@grammar::rtype
+
+start = file:file $ ;
+
+file = { pccset:classdef }+ ;
+
+classdef = classname:classname ':' classbody:classbody ;
+classname = 'class' @:identifier ;
+
+classbody = [primarydef:primarydef] declarations:normaldefs mergefunc:mergefunc;
+
+primarydef = 'primary' @:statement ;
+
+normaldefs = { statement }*;
+statement = type:typedef name:identifier ;
+
+mergefunc = ['merge' 'func' @:identifier ];
+
+typedef = | 'int' | 'bool' | 'float' ;
+
+identifier = /[_a-zA-Z][_a-zA-Z0-9]*/ ;

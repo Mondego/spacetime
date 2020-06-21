@@ -1,0 +1,10 @@
+
+class hello:
+    primary int intvar
+    bool boolvar
+    merge func justmerge
+
+class hellonoprimary:
+    bool anotherboolean
+    int anotherint
+    merge func mergy

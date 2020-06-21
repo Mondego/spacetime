@@ -10,7 +10,7 @@ class ParseManager:
         self.klassname = None
         self.primary = None
         self.declarations = []
-        self.mergefunc = None
+        self.mergefunc_str = None
 
     def __init__(self):
         import_list = ["from rtypes import primarykey, dimension, pcc_set"]
@@ -35,7 +35,7 @@ class ParseManager:
         # print("mergefunc")
         # pprint(ast)
         if ast != 'null':
-            self.mergefunc = "def %s(self): pass" % str(ast)
+            self.mergefunc_str = "    def %s(self): pass" % str(ast)
             return 'function ' + str(ast) + '() {}'
 
     def statement(self, ast):
@@ -75,7 +75,7 @@ class ParseManager:
 
     def classdef(self, ast):
         # print("CLASSDEF")
-        content_list = ['@pcc_set', 'class ' + self.klassname + ':', self.primary, '\n'.join(self.declarations), self.mergefunc]
+        content_list = ['@pcc_set', 'class ' + self.klassname + ':', self.primary, '\n'.join(self.declarations), self.mergefunc_str]
         # print("---", content_list)
         self.file_list.append('\n'.join(list(filter(None, content_list))))
         self.reinit_vars()

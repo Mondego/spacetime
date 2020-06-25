@@ -108,13 +108,15 @@ class ServingClient(Thread):
             # Get app name
             req_app = data[enums.TransferFields.AppName]
             # Versions
-            versions = data[enums.TransferFields.Versions]
             wait = (
                 data[enums.TransferFields.Wait]
                 if enums.TransferFields.Wait in data else
                 False)
             # Received push request.
             if data[enums.TransferFields.RequestType] is enums.RequestType.Push:
+                versions = (
+                    data[enums.TransferFields.StartVersion],
+                    data[enums.TransferFields.EndVersion])
                 self.logger.debug("Processing push request.")
                 # Actual payload
                 package = data[enums.TransferFields.Data]
@@ -130,16 +132,19 @@ class ServingClient(Thread):
                 self.logger.debug("Processing pull request.")
                 timeout = data[enums.TransferFields.WaitTimeout] if wait else 0
                 req_types = data[enums.TransferFields.Types]
+                from_version = data[enums.TransferFields.StartVersion]
                 try:
                     dict_to_send, new_versions = self.pull_call_back(
-                        req_app, versions, req_types,
+                        req_app, from_version, req_types,
                         wait=wait, timeout=timeout)
                     self.logger.debug(
                         "Pull call back complete. sending back data.")
+                    start_v, end_v = new_versions
                     data_to_send = cbor.dumps({
                         enums.TransferFields.AppName: self.port,
                         enums.TransferFields.Data: dict_to_send,
-                        enums.TransferFields.Versions: new_versions,
+                        enums.TransferFields.StartVersion: start_v,
+                        enums.TransferFields.EndVersion: end_v,
                         enums.TransferFields.Status: enums.StatusCode.Success})
                     con.send(pack("!L", len(data_to_send)))
                     self.logger.debug("Pull complete. sent back data.")
@@ -266,9 +271,6 @@ class TSocketConnector(object):
         return req_socket
 
 
-    def get_new_version(self, new_versions):
-        return new_versions[1]
-
     # @instrument("socket_pull_req")
     @instrument_func("fetch")
     @guarded
@@ -277,7 +279,7 @@ class TSocketConnector(object):
             data = cbor.dumps({
                 enums.TransferFields.AppName: self.appname,
                 enums.TransferFields.RequestType: enums.RequestType.Pull,
-                enums.TransferFields.Versions: self.parent_version,
+                enums.TransferFields.StartVersion: self.parent_version,
                 enums.TransferFields.Wait: wait,
                 enums.TransferFields.WaitTimeout: timeout,
                 enums.TransferFields.Types: self.tpnames
@@ -300,13 +302,15 @@ class TSocketConnector(object):
                     "No new version received in time {0}".format(
                         timeout))
             # Versions
-            new_versions = data[enums.TransferFields.Versions]
+            new_versions = (
+                data[enums.TransferFields.StartVersion],
+                data[enums.TransferFields.EndVersion])
             # Actual payload
             package = data[enums.TransferFields.Data]
             # Send bool status back.
             self.server_connection.send(pack("!?", True))
             self.logger.debug("Ack sent (pull req)")
-            self.parent_version = self.get_new_version(new_versions)
+            self.parent_version = data[enums.TransferFields.EndVersion]
             return package, new_versions
         except TimeoutError:
             raise
@@ -318,12 +322,14 @@ class TSocketConnector(object):
     # @instrument("socket_push_req")
     @instrument_func("send_push")
     @guarded
-    def push_req(self, diff_data, version, wait=False):
+    def push_req(self, diff_data, versions, wait=False):
         try:
+            start_v, end_v = versions
             package = {
                 enums.TransferFields.AppName: self.appname,
                 enums.TransferFields.RequestType: enums.RequestType.Push,
-                enums.TransferFields.Versions: version,
+                enums.TransferFields.StartVersion: start_v,
+                enums.TransferFields.EndVersion: end_v,
                 enums.TransferFields.Data: diff_data,
                 enums.TransferFields.Wait: wait
             }
@@ -333,7 +339,7 @@ class TSocketConnector(object):
             self.logger.debug("Data sent (push req)")
             succ = unpack("!?", self.server_connection.recv(1))[0]
             self.logger.debug("Ack recv (push req)")
-            self.parent_version = self.get_new_version(version)
+            self.parent_version = end_v
             return succ
         except Exception as e:
             print ("PUSH", e)

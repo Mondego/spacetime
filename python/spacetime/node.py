@@ -6,10 +6,12 @@ import time
 
 # from spacetime.dataframe import Dataframe
 from spacetime.utils.enums import VersionBy, ConnectionStyle, AutoResolve
-from spacetime.dataframecpp import DataframeCPP as Dataframe
+from spacetime.dataframe_cpp import DataframeCPP
+from spacetime.dataframe_pure import DataframePure
 
 def get_details(dataframe):
-    if isinstance(dataframe , Dataframe):
+    if (isinstance(dataframe , DataframeCPP)
+            or isinstance(dataframe, DataframePure)):
         return dataframe.details
     elif isinstance(dataframe, tuple):
         return dataframe
@@ -49,10 +51,8 @@ def get_app(func, types, producer,
             return self._port
 
         def __init__(
-                self, appname, dataframe=None, server_port=0,
-                instrument=None, dump_graph=None,
-                connection_as=ConnectionStyle.TSocket, resolver=None,
-                autoresolve=AutoResolve.FullResolve, mem_instrument=False):
+                self, appname, dataframe=None, is_server=False, server_port=0,
+                resolver=None, pure_python=False):
             self._port = None
             self.appname = appname
             self.producer = producer
@@ -69,37 +69,32 @@ def get_app(func, types, producer,
                 get_details(dataframe) if dataframe else None)
 
             self.server_port = server_port
-            self.instrument = instrument
-            self.dump_graph = dump_graph
-            self.connection_as = connection_as
+            self.is_server = is_server or self.server_port != 0
+            self.pure_python = pure_python
             self.resolver = resolver
-            self.autoresolve = autoresolve
             self._ret_value = Queue()
-            self.mem_instrument = mem_instrument
             super().__init__()
             self.daemon = False
 
         def run(self):
             # Create the dataframe.
             self.cr = None
-            if self.instrument:
-                self.cr = cProfile.Profile()
             dataframe = self._create_dataframe()
-            self._port_fetcher.put(dataframe.details)
-            # Fork the dataframe for initialization of app.
-            dataframe.checkout()
-            # Run the main function of the app.
-            self._ret_value.put(self.func(dataframe, *self.args, **self.kwargs))
-            # Merge the final changes back to the dataframe.
-            dataframe.commit()
-            dataframe.push()
-            # if not dataframe.repository.is_connected():
-            #     time.sleep(3)
-            dataframe.force_del_repo()
-            # del dataframe
-            if self.instrument:
-                self.cr.create_stats()
-                self.cr.dump_stats(self.instrument)
+            try:
+                self._port_fetcher.put(dataframe.details)
+                # Fork the dataframe for initialization of app.
+                dataframe.checkout()
+                # Run the main function of the app.
+                self._ret_value.put(
+                    self.func(dataframe, *self.args, **self.kwargs))
+                # Merge the final changes back to the dataframe.
+                dataframe.commit()
+                dataframe.push()
+                # if not dataframe.repository.is_connected():
+                #     time.sleep(3)
+            finally:
+                # del dataframe
+                dataframe.force_del_repo()
 
         def _start(self, *args, **kwargs):
             self.args = args
@@ -125,16 +120,13 @@ def get_app(func, types, producer,
             
 
         def _create_dataframe(self):
+            Dataframe = DataframePure if self.pure_python else DataframeCPP
             df = Dataframe(
                 self.appname, self.all_types,
                 details=self.dataframe_details,
                 server_port=self.server_port,
-                connection_as=self.connection_as,
-                dump_graph=self.dump_graph,
                 resolver=self.resolver,
-                autoresolve=self.autoresolve,
-                mem_instrument=self.mem_instrument,
-                instrument=self.cr)
+                is_server=self.is_server)
             #print(self.appname, self.all_types, details, df.details)
             return df
     return App
@@ -158,20 +150,15 @@ class app(object):
 
 def Node(
         target, appname=None,
-        dataframe=None, server_port=0,
+        dataframe=None, server_port=0, is_server=False,
         Types=list(), Producer=list(), GetterSetter=list(),
         Getter=list(), Setter=list(), Deleter=list(),
-        threading=False,
-        instrument=None, dump_graph=None,
-        connection_as=ConnectionStyle.TSocket, resolver=None,
-        autoresolve=AutoResolve.FullResolve, mem_instrument=False):
+        threading=False, resolver=None, pure_python=False):
     if not appname:
         appname = "{0}_{1}".format(target.__name__, str(uuid4()))
     app_cls = get_app(
         target, set(Types), set(Producer), set(GetterSetter),
         set(Getter), set(Setter), set(Deleter), threading=threading)
     return app_cls(
-        appname, dataframe=dataframe, server_port=server_port,
-        instrument=instrument, dump_graph=dump_graph,
-        connection_as=connection_as, resolver=resolver,
-        autoresolve=autoresolve, mem_instrument=mem_instrument)
+        appname, dataframe=dataframe, is_server=is_server,
+        server_port=server_port, resolver=resolver, pure_python=pure_python)

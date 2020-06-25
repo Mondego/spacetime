@@ -3,14 +3,15 @@ class RequestType(object):
     Push = 1
 
 class TransferFields(object):
-    AppName = 0
-    Data = 1
-    RequestType = 2
-    Versions = 3
-    Wait = 4
-    WaitTimeout = 5
-    Status = 6
-    Types = 7
+    AppName = "0"
+    Data = "1"
+    RequestType = "2"
+    StartVersion = "3"
+    EndVersion = "4"
+    Wait = "5"
+    WaitTimeout = "6"
+    Status = "7"
+    Types = "8"
 
 class Event(object):
     New = 0

@@ -22,3 +22,7 @@ python/stats
 python/spacetime.egg-info
 python/build
 .idea
+build/
+python/env
+python/Logs
+python/spacetime/repository.cpython*

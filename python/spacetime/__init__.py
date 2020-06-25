@@ -1,2 +1,5 @@
 from spacetime.node import Node
-from spacetime.dataframe import Dataframe
+try:
+    from spacetime.dataframe_cpp import DataframeCPP as Dataframe
+except ImportError:
+    from spacetime.dataframe_pure import DataframePure as Dataframe

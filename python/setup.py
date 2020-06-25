@@ -5,7 +5,8 @@ https://github.com/pypa/sampleproject
 """
 
 # Always prefer setuptools over distutils
-from setuptools import setup, find_packages
+import os
+from setuptools import setup, find_packages, Extension
 # To use a consistent encoding
 from codecs import open
 from os import path
@@ -16,13 +17,23 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
+# TODO: Connect this to cmake to build the libdataframe_core.a.
+# TODO: Make it work with windows.
+repository = Extension('spacetime.repository',
+                #library_dirs = ['.'],
+                include_dirs = ['../core/include', '../core/libs', '../core/libs/asio/include'],
+                sources = ['spacetime/py_repository.cpp', 'spacetime/pyobj_guard.cpp'],
+                extra_objects=['../build/libdataframe_core.a'],
+                extra_compile_args=['--std=c++17', '-O3'],
+                language="c++")
+
 setup(
     name='spacetime',
 
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='2.1.1',
+    version='2.2.0',
 
     description='Spacetime Node Framework',
     long_description='This is the implementation of spacetime and relational types in Python. See https://github.com/Mondego/spacetime',
@@ -79,7 +90,7 @@ setup(
     # your project is installed. For an analysis of "install_requires" vs pip's
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=['cbor', 'readerwriterlock'],
+    install_requires=['cbor', 'numpy'],
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). You can install these using the following syntax,
@@ -91,6 +102,7 @@ setup(
         'flask': ['flask'],
         'crypto' : ['cryptography']
     },
+    ext_modules=[repository],
 
     # If there are data files included in your packages that need to be
     # installed, specify them here.  If using Python 2.6 or less, then these

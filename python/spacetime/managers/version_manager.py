@@ -319,12 +319,9 @@ class VersionManager():
                 if tpname in recv_diff
             }
             with self.write_lock:
-                if self.autoresolve is AutoResolve.BranchExternalPush:
-                    self.version_graph.continue_chain(
-                        start_v, end_v, package, appname != self.appname)
                 self.resolve_conflict(start_v, end_v, package, from_external)
                 self.maintain(appname, end_v)
-            
+
             return True
         finally:
             if self.instrument:
@@ -378,9 +375,9 @@ class VersionManager():
     def resolve_conflict(self, start_v, end_v, package, from_external):
         change, versions = self.retrieve_data_nomaintain(start_v)
         new_v = versions[1]
-        if new_v == start_v or self.autoresolve is AutoResolve.BranchConflicts:
+        if new_v == start_v:
             self.version_graph.continue_chain(start_v, end_v, package)
-        elif change:
+        else:
             t_new_merge, t_conflict_merge = self.operational_transform(
                 start_v, change, package, from_external)
             merge_v = str(uuid4())

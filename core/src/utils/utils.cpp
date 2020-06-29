@@ -1,7 +1,3 @@
-//
-// Created by zhazha on 1/22/20.
-//
-
 #include <utils/utils.h>
 #include <utils/enums.h>
 
@@ -10,7 +6,8 @@
 namespace {
     using utils::eq_in_int;
 
-    json merge_object_delta(std::string const &dtpname, json &&old_change, json &&new_change, int old_type, int new_type) {
+    json merge_object_delta(std::string const & dtpname, json && old_change, json && new_change, int old_type,
+                            int new_type) {
         using enums::Event;
 
         if (old_change.is_null()) return std::move(new_change);
@@ -21,7 +18,7 @@ namespace {
             return std::move(new_change);
         if (
                 !(eq_in_int(new_type, Event::Modification) ||
-                (eq_in_int(new_type, Event::New) && eq_in_int(old_type, Event::New))))
+                  (eq_in_int(new_type, Event::New) && eq_in_int(old_type, Event::New))))
             throw std::runtime_error("Not sure why the new change does not have modification.");
         if (eq_in_int(old_type, Event::Delete)) return std::move(old_change);
 
@@ -67,13 +64,13 @@ namespace {
     }
 
 
-    json merge_objectlist_delta(std::string const & dtpname, json &&old_change, json &&new_change, bool delete_it) {
+    json merge_objectlist_delta(std::string const & dtpname, json && old_change, json && new_change, bool delete_it) {
         using enums::Event;
 
         auto & old_obj = old_change.get_obj();
         auto & new_obj = new_change.get_obj();
 
-        const json & a = old_change;
+        json const & a = old_change;
         auto & ooo = a.get_obj();
 
         auto old_it = old_obj.begin();
@@ -98,8 +95,8 @@ namespace {
             int compare_result = old_key.compare(new_key);
             if (!compare_result) {
                 if
-                ( eq_in_int(new_type, Event::Delete) &&
-                (eq_in_int(old_type, Event::New) || delete_it)) {
+                        (eq_in_int(new_type, Event::Delete) &&
+                         (eq_in_int(old_type, Event::New) || delete_it)) {
                     old_it = old_obj.erase(old_it);
                     ++new_it;
                     continue;
@@ -175,7 +172,7 @@ namespace utils {
         }
     }
 
-    json merge_state_delta(json &&old_change, json &&new_change, bool delete_it) {
+    json merge_state_delta(json && old_change, json && new_change, bool delete_it) {
         if (old_change.is_null()) return std::move(new_change);
         if (new_change.is_null()) return std::move(old_change);
 
@@ -222,7 +219,7 @@ namespace utils {
         return std::move(old_change);
     }
 
-    std::string get_uuid4(){
+    std::string get_uuid4() {
         using namespace uuid;
         std::ostringstream ss;
         int i;

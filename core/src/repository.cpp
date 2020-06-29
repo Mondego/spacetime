@@ -1,7 +1,6 @@
 #include <repository.h>
 
-#include <algorithm>
-#include <iostream>
+#include <utils/debug_logger.h>
 
 namespace {
     std::string socket_parent_tag = "SOCKETPARENT";
@@ -43,10 +42,10 @@ namespace {
             auto & name_list_vec = name_list.get_ref<json::array_t &>();
 
             std::sort(name_list_vec.begin(), name_list_vec.end(),
-                    [](json const & lhs, json const & rhs) {
-                        return lhs.get_ref<json::string_t const &>() < rhs.get_ref<json::string_t const &>();
-                    }
-                );
+                      [](json const & lhs, json const & rhs) {
+                          return lhs.get_ref<json::string_t const &>() < rhs.get_ref<json::string_t const &>();
+                      }
+            );
 
             result_map.emplace_hint(result_map.end(), data_it->first, std::move(name_list));
             ++data_it;
@@ -68,7 +67,7 @@ unsigned int repository::Repository::start_server(unsigned short port, unsigned 
     return repoServer->port();
 }
 
-void repository::Repository::connect_to(const std::string & address, unsigned short port) {
+void repository::Repository::connect_to(std::string const & address, unsigned short port) {
     std::vector<char> type_chains_cbor;
     json::to_cbor(m_type_chains, type_chains_cbor);
     repoConnector = std::make_unique<async_client::connector>(manager, m_app_name, std::move(type_chains_cbor));
@@ -76,7 +75,11 @@ void repository::Repository::connect_to(const std::string & address, unsigned sh
 }
 
 void repository::Repository::push() {
+    logger::debug("pushing");
+
     if (!repoConnector || !repoConnector->is_connected()) return;
+    logger::debug("is connected, proceeding");
+
     auto [json_data, start_v, end_v] =
             manager.retrieve_data(socket_parent_tag, repoConnector->get_current_version());
 
@@ -91,7 +94,7 @@ void repository::Repository::push() {
 void repository::Repository::push_await() {
     if (!repoConnector || !repoConnector->is_connected()) return;
     auto [json_data, start_v, end_v] =
-    manager.retrieve_data(socket_parent_tag, repoConnector->get_current_version());
+            manager.retrieve_data(socket_parent_tag, repoConnector->get_current_version());
 
     if (start_v == end_v)
         return;
@@ -103,9 +106,10 @@ void repository::Repository::push_await() {
 
 void repository::Repository::fetch() {
     if (!repoConnector || !repoConnector->is_connected()) return;
-    // std::cout << "now fetching" << std::endl;
+    logger::debug("now fetching");
     auto [json_data, start_v, end_v] = repoConnector->pull_req();
-    // std::cout << "pull_req_data: " <<  json_data << start_v << end_v << std::endl;
+    logger::debug("pull_req data: ", json_data, " ", start_v, " ", end_v);
+
     manager.receive_data(socket_parent_tag, start_v, end_v, std::move(json_data));
 }
 
@@ -128,5 +132,5 @@ bool repository::Repository::is_connected() {
 }
 
 repository::Repository::~Repository() {
-    // std::cout << "destroying Repo cpp" << std::endl;
+    logger::debug("destroying Repo cpp");
 }

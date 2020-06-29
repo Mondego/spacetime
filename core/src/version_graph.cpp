@@ -8,38 +8,14 @@ namespace {
     inline static const std::string root_tag = "ROOT";
 
     template <class T1, class T2>
-    std::pair<T1&, T2&> tie_pair(T1 & t1, T2 & t2) noexcept {
-        return std::pair<T1&, T2&>(t1, t2);
+    std::pair<T1 &, T2 &> tie_pair(T1 & t1, T2 & t2) noexcept {
+        return std::pair<T1 &, T2 &>(t1, t2);
     }
 }
 
-/*
-version_graph::Node::Node(std::string tag, bool is_master) :
-	tag(std::move(tag)), is_master(is_master) {}
-
-void version_graph::Node::set_next(std::shared_ptr<Node> const & version) {
-    auto next_master_shared = next_edge.lock();
-    if (!next_master_shared)
-        next_edge = version;
-    all_next.insert(version);
-}
-
-void version_graph::Node::set_prev(std::shared_ptr<Node> const & version) {
-    auto prev_master_shared = prev_edge.lock();
-    if (!prev_master_shared)
-        prev_edge = version;
-    all_prev.insert(version);
-}
-
-version_graph::Edge::Edge(std::shared_ptr<Node> from_node, std::shared_ptr<Node> to_node, nlohmann::json && payload):
-    from_node(std::move(from_node)), to_node(std::move(to_node)), payload(payload) {}
-
-version_graph::Graph::Graph() :
-    head(std::make_unique<Node>(root_tag, true)), tail(head), nodes({{root_tag, head}}) {}
-*/
-
-void version_graph::Graph::continue_chain(std::string const & from_version, std::string const & to_version, nlohmann::json && payload, bool force_branch) {
-    // std::cout << std::string("\ncontinue chain : at ").append(std::to_string((long long)this)).append(", ").append(from_version).append(" to ").append(to_version).append("\n");
+void version_graph::Graph::continue_chain(std::string const & from_version, std::string const & to_version,
+                                          nlohmann::json && payload, bool force_branch) {
+    logger::debug("continue chain at ", (long long) this, ", ", from_version, " to ", to_version);
     std::shared_ptr<Node> from_node;
     std::shared_ptr<Node> to_node;
     if (tag_to_node.count(from_version)) {
@@ -74,7 +50,7 @@ void version_graph::Graph::continue_chain(std::string const & from_version, std:
 
 }
 
-void version_graph::Graph::dispose_node(std::shared_ptr<Node> &&node_ptr) {
+void version_graph::Graph::dispose_node(std::shared_ptr<Node> && node_ptr) {
     std::lock_guard disposal_lock(disposal_mutex);
     disposal.emplace(std::move(node_ptr));
 }
@@ -92,7 +68,7 @@ void version_graph::Graph::clear_disposal() {
 }
 
 version_graph::Graph::Graph()
-: is_dead(false) {
+        : is_dead(false) {
     tail = head = std::make_unique<Node>(root_tag, true, *this);
     tag_to_node.emplace(root_tag, tail);
 }
@@ -183,8 +159,8 @@ version_graph::Graph::Node::~Node() {
     }
 }
 
-version_graph::Graph::Node::Node(std::string tag, bool is_master, Graph &graph) :
-tag(std::move(tag)), is_master(is_master), graph(graph), prev_count(0), next_count(0) {
+version_graph::Graph::Node::Node(std::string tag, bool is_master, Graph & graph) :
+        tag(std::move(tag)), is_master(is_master), graph(graph), prev_count(0), next_count(0) {
 
 }
 
@@ -210,21 +186,22 @@ version_graph::Graph::Node::set_next(std::shared_ptr<Edge> const & next, std::sh
     }
 }
 
-version_graph::Graph::Edge::Edge(const std::shared_ptr<Node> &prev, const std::shared_ptr<Node> &next, json && payload)
-: prev(prev), next(next), payload(std::move(payload)) {
+version_graph::Graph::Edge::Edge(const std::shared_ptr<Node> & prev, const std::shared_ptr<Node> & next,
+                                 json && payload)
+        : prev(prev), next(next), payload(std::move(payload)) {
 
-    DEBUG_INFO(std::string("Adding new edge (").append(prev->tag).append(", ").append(next->tag).append(", E:").append(next->tag).append(")"));
+    logger::debug("Adding new edge (", prev->tag, ", ", next->tag, ", E:", next->tag, ")");
 }
 
-version_graph::Graph::iterator::iterator(version_graph::Graph &graph, std::shared_ptr<Node> current_node)
-: graph(graph), current_node(std::move(current_node)) {
+version_graph::Graph::iterator::iterator(version_graph::Graph & graph, std::shared_ptr<Node> current_node)
+        : graph(graph), current_node(std::move(current_node)) {
     if (this->current_node) {
         this->current_lock = std::shared_lock(this->current_node->next_mutex);
         this->next_node = this->current_node->next_edge ? this->current_node->next_edge->next.lock() : nullptr;
     }
 }
 
-version_graph::Graph::iterator &version_graph::Graph::iterator::operator++() {
+version_graph::Graph::iterator & version_graph::Graph::iterator::operator++() {
     if (current_node) {
         graph.dispose_node(std::move(current_node));
         current_node = std::move(next_node);
@@ -237,7 +214,7 @@ version_graph::Graph::iterator &version_graph::Graph::iterator::operator++() {
     return *this;
 }
 
-bool version_graph::Graph::iterator::operator!=(const version_graph::Graph::iterator &other) {
+bool version_graph::Graph::iterator::operator!=(version_graph::Graph::iterator const & other) {
     return this->current_node != other.current_node;
 }
 
@@ -246,18 +223,17 @@ version_graph::Graph::iterator::value_type version_graph::Graph::iterator::opera
         throw std::runtime_error("How is current node null? ");
     }
     if (!current_node->next_edge) {
-        // std::cout << "How is current node has null next edge? " << current_node->tag << std::endl;
         throw std::runtime_error("How is current node has null next edge? ");
     }
     return tie_pair<std::string const, json const>(
-//            current_node->next_edge->next.lock()->tag,
             next_node->tag,
             current_node->next_edge->payload
-            );
+    );
 }
 
-version_graph::Graph::iterator::iterator(version_graph::Graph &graph, std::shared_ptr<Node> current_node, version_graph::Graph::iterator::last_t)
-: graph(graph), current_node(std::move(current_node)) {
+version_graph::Graph::iterator::iterator(version_graph::Graph & graph, std::shared_ptr<Node> current_node,
+                                         version_graph::Graph::iterator::last_t)
+        : graph(graph), current_node(std::move(current_node)) {
 }
 
 version_graph::Graph::iterator::~iterator() {
@@ -271,8 +247,9 @@ version_graph::Graph::iterator::operator bool() const {
     return current_node && current_node->next_edge;
 }
 
-version_graph::Graph::reverse_iterator::reverse_iterator(version_graph::Graph & graph, std::shared_ptr<Node> current_node)
-: graph(graph), current_node(std::move(current_node)){
+version_graph::Graph::reverse_iterator::reverse_iterator(version_graph::Graph & graph,
+                                                         std::shared_ptr<Node> current_node)
+        : graph(graph), current_node(std::move(current_node)) {
     if (this->current_node) {
         this->current_lock = std::shared_lock(this->current_node->prev_mutex);
         this->next_node = this->current_node->prev_edge ? this->current_node->prev_edge->prev.lock() : nullptr;
@@ -283,7 +260,7 @@ version_graph::Graph::reverse_iterator::reverse_iterator(
         version_graph::Graph & graph,
         std::shared_ptr<Node> current_node,
         version_graph::Graph::reverse_iterator::last_t)
-        : graph(graph), current_node(std::move(current_node)){
+        : graph(graph), current_node(std::move(current_node)) {
 
 }
 
@@ -306,10 +283,9 @@ bool version_graph::Graph::reverse_iterator::operator!=(const version_graph::Gra
 
 version_graph::Graph::reverse_iterator::value_type version_graph::Graph::reverse_iterator::operator*() {
     return tie_pair<std::string const, json const>(
-//            current_node->prev_edge->prev.lock()->tag,
             next_node->tag,
             current_node->prev_edge->payload
-            );
+    );
 }
 
 version_graph::Graph::reverse_iterator::~reverse_iterator() {
@@ -328,7 +304,7 @@ std::string version_graph::Graph::get_head_tag() {
     return head->tag;
 }
 
-void version_graph::Graph::update_app_ref(const std::string &appname, const std::string &version) {
+void version_graph::Graph::update_app_ref(std::string const & appname, std::string const & version) {
     std::shared_ptr<Node> version_node;
     {
         std::lock_guard external_refs_await_lock(external_refs_await_mutex);

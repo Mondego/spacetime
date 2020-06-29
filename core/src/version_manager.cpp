@@ -20,8 +20,8 @@ version_manager::VersionManager::VersionManager(
 }
 
 bool version_manager::VersionManager::receive_data(
-        std::string const & app_name, const std::string & start_v,
-        const std::string & end_v, json && recv_diff, bool from_external) {
+        std::string const & app_name, std::string const & start_v,
+        std::string const & end_v, json && recv_diff, bool from_external) {
     if (start_v == end_v) return true;
     // Pick up only the delta changes for types that are stored by this
     // dataframe. Remote dataframes can send more types if they store it.
@@ -132,13 +132,14 @@ version_manager::VersionManager::retrieve_data_nomaintain(
         std::string version, json && req_types) {
     // Get only the types that are being requested.
     std::set<std::string> const & obtainable_types =
-            req_types.is_null() ? type_names : process_req_types(
-                std::move(req_types));
+            req_types.is_null() ?
+            type_names :
+            process_req_types(std::move(req_types));
 
     // For all practical purposes this is the HEAD,
     // but concurrent writes can change the HEAD during the read
     // and therefore it is safer to explicitly obtain the version
-    // uptil which deltas were read.
+    // until which deltas were read.
     std::string next_version = version;
 
     // The final delta that represents the change from
@@ -153,7 +154,7 @@ version_manager::VersionManager::retrieve_data_nomaintain(
     // Any concurrent writes that change will not affect graph_end.
     // The reader will receive those new updates only on next fetch/checkout
     while (graph_it && graph_it != graph_end) {
-        auto[new_version, delta] = *graph_it;
+        auto [new_version, delta] = *graph_it;
         next_version = new_version;
 
         json package = json::object();
@@ -199,7 +200,7 @@ version_manager::VersionManager::retrieve_data_nomaintain(
 
 std::tuple<json, std::string, std::string>
 version_manager::VersionManager::retrieve_data(
-        const std::string & app_name, std::string version, json && req_types) {
+        std::string const & app_name, std::string version, json && req_types) {
     // prev_version == version (request version),
     // next_version == HEAD (final version),
     // data == delta changes from version to HEAD (the change)
@@ -215,7 +216,7 @@ version_manager::VersionManager::retrieve_data(
 }
 
 void version_manager::VersionManager::resolve_conflict(
-        const std::string & start_v, const std::string & end_v, json && package,
+        std::string const & start_v, std::string const & end_v, json && package,
         bool from_external) {
     // Get all changes since start_v
     // If start_v is HEAD, return empty change, and old_v == new_v == start_v.
@@ -682,65 +683,9 @@ version_manager::VersionManager::wait_graph_change_for(std::string const & versi
     return graph_changed.wait_for(write_lock, period, [&version, this]{ return graph.is_dead || graph.get_head_tag() != version; });
 }
 
-//json version_manager::VersionManager::read_dimensions(std::string const & version, std::string const & dtpname,
-//                                                      std::string const & oid) {
-//    json result = json::object();
-//
-//    auto result_map = result.get_obj();
-//
-//    std::unordered_set<std::string> dims = type_dim_map[dtpname];
-//
-//    bool done = false;
-//    auto graph_it = graph.rbegin(version);
-//    auto graph_end = graph.rend();
-//
-//    while (graph_it != graph_end && !done) {
-//        auto const & change = (*graph_it).second.get_obj();
-//        auto type_it = change.find(dtpname);
-//        if (type_it != change.end()) {
-//            auto const & type_obj = type_it->second.get_obj();
-//            auto obj_it = type_obj.find(oid);
-//            if (obj_it != type_obj.end()) {
-//                auto const& obj_obj = obj_it->second.get_obj();
-//
-//
-//                auto obj_types_it = obj_obj.find(rtype_tags::types);
-//                if (obj_types_it != obj_obj.end()) {
-//                    auto const & obj_types_obj = obj_types_it->second.get_obj();
-//                    auto type_change_it = obj_types_obj.find(dtpname);
-//                    if (
-//                            type_change_it != obj_types_obj.end() &&
-//                            utils::eq_in_int(type_change_it->second, enums::Event::Delete)
-//                            )
-//                        done = true;
-//                }
-//
-//                auto obj_dims_it = obj_obj.find(rtype_tags::dims);
-//                if (obj_dims_it != obj_obj.end()) {
-//                    auto const & obj_dims_obj = obj_dims_it->second.get_obj();
-//
-//                    auto dim_it = obj_dims_obj.begin();
-//                    auto dim_end = obj_dims_obj.end();
-//                    while (dim_it != dim_end) {
-//                        auto const & dimname = dim_it->first;
-//                        auto dim_set_it = dims.find(dimname);
-//                        if (dim_set_it != dims.end()) {
-//                            result_map.emplace_hint(result_map.end(), dimname, dim_it->second);
-//                            dims.erase(dim_set_it);
-//                            done = dims.empty();
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//        ++graph_it;
-//    }
-//    return std::move(result);
-//}
-
 std::pair<json, json>
-version_manager::VersionManager::run_custom_merge(const std::string & version, const std::string & dtpname,
-                                                  const std::string & oid, json && original_obj, json && new_obj,
+version_manager::VersionManager::run_custom_merge(std::string const & version, std::string const & dtpname,
+                                                  std::string const & oid, json && original_obj, json && new_obj,
                                                   json && conflicting_obj, std::vector<char> const & new_change_cbor,
                                                   std::vector<char> const & conflicting_change_cbor) {
 
@@ -868,7 +813,8 @@ version_manager::VersionManager::run_custom_merge(const std::string & version, c
         ++graph_it;
     }
 
-    return custom_merge_function(dtpname, oid,
+    return custom_merge_function(
+            dtpname, oid,
             original_obj.is_null() ? original_obj : original_dim_obj,
             new_obj.is_null() ? new_obj : new_dim_obj,
             conflicting_obj.is_null() ? conflicting_obj : conflicting_dim_obj,

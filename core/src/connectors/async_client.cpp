@@ -2,12 +2,12 @@
 
 #include <connectors/async_utils.h>
 
-#include <iostream>
+#include <utils/debug_logger.h>
 
 namespace {
     inline static const std::string root_tag = "ROOT";
 
-    template <typename T, template<typename> class data_t = std::vector>
+    template <typename T, template <typename> class data_t = std::vector>
     inline void push_back_all(std::vector<T> & target, data_t<T> const & data) {
         std::size_t previous_length = target.size();
         target.resize(previous_length + data.size());
@@ -29,8 +29,10 @@ namespace {
 
         result.push_back(cbor_const::cbor_char_header);
         result.push_back(enums::transfer_fields::RequestType);
-        result.push_back(cbor_small_unsigned_int<static_cast<unsigned int>(
-            enums::RequestType::Pull)>());
+        result.push_back(cbor_small_unsigned_int<
+                static_cast<unsigned int>(
+                        enums::RequestType::Pull)
+        >());
 
         result.push_back(cbor_const::cbor_char_header);
         result.push_back(enums::transfer_fields::StartVersion);
@@ -55,8 +57,8 @@ namespace {
     }
 
     std::vector<char> construct_push_request(
-            std::string appname, std::pair<std::string, std::string> &&versions,
-            bool wait, const json & diff_data) {
+            std::string appname, std::pair<std::string, std::string> && versions,
+            bool wait, json const & diff_data) {
         using namespace async_utils;
         std::vector<char> result;
         result.push_back(cbor_map_header<6>());
@@ -68,8 +70,10 @@ namespace {
 
         result.push_back(cbor_const::cbor_char_header);
         result.push_back(enums::transfer_fields::RequestType);
-        result.push_back(cbor_small_unsigned_int<static_cast<unsigned int>(
-            enums::RequestType::Push)>());
+        result.push_back(cbor_small_unsigned_int<
+                static_cast<unsigned int>(
+                        enums::RequestType::Push)
+        >());
 
         result.push_back(cbor_const::cbor_char_header);
         result.push_back(enums::transfer_fields::StartVersion);
@@ -91,13 +95,12 @@ namespace {
     }
 }
 
-async_client::connector::connector(
-        version_manager::VersionManager & manager, std::string m_appname,
-        std::vector<char> && m_tp_chain_cbor):
-            manager(manager), m_appname(std::move(m_appname)),
-            current_version(root_tag),
-            m_tp_chain_cbor(std::move(m_tp_chain_cbor)),
-            m_socket(m_context) {
+async_client::connector::connector(version_manager::VersionManager & manager, std::string m_appname,
+                                   std::vector<char> && m_tp_chain_cbor) :
+        manager(manager), m_appname(std::move(m_appname)),
+        current_version(root_tag),
+        m_tp_chain_cbor(std::move(m_tp_chain_cbor)),
+        m_socket(m_context) {
 }
 
 async_client::connector::~connector() {
@@ -106,27 +109,23 @@ async_client::connector::~connector() {
     }
 }
 
-void async_client::connector::connect(
-        const std::string & address, unsigned short port) {
+void async_client::connector::connect(std::string const & address, unsigned short port) {
     m_socket.close();
     asio::error_code ec;
     asio::ip::tcp::endpoint m_endpoint;
     auto m_address = asio::ip::address::from_string(address, ec);
     if (ec) {
         asio::ip::tcp::resolver m_resolver(m_context);
-        auto query_result = m_resolver.resolve(
-            address, std::to_string(port), ec);
+        auto query_result = m_resolver.resolve(address, std::to_string(port), ec);
         if (ec || query_result.empty())
-            throw std::runtime_error(
-                "Invalid IP address or hostname: " + address);
+            throw std::runtime_error("Invalid IP address or hostname: " + address);
     } else {
         m_endpoint = asio::ip::tcp::endpoint(m_address, port);
     }
     m_socket.connect(m_endpoint, ec);
     m_socket.non_blocking(false);
     if (ec) {
-        throw std::runtime_error(
-            "Failed to connect to" + address + ":" + std::to_string(port));
+        throw std::runtime_error("Failed to connect to" + address + ":" + std::to_string(port));
     }
 
 }
@@ -136,44 +135,37 @@ std::tuple<json, std::string, std::string> async_client::connector::pull_req(
     if (!m_socket.is_open())
         throw std::runtime_error("Not connected");
     m_buffer = construct_fetch_request(
-        m_appname, current_version, wait, timeout, m_tp_chain_cbor);
+            m_appname, current_version, wait, timeout, m_tp_chain_cbor);
     send_request();
     receive_fetch_response();
     json data = json::from_cbor(m_buffer);
-    
+
     if (wait && timeout > 0
-            && utils::eq_in_int(
-                data[std::string(1, enums::transfer_fields::Status)],
-                enums::StatusCode::Timeout)) {
+        && utils::eq_in_int(
+            data[std::string(1, enums::transfer_fields::Status)],
+            enums::StatusCode::Timeout)) {
         send_ack();
         throw async_utils::timeout_error(
-            "No new version received in time" + std::to_string(timeout));
+                "No new version received in time" + std::to_string(timeout));
     }
-    std::string start_version = std::move(
-        data[
-            std::string(1, enums::transfer_fields::StartVersion)
-        ].get_ref<json::string_t &>());
-    std::string end_version = std::move(
-        data[
-            std::string(1, enums::transfer_fields::EndVersion)
-        ].get_ref<json::string_t &>());
-    json package = std::move(
-        data[std::string(1, enums::transfer_fields::Data)]);
+    std::string start_version =
+            std::move(data[std::string(1, enums::transfer_fields::StartVersion)].get_ref<json::string_t &>());
+    std::string end_version =
+            std::move(data[std::string(1, enums::transfer_fields::EndVersion)].get_ref<json::string_t &>());
+    json package =
+            std::move(data[std::string(1, enums::transfer_fields::Data)]);
     send_ack();
     current_version = end_version;
-    return {
-        std::move(package), std::move(start_version), std::move(end_version)};
+
+    return {std::move(package), std::move(start_version), std::move(end_version)};
 }
 
 bool async_client::connector::push_req(
-        json const & diff_data, std::string && start_v, std::string && end_v,
-        bool wait) {
+        json const & diff_data, std::string && start_v, std::string && end_v,bool wait) {
     if (!m_socket.is_open())
         throw std::runtime_error("Not connected");
     std::string final_version = end_v;
-    m_buffer = construct_push_request(
-        m_appname, std::pair(std::move(start_v), std::move(end_v)),
-        wait, diff_data);
+    m_buffer = construct_push_request(m_appname, std::pair(std::move(start_v), std::move(end_v)), wait, diff_data);
     send_request();
     bool success = receive_ack();
     current_version = std::move(final_version);
@@ -202,13 +194,12 @@ void async_client::connector::receive_fetch_response() {
 void async_client::connector::send_request_length(unsigned int length) {
     async_utils::pack_unsigned_int(m_int_buffer, length);
     try {
-        std::size_t sent_len = asio::write(
-            m_socket, asio::buffer(m_int_buffer));
+        std::size_t sent_len =
+                asio::write(m_socket, asio::buffer(m_int_buffer));
         if (sent_len != 4)
-            std::cout << "sent only " << sent_len << std::endl;
+            logger::error("sent only ", sent_len, "expected: ", 4);
     } catch (std::exception & ex) {
-        std::cout << "write length error"
-                  << ex.what() << "sending: " << length << std::endl;
+        logger::error("write length error: ", ex.what(), "sending: ", length);
     }
 }
 
@@ -219,14 +210,12 @@ void async_client::connector::send_request() {
 }
 
 bool async_client::connector::receive_ack() {
-    asio::read(
-        m_socket, asio::buffer(m_int_buffer.data(), sizeof(unsigned char)));
+    asio::read(m_socket, asio::buffer(m_int_buffer.data(), sizeof(unsigned char)));
     return m_int_buffer[0];
 }
 
 void async_client::connector::send_ack() {
     m_int_buffer[0] = true;
-    asio::write(
-        m_socket, asio::buffer(m_int_buffer.data(), sizeof(unsigned char)));
+    asio::write(m_socket, asio::buffer(m_int_buffer.data(), sizeof(unsigned char)));
 }
 

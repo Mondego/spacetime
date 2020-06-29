@@ -26,5 +26,5 @@ void async_utils::pack_unsigned_int(
 }
 
 bool async_utils::little_endianess(int num) noexcept {
-    return *reinterpret_cast<char*>(&num) == 1;
+    return *reinterpret_cast<char *>(&num) == 1;
 }

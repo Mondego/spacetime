@@ -7,7 +7,7 @@
 #include <version_manager.h>
 
 namespace async_client {
-    class connector{
+    class connector {
     private:
         version_manager::VersionManager & manager;
         std::vector<char> m_tp_chain_cbor;
@@ -35,7 +35,8 @@ namespace async_client {
         void send_ack();
 
     public:
-        connector(version_manager::VersionManager & manager, std::string m_appname, std::vector<char> && m_tp_chain_cbor);
+        connector(version_manager::VersionManager & manager, std::string m_appname,
+                  std::vector<char> && m_tp_chain_cbor);
 
         ~connector();
 

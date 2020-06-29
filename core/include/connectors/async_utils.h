@@ -28,7 +28,7 @@ namespace async_utils {
     template <unsigned int count>
     constexpr unsigned char cbor_map_header() {
         static_assert(count < 24, "cannot represent map header with single byte when length of map is greater than 23");
-        return  map_header | count;
+        return map_header | count;
     }
 
     template <unsigned int val>
@@ -37,7 +37,7 @@ namespace async_utils {
         return unsigned_int_header | val;
     }
 
-    class timeout_error : public std::runtime_error{
+    class timeout_error : public std::runtime_error {
         using std::runtime_error::runtime_error;
     };
 

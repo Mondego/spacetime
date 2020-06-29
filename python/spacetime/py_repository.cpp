@@ -270,7 +270,7 @@ static PyObject * Repository_retrieve_data(
     std::string version = pystr_to_string(argv[1]);
 
     try {
-        auto[data, start_v, end_v] =
+        auto [data, start_v, end_v] =
             self->m_repo->get_manager_ref().retrieve_data(app_name, version);
         json packed_data = 
             {std::move(data), std::move(start_v), std::move(end_v)};

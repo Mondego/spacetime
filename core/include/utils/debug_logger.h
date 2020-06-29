@@ -2,16 +2,40 @@
 #define DATAFRAME_CORE_DEBUG_LOGGER_H
 
 #ifdef NDEBUG
-#define DEBUG_INFO(message) do { } while ( false )
+#define DEBUG_LOGGER_ENABLED false
 #else
+#define DEBUG_LOGGER_ENABLED true
+
 #include <fstream>
 #include <mutex>
+
 inline std::mutex log_mutex;
-inline std::ofstream logfile("graph_log.txt");
-#define DEBUG_INFO(message) do {\
-    std::lock_guard lock(log_mutex);\
-    logfile << "2020-05-19 14:17:09,097 - version_graph_0 - INFO - " << message << std::endl;\
-} while (false)
-#endif
+inline std::ofstream logfile("df_core.log");
+#endif //NDEBUG
+
+namespace logger {
+    template <typename... Types>
+    void raw_write(Types... messages) {
+        if constexpr(DEBUG_LOGGER_ENABLED && sizeof...(messages) > 0) {
+            std::lock_guard lock(log_mutex);
+            (logfile << ... <<  messages) << std::endl;
+        }
+    }
+
+    template <typename... Types>
+    void error(Types... messages) {
+        raw_write("ERROR: ", messages...);
+    }
+
+    template <typename... Types>
+    void info(Types... messages) {
+        raw_write("INFO: ", messages...);
+    }
+
+    template <typename... Types>
+    void debug(Types... messages) {
+        raw_write("DEBUG: ", messages...);
+    }
+}
 
 #endif //DATAFRAME_CORE_DEBUG_LOGGER_H

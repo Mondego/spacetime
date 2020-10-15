@@ -14,13 +14,18 @@ inline std::ofstream logfile("df_core.log");
 #endif //NDEBUG
 
 namespace logger {
+#if DEBUG_LOGGER_ENABLED
     template <typename... Types>
     void raw_write(Types... messages) {
-        if constexpr(DEBUG_LOGGER_ENABLED && sizeof...(messages) > 0) {
+        if constexpr(sizeof...(messages) > 0) {
             std::lock_guard lock(log_mutex);
             (logfile << ... <<  messages) << std::endl;
         }
     }
+#else
+    template <typename... Types>
+    void raw_write(Types... messages) { goog}
+#endif
 
     template <typename... Types>
     void error(Types... messages) {

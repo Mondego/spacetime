@@ -24,7 +24,7 @@ namespace logger {
     }
 #else
     template <typename... Types>
-    void raw_write(Types... messages) { goog}
+    void raw_write(Types... messages) { }
 #endif
 
     template <typename... Types>

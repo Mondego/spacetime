@@ -14,7 +14,7 @@ namespace {
     public:
         connection_handler(
                 version_manager::VersionManager & manager,
-                asio::io_context & context);
+                asio::io_context & context, asio::io_context & writer_context);
 
         ~connection_handler();
 
@@ -54,6 +54,7 @@ namespace {
 
         version_manager::VersionManager & manager;
         asio::io_context & m_context;
+        asio::io_context & m_writer_context;
         asio::ip::tcp::socket m_socket;
         std::vector<char> m_buffer;
         std::array<unsigned char, 4> m_int_buffer;
@@ -81,6 +82,9 @@ namespace async_server {
 
 
         asio::io_context m_context;
+        asio::io_context m_writer_context;
+        std::unique_ptr<asio::io_context::work> writer_context_lock;
+        std::vector<std::thread> writer_thread;
         unsigned int thread_count;
         std::vector<std::thread> thread_pool;
         asio::ip::tcp::acceptor m_acceptor;

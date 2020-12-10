@@ -70,9 +70,11 @@ async_server::server::server(version_manager::VersionManager & manager, unsigned
                              unsigned short thread_count) :
         manager(manager),
         m_context(), thread_count(thread_count),
+        m_writer_context(),
+        writer_context_lock(std::make_unique<asio::io_context::work>(m_writer_context)),
         m_acceptor(
                 m_context, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port)) {
-    auto handler = std::make_shared<connection_handler>(manager, m_context);
+    auto handler = std::make_shared<connection_handler>(manager, m_context, m_writer_context);
     asio::ip::tcp::socket & handler_socket = handler->socket();
 
     m_acceptor.async_accept(
@@ -94,6 +96,16 @@ async_server::server::server(version_manager::VersionManager & manager, unsigned
                 }
         );
     }
+
+    writer_thread.emplace_back(
+            [this]() {
+                try {
+                    m_writer_context.run();
+                } catch (std::exception & ex) {
+                    logger::error("writing thread catches exception: ", ex.what());
+                }
+            }
+    );
 }
 
 void async_server::server::handle_new_connection(std::shared_ptr<connection_handler> const & handler,
@@ -104,7 +116,7 @@ void async_server::server::handle_new_connection(std::shared_ptr<connection_hand
         }
         return;
     }
-    auto new_handler = std::make_shared<connection_handler>(manager, m_context);
+    auto new_handler = std::make_shared<connection_handler>(manager, m_context, m_writer_context);
     asio::ip::tcp::socket & handler_socket = new_handler->socket();
     m_acceptor.async_accept(
             handler_socket,
@@ -120,11 +132,14 @@ async_server::server::~server() {
     m_acceptor.cancel();
     for (auto & th: thread_pool)
         th.join();
+    writer_context_lock = nullptr;
+    for (auto & th: writer_thread)
+        th.join();
 }
 
 connection_handler::connection_handler(
-        version_manager::VersionManager & manager, asio::io_context & context) :
-        manager(manager), m_context(context),
+        version_manager::VersionManager & manager, asio::io_context & context, asio::io_context & writer_context) :
+        manager(manager), m_context(context), m_writer_context(writer_context),
         m_socket(context), waiting_ack(nullptr) {
 }
 
@@ -263,19 +278,34 @@ void connection_handler::process_request(json && request) {
         if (!wait) {
             ack_push();
         }
-        try {
-            manager.receive_data(appname, start_v, end_v, std::move(data));
-        } catch (std::exception & ex) {
-            logger::error("Exception in push into version graph: ", ex.what());
-        }
-        if (wait) {
-            ack_push();
-        }
-        start_connection();
-        // Do no changes after this for this node as requests
-        // from the same node can then be processed in parallel leading to
-        // undefined behavior. We do not want that.
-        // So exit this function after start_connection!
+        asio::post(m_writer_context,
+                [me = shared_from_this(),
+                        appname = std::move(appname),
+                        start_v = std::move(start_v),
+                        end_v = std::move(end_v),
+                        data = std::move(data),
+                        work_lock = std::make_unique<asio::io_context::work>(m_context),
+                        wait]() mutable {
+                    try {
+                        me->manager.receive_data(appname, start_v, end_v, std::move(data));
+                    } catch (std::exception & ex) {
+                        logger::error("Exception in push into version graph: ", ex.what());
+                    }
+                    asio::post(me->m_context,
+                            [me, wait]() {
+                                if (wait) {
+                                    me->ack_push();
+                                }
+                                me->start_connection();
+                                // Do no changes after this for this node as requests
+                                // from the same node can then be processed in parallel leading to
+                                // undefined behavior. We do not want that.
+                                // So exit this function after start_connection!
+                            }
+                    );
+                }
+        );
+        std::hash<std::string>{}("abc");
         return;
     } else {
         // This is a fetch request
@@ -314,15 +344,14 @@ void connection_handler::process_request(json && request) {
 // Only socket Function required for push
 void connection_handler::ack_push(bool success) {
     m_int_buffer[0] = success;
-    asio::async_write(
+    asio::error_code ec;
+    asio::write(
             m_socket,
             asio::buffer(m_int_buffer.data(), sizeof(unsigned char)),
-            [me = shared_from_this()](
-                    asio::error_code const & ec, std::size_t bytes_tranferred) {
-                if (ec) {
-                    logger::error("ack push error:", ec.category().name(), ": ", ec.value());
-                }
-            });
+            ec);
+    if (ec) {
+        logger::error("ack push error:", ec.category().name(), ": ", ec.value());
+    }
 }
 
 // Socket Functions required for fetch
@@ -351,13 +380,13 @@ void connection_handler::start_wait_for(
         manager.wait_graph_change(start_v);
     }
     if (timeout_triggered) {
-        m_context.post(
+        asio::post(m_context,
                 [me = shared_from_this()]() {
                     me->send_timeout_response();
                 }
         );
     } else {
-        m_context.post(
+        asio::post(m_context,
                 [me = shared_from_this(),
                         appname = std::move(appname),
                         start_v = std::move(start_v),

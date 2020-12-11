@@ -2,7 +2,7 @@
 // detail/select_reactor.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -106,20 +106,13 @@ public:
   ASIO_DECL void cancel_ops(socket_type descriptor, per_descriptor_data&);
 
   // Cancel any operations that are running against the descriptor and remove
-  // its registration from the reactor. The reactor resources associated with
-  // the descriptor must be released by calling cleanup_descriptor_data.
+  // its registration from the reactor.
   ASIO_DECL void deregister_descriptor(socket_type descriptor,
       per_descriptor_data&, bool closing);
 
-  // Remove the descriptor's registration from the reactor. The reactor
-  // resources associated with the descriptor must be released by calling
-  // cleanup_descriptor_data.
+  // Remote the descriptor's registration from the reactor.
   ASIO_DECL void deregister_internal_descriptor(
-      socket_type descriptor, per_descriptor_data&);
-
-  // Perform any post-deregistration cleanup tasks associated with the
-  // descriptor data.
-  ASIO_DECL void cleanup_descriptor_data(per_descriptor_data&);
+      socket_type descriptor, per_descriptor_data& descriptor_data);
 
   // Move descriptor registration from one descriptor_data object to another.
   ASIO_DECL void move_descriptor(socket_type descriptor,
@@ -155,7 +148,7 @@ public:
       typename timer_queue<Time_Traits>::per_timer_data& source);
 
   // Run select once until interrupted or events are ready to be dispatched.
-  ASIO_DECL void run(long usec, op_queue<operation>& ops);
+  ASIO_DECL void run(bool block, op_queue<operation>& ops);
 
   // Interrupt the select loop.
   ASIO_DECL void interrupt();
@@ -173,7 +166,7 @@ private:
   ASIO_DECL void do_remove_timer_queue(timer_queue_base& queue);
 
   // Get the timeout value for the select call.
-  ASIO_DECL timeval* get_timeout(long usec, timeval& tv);
+  ASIO_DECL timeval* get_timeout(timeval& tv);
 
   // Cancel all operations associated with the given descriptor. This function
   // does not acquire the select_reactor's mutex.

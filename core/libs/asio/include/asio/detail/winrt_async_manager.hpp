@@ -2,7 +2,7 @@
 // detail/winrt_async_manager.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -23,13 +23,7 @@
 #include "asio/detail/atomic_count.hpp"
 #include "asio/detail/winrt_async_op.hpp"
 #include "asio/error.hpp"
-#include "asio/execution_context.hpp"
-
-#if defined(ASIO_HAS_IOCP)
-# include "asio/detail/win_iocp_io_context.hpp"
-#else // defined(ASIO_HAS_IOCP)
-# include "asio/detail/scheduler.hpp"
-#endif // defined(ASIO_HAS_IOCP)
+#include "asio/io_context.hpp"
 
 #include "asio/detail/push_options.hpp"
 
@@ -37,13 +31,13 @@ namespace asio {
 namespace detail {
 
 class winrt_async_manager
-  : public execution_context_service_base<winrt_async_manager>
+  : public asio::detail::service_base<winrt_async_manager>
 {
 public:
   // Constructor.
-  winrt_async_manager(execution_context& context)
-    : execution_context_service_base<winrt_async_manager>(context),
-      scheduler_(use_service<scheduler_impl>(context)),
+  winrt_async_manager(asio::io_context& io_context)
+    : asio::detail::service_base<winrt_async_manager>(io_context),
+      io_context_(use_service<io_context_impl>(io_context)),
       outstanding_ops_(1)
   {
   }
@@ -191,12 +185,12 @@ public:
               asio::system_category());
           break;
         }
-        scheduler_.post_deferred_completion(handler);
+        io_context_.post_deferred_completion(handler);
         if (--outstanding_ops_ == 0)
           promise_.set_value();
       });
 
-    scheduler_.work_started();
+    io_context_.work_started();
     ++outstanding_ops_;
     action->Completed = on_completed;
   }
@@ -228,12 +222,12 @@ public:
               asio::system_category());
           break;
         }
-        scheduler_.post_deferred_completion(handler);
+        io_context_.post_deferred_completion(handler);
         if (--outstanding_ops_ == 0)
           promise_.set_value();
       });
 
-    scheduler_.work_started();
+    io_context_.work_started();
     ++outstanding_ops_;
     operation->Completed = on_completed;
   }
@@ -269,24 +263,19 @@ public:
                 asio::system_category());
             break;
           }
-          scheduler_.post_deferred_completion(handler);
+          io_context_.post_deferred_completion(handler);
           if (--outstanding_ops_ == 0)
             promise_.set_value();
         });
 
-    scheduler_.work_started();
+    io_context_.work_started();
     ++outstanding_ops_;
     operation->Completed = on_completed;
   }
 
 private:
-  // The scheduler implementation used to post completed handlers.
-#if defined(ASIO_HAS_IOCP)
-  typedef class win_iocp_io_context scheduler_impl;
-#else
-  typedef class scheduler scheduler_impl;
-#endif
-  scheduler_impl& scheduler_;
+  // The io_context implementation used to post completed handlers.
+  io_context_impl& io_context_;
 
   // Count of outstanding operations.
   atomic_count outstanding_ops_;

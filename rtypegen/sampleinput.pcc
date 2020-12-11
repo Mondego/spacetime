@@ -1,8 +1,9 @@
 
-class hello:
-    primary int intvar
-    bool boolvar
-    merge func justmerge
+class grade:
+    primary int student_id
+    int points
+    bool pass
+    merge func handle_conflicts
 
 class hellonoprimary:
     bool anotherboolean

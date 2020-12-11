@@ -3,7 +3,7 @@
 // ~~~~~~~~~~~~~~~~~~~~
 //
 // Copyright (c) 2005 Voipster / Indrek dot Juhani at voipster dot com
-// Copyright (c) 2005-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2005-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -34,12 +34,11 @@ void context::set_verify_callback(VerifyCallback callback)
 }
 
 template <typename VerifyCallback>
-ASIO_SYNC_OP_VOID context::set_verify_callback(
+asio::error_code context::set_verify_callback(
     VerifyCallback callback, asio::error_code& ec)
 {
-  do_set_verify_callback(
+  return do_set_verify_callback(
       new detail::verify_callback<VerifyCallback>(callback), ec);
-  ASIO_SYNC_OP_VOID_RETURN(ec);
 }
 
 template <typename PasswordCallback>
@@ -51,12 +50,11 @@ void context::set_password_callback(PasswordCallback callback)
 }
 
 template <typename PasswordCallback>
-ASIO_SYNC_OP_VOID context::set_password_callback(
+asio::error_code context::set_password_callback(
     PasswordCallback callback, asio::error_code& ec)
 {
-  do_set_password_callback(
+  return do_set_password_callback(
       new detail::password_callback<PasswordCallback>(callback), ec);
-  ASIO_SYNC_OP_VOID_RETURN(ec);
 }
 
 } // namespace ssl

@@ -44,6 +44,8 @@ class DataframeCPP(object):
             for tp in self.types
         }
 
+        print("Type info", type_info)
+
         self.resolver = resolver
 
         # This is the local snapshot.
@@ -108,6 +110,7 @@ class DataframeCPP(object):
     # Fork and Join
 
     def checkout(self):
+        print("First local_heap version", self.local_heap.version)
         data, start_v, end_v = cbor.loads(
             self.repository.retrieve_data(
                 self.appname, self.local_heap.version))

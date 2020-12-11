@@ -2,7 +2,7 @@
 // ip/detail/impl/endpoint.ipp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -31,7 +31,7 @@ namespace asio {
 namespace ip {
 namespace detail {
 
-endpoint::endpoint() ASIO_NOEXCEPT
+endpoint::endpoint()
   : data_()
 {
   data_.v4.sin_family = ASIO_OS_DEF(AF_INET);
@@ -39,7 +39,7 @@ endpoint::endpoint() ASIO_NOEXCEPT
   data_.v4.sin_addr.s_addr = ASIO_OS_DEF(INADDR_ANY);
 }
 
-endpoint::endpoint(int family, unsigned short port_num) ASIO_NOEXCEPT
+endpoint::endpoint(int family, unsigned short port_num)
   : data_()
 {
   using namespace std; // For memcpy.
@@ -57,19 +57,19 @@ endpoint::endpoint(int family, unsigned short port_num) ASIO_NOEXCEPT
       asio::detail::socket_ops::host_to_network_short(port_num);
     data_.v6.sin6_flowinfo = 0;
     data_.v6.sin6_addr.s6_addr[0] = 0; data_.v6.sin6_addr.s6_addr[1] = 0;
-    data_.v6.sin6_addr.s6_addr[2] = 0; data_.v6.sin6_addr.s6_addr[3] = 0;
-    data_.v6.sin6_addr.s6_addr[4] = 0; data_.v6.sin6_addr.s6_addr[5] = 0;
-    data_.v6.sin6_addr.s6_addr[6] = 0; data_.v6.sin6_addr.s6_addr[7] = 0;
-    data_.v6.sin6_addr.s6_addr[8] = 0; data_.v6.sin6_addr.s6_addr[9] = 0;
-    data_.v6.sin6_addr.s6_addr[10] = 0; data_.v6.sin6_addr.s6_addr[11] = 0;
-    data_.v6.sin6_addr.s6_addr[12] = 0; data_.v6.sin6_addr.s6_addr[13] = 0;
-    data_.v6.sin6_addr.s6_addr[14] = 0; data_.v6.sin6_addr.s6_addr[15] = 0;
+    data_.v6.sin6_addr.s6_addr[2] = 0, data_.v6.sin6_addr.s6_addr[3] = 0;
+    data_.v6.sin6_addr.s6_addr[4] = 0, data_.v6.sin6_addr.s6_addr[5] = 0;
+    data_.v6.sin6_addr.s6_addr[6] = 0, data_.v6.sin6_addr.s6_addr[7] = 0;
+    data_.v6.sin6_addr.s6_addr[8] = 0, data_.v6.sin6_addr.s6_addr[9] = 0;
+    data_.v6.sin6_addr.s6_addr[10] = 0, data_.v6.sin6_addr.s6_addr[11] = 0;
+    data_.v6.sin6_addr.s6_addr[12] = 0, data_.v6.sin6_addr.s6_addr[13] = 0;
+    data_.v6.sin6_addr.s6_addr[14] = 0, data_.v6.sin6_addr.s6_addr[15] = 0;
     data_.v6.sin6_scope_id = 0;
   }
 }
 
 endpoint::endpoint(const asio::ip::address& addr,
-    unsigned short port_num) ASIO_NOEXCEPT
+    unsigned short port_num)
   : data_()
 {
   using namespace std; // For memcpy.
@@ -106,7 +106,7 @@ void endpoint::resize(std::size_t new_size)
   }
 }
 
-unsigned short endpoint::port() const ASIO_NOEXCEPT
+unsigned short endpoint::port() const
 {
   if (is_v4())
   {
@@ -120,7 +120,7 @@ unsigned short endpoint::port() const ASIO_NOEXCEPT
   }
 }
 
-void endpoint::port(unsigned short port_num) ASIO_NOEXCEPT
+void endpoint::port(unsigned short port_num)
 {
   if (is_v4())
   {
@@ -134,7 +134,7 @@ void endpoint::port(unsigned short port_num) ASIO_NOEXCEPT
   }
 }
 
-asio::ip::address endpoint::address() const ASIO_NOEXCEPT
+asio::ip::address endpoint::address() const
 {
   using namespace std; // For memcpy.
   if (is_v4())
@@ -155,18 +155,18 @@ asio::ip::address endpoint::address() const ASIO_NOEXCEPT
   }
 }
 
-void endpoint::address(const asio::ip::address& addr) ASIO_NOEXCEPT
+void endpoint::address(const asio::ip::address& addr)
 {
   endpoint tmp_endpoint(addr, port());
   data_ = tmp_endpoint.data_;
 }
 
-bool operator==(const endpoint& e1, const endpoint& e2) ASIO_NOEXCEPT
+bool operator==(const endpoint& e1, const endpoint& e2)
 {
   return e1.address() == e2.address() && e1.port() == e2.port();
 }
 
-bool operator<(const endpoint& e1, const endpoint& e2) ASIO_NOEXCEPT
+bool operator<(const endpoint& e1, const endpoint& e2)
 {
   if (e1.address() < e2.address())
     return true;

@@ -2,7 +2,7 @@
 // read_until.cpp
 // ~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -24,7 +24,7 @@
 #include "unit_test.hpp"
 
 #if defined(ASIO_HAS_BOOST_BIND)
-# include <boost/bind/bind.hpp>
+# include <boost/bind.hpp>
 #else // defined(ASIO_HAS_BOOST_BIND)
 # include <functional>
 #endif // defined(ASIO_HAS_BOOST_BIND)
@@ -104,98 +104,8 @@ private:
 static const char read_data[]
   = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-void test_dynamic_string_read_until_char()
+void test_char_read_until()
 {
-  asio::io_context ioc;
-  test_stream s(ioc);
-  std::string data1, data2;
-  asio::dynamic_string_buffer<char, std::string::traits_type,
-    std::string::allocator_type> sb1 = asio::dynamic_buffer(data1);
-  asio::dynamic_string_buffer<char, std::string::traits_type,
-    std::string::allocator_type> sb2 = asio::dynamic_buffer(data2, 25);
-  asio::error_code ec;
-
-  s.reset(read_data, sizeof(read_data));
-  sb1.consume(sb1.size());
-  std::size_t length = asio::read_until(s, sb1, 'Z');
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  sb1.consume(sb1.size());
-  length = asio::read_until(s, sb1, 'Z');
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  sb1.consume(sb1.size());
-  length = asio::read_until(s, sb1, 'Z');
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  sb1.consume(sb1.size());
-  length = asio::read_until(s, sb1, 'Z', ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  sb1.consume(sb1.size());
-  length = asio::read_until(s, sb1, 'Z', ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  sb1.consume(sb1.size());
-  length = asio::read_until(s, sb1, 'Z', ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, 'Z', ec);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, 'Z', ec);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, 'Z', ec);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, 'Y', ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, 'Y', ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, 'Y', ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-}
-
-void test_streambuf_read_until_char()
-{
-#if !defined(ASIO_NO_DYNAMIC_BUFFER_V1)
   asio::io_context ioc;
   test_stream s(ioc);
   asio::streambuf sb1;
@@ -278,101 +188,10 @@ void test_streambuf_read_until_char()
   length = asio::read_until(s, sb2, 'Y', ec);
   ASIO_CHECK(!ec);
   ASIO_CHECK(length == 25);
-#endif // !defined(ASIO_NO_DYNAMIC_BUFFER_V1)
 }
 
-void test_dynamic_string_read_until_string()
+void test_string_read_until()
 {
-  asio::io_context ioc;
-  test_stream s(ioc);
-  std::string data1, data2;
-  asio::dynamic_string_buffer<char, std::string::traits_type,
-    std::string::allocator_type> sb1 = asio::dynamic_buffer(data1);
-  asio::dynamic_string_buffer<char, std::string::traits_type,
-    std::string::allocator_type> sb2 = asio::dynamic_buffer(data2, 25);
-  asio::error_code ec;
-
-  s.reset(read_data, sizeof(read_data));
-  sb1.consume(sb1.size());
-  std::size_t length = asio::read_until(s, sb1, "XYZ");
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  sb1.consume(sb1.size());
-  length = asio::read_until(s, sb1, "XYZ");
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  sb1.consume(sb1.size());
-  length = asio::read_until(s, sb1, "XYZ");
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  sb1.consume(sb1.size());
-  length = asio::read_until(s, sb1, "XYZ", ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  sb1.consume(sb1.size());
-  length = asio::read_until(s, sb1, "XYZ", ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  sb1.consume(sb1.size());
-  length = asio::read_until(s, sb1, "XYZ", ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, "XYZ", ec);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, "XYZ", ec);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, "XYZ", ec);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, "WXY", ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, "WXY", ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, "WXY", ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-}
-
-void test_streambuf_read_until_string()
-{
-#if !defined(ASIO_NO_DYNAMIC_BUFFER_V1)
   asio::io_context ioc;
   test_stream s(ioc);
   asio::streambuf sb1;
@@ -455,7 +274,6 @@ void test_streambuf_read_until_string()
   length = asio::read_until(s, sb2, "WXY", ec);
   ASIO_CHECK(!ec);
   ASIO_CHECK(length == 25);
-#endif // !defined(ASIO_NO_DYNAMIC_BUFFER_V1)
 }
 
 class match_char
@@ -485,98 +303,8 @@ namespace asio {
   };
 } // namespace asio
 
-void test_dynamic_string_read_until_match_condition()
+void test_match_condition_read_until()
 {
-  asio::io_context ioc;
-  test_stream s(ioc);
-  std::string data1, data2;
-  asio::dynamic_string_buffer<char, std::string::traits_type,
-    std::string::allocator_type> sb1 = asio::dynamic_buffer(data1);
-  asio::dynamic_string_buffer<char, std::string::traits_type,
-    std::string::allocator_type> sb2 = asio::dynamic_buffer(data2, 25);
-  asio::error_code ec;
-
-  s.reset(read_data, sizeof(read_data));
-  sb1.consume(sb1.size());
-  std::size_t length = asio::read_until(s, sb1, match_char('Z'));
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  sb1.consume(sb1.size());
-  length = asio::read_until(s, sb1, match_char('Z'));
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  sb1.consume(sb1.size());
-  length = asio::read_until(s, sb1, match_char('Z'));
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  sb1.consume(sb1.size());
-  length = asio::read_until(s, sb1, match_char('Z'), ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  sb1.consume(sb1.size());
-  length = asio::read_until(s, sb1, match_char('Z'), ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  sb1.consume(sb1.size());
-  length = asio::read_until(s, sb1, match_char('Z'), ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, match_char('Z'), ec);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, match_char('Z'), ec);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, match_char('Z'), ec);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, match_char('Y'), ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, match_char('Y'), ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  sb2.consume(sb2.size());
-  length = asio::read_until(s, sb2, match_char('Y'), ec);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-}
-
-void test_streambuf_read_until_match_condition()
-{
-#if !defined(ASIO_NO_DYNAMIC_BUFFER_V1)
   asio::io_context ioc;
   test_stream s(ioc);
   asio::streambuf sb1;
@@ -659,7 +387,6 @@ void test_streambuf_read_until_match_condition()
   length = asio::read_until(s, sb2, match_char('Y'), ec);
   ASIO_CHECK(!ec);
   ASIO_CHECK(length == 25);
-#endif // !defined(ASIO_NO_DYNAMIC_BUFFER_V1)
 }
 
 void async_read_handler(
@@ -671,178 +398,15 @@ void async_read_handler(
   *called = true;
 }
 
-void test_dynamic_string_async_read_until_char()
+void test_char_async_read_until()
 {
 #if defined(ASIO_HAS_BOOST_BIND)
   namespace bindns = boost;
 #else // defined(ASIO_HAS_BOOST_BIND)
   namespace bindns = std;
+  using std::placeholders::_1;
+  using std::placeholders::_2;
 #endif // defined(ASIO_HAS_BOOST_BIND)
-  using bindns::placeholders::_1;
-  using bindns::placeholders::_2;
-
-  asio::io_context ioc;
-  test_stream s(ioc);
-  std::string data1, data2;
-  asio::dynamic_string_buffer<char, std::string::traits_type,
-    std::string::allocator_type> sb1 = asio::dynamic_buffer(data1);
-  asio::dynamic_string_buffer<char, std::string::traits_type,
-    std::string::allocator_type> sb2 = asio::dynamic_buffer(data2, 25);
-  asio::error_code ec;
-  std::size_t length;
-  bool called;
-
-  s.reset(read_data, sizeof(read_data));
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb1.consume(sb1.size());
-  asio::async_read_until(s, sb1, 'Z',
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb1.consume(sb1.size());
-  asio::async_read_until(s, sb1, 'Z',
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb1.consume(sb1.size());
-  asio::async_read_until(s, sb1, 'Z',
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, 'Z',
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, 'Z',
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, 'Z',
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, 'Y',
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, 'Y',
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, 'Y',
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-
-  s.reset(read_data, sizeof(read_data));
-  sb2.consume(sb2.size());
-  int i = asio::async_read_until(s, sb2, 'Y',
-      archetypes::lazy_handler());
-  ASIO_CHECK(i == 42);
-  ioc.restart();
-  ioc.run();
-}
-
-void test_streambuf_async_read_until_char()
-{
-#if !defined(ASIO_NO_DYNAMIC_BUFFER_V1)
-#if defined(ASIO_HAS_BOOST_BIND)
-  namespace bindns = boost;
-#else // defined(ASIO_HAS_BOOST_BIND)
-  namespace bindns = std;
-#endif // defined(ASIO_HAS_BOOST_BIND)
-  using bindns::placeholders::_1;
-  using bindns::placeholders::_2;
 
   asio::io_context ioc;
   test_stream s(ioc);
@@ -991,181 +555,17 @@ void test_streambuf_async_read_until_char()
   ASIO_CHECK(i == 42);
   ioc.restart();
   ioc.run();
-#endif // !defined(ASIO_NO_DYNAMIC_BUFFER_V1)
 }
 
-void test_dynamic_string_async_read_until_string()
+void test_string_async_read_until()
 {
 #if defined(ASIO_HAS_BOOST_BIND)
   namespace bindns = boost;
 #else // defined(ASIO_HAS_BOOST_BIND)
   namespace bindns = std;
+  using std::placeholders::_1;
+  using std::placeholders::_2;
 #endif // defined(ASIO_HAS_BOOST_BIND)
-  using bindns::placeholders::_1;
-  using bindns::placeholders::_2;
-
-  asio::io_context ioc;
-  test_stream s(ioc);
-  std::string data1, data2;
-  asio::dynamic_string_buffer<char, std::string::traits_type,
-    std::string::allocator_type> sb1 = asio::dynamic_buffer(data1);
-  asio::dynamic_string_buffer<char, std::string::traits_type,
-    std::string::allocator_type> sb2 = asio::dynamic_buffer(data2, 25);
-  asio::error_code ec;
-  std::size_t length;
-  bool called;
-
-  s.reset(read_data, sizeof(read_data));
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb1.consume(sb1.size());
-  asio::async_read_until(s, sb1, "XYZ",
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb1.consume(sb1.size());
-  asio::async_read_until(s, sb1, "XYZ",
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb1.consume(sb1.size());
-  asio::async_read_until(s, sb1, "XYZ",
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, "XYZ",
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, "XYZ",
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, "XYZ",
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, "WXY",
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, "WXY",
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, "WXY",
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-
-  s.reset(read_data, sizeof(read_data));
-  sb2.consume(sb2.size());
-  int i = asio::async_read_until(s, sb2, "WXY",
-      archetypes::lazy_handler());
-  ASIO_CHECK(i == 42);
-  ioc.restart();
-  ioc.run();
-}
-
-void test_streambuf_async_read_until_string()
-{
-#if !defined(ASIO_NO_DYNAMIC_BUFFER_V1)
-#if defined(ASIO_HAS_BOOST_BIND)
-  namespace bindns = boost;
-#else // defined(ASIO_HAS_BOOST_BIND)
-  namespace bindns = std;
-#endif // defined(ASIO_HAS_BOOST_BIND)
-  using bindns::placeholders::_1;
-  using bindns::placeholders::_2;
 
   asio::io_context ioc;
   test_stream s(ioc);
@@ -1314,181 +714,17 @@ void test_streambuf_async_read_until_string()
   ASIO_CHECK(i == 42);
   ioc.restart();
   ioc.run();
-#endif // !defined(ASIO_NO_DYNAMIC_BUFFER_V1)
 }
 
-void test_dynamic_string_async_read_until_match_condition()
+void test_match_condition_async_read_until()
 {
 #if defined(ASIO_HAS_BOOST_BIND)
   namespace bindns = boost;
 #else // defined(ASIO_HAS_BOOST_BIND)
   namespace bindns = std;
+  using std::placeholders::_1;
+  using std::placeholders::_2;
 #endif // defined(ASIO_HAS_BOOST_BIND)
-  using bindns::placeholders::_1;
-  using bindns::placeholders::_2;
-
-  asio::io_context ioc;
-  test_stream s(ioc);
-  std::string data1, data2;
-  asio::dynamic_string_buffer<char, std::string::traits_type,
-    std::string::allocator_type> sb1 = asio::dynamic_buffer(data1);
-  asio::dynamic_string_buffer<char, std::string::traits_type,
-    std::string::allocator_type> sb2 = asio::dynamic_buffer(data2, 25);
-  asio::error_code ec;
-  std::size_t length;
-  bool called;
-
-  s.reset(read_data, sizeof(read_data));
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb1.consume(sb1.size());
-  asio::async_read_until(s, sb1, match_char('Z'),
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb1.consume(sb1.size());
-  asio::async_read_until(s, sb1, match_char('Z'),
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb1.consume(sb1.size());
-  asio::async_read_until(s, sb1, match_char('Z'),
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 26);
-
-  s.reset(read_data, sizeof(read_data));
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, match_char('Z'),
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, match_char('Z'),
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, match_char('Z'),
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(ec == asio::error::not_found);
-  ASIO_CHECK(length == 0);
-
-  s.reset(read_data, sizeof(read_data));
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, match_char('Y'),
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(1);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, match_char('Y'),
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-
-  s.reset(read_data, sizeof(read_data));
-  s.next_read_length(10);
-  ec = asio::error_code();
-  length = 0;
-  called = false;
-  sb2.consume(sb2.size());
-  asio::async_read_until(s, sb2, match_char('Y'),
-      bindns::bind(async_read_handler, _1, &ec,
-        _2, &length, &called));
-  ioc.restart();
-  ioc.run();
-  ASIO_CHECK(called);
-  ASIO_CHECK(!ec);
-  ASIO_CHECK(length == 25);
-
-  s.reset(read_data, sizeof(read_data));
-  sb2.consume(sb2.size());
-  int i = asio::async_read_until(s, sb2, match_char('Y'),
-      archetypes::lazy_handler());
-  ASIO_CHECK(i == 42);
-  ioc.restart();
-  ioc.run();
-}
-
-void test_streambuf_async_read_until_match_condition()
-{
-#if !defined(ASIO_NO_DYNAMIC_BUFFER_V1)
-#if defined(ASIO_HAS_BOOST_BIND)
-  namespace bindns = boost;
-#else // defined(ASIO_HAS_BOOST_BIND)
-  namespace bindns = std;
-#endif // defined(ASIO_HAS_BOOST_BIND)
-  using bindns::placeholders::_1;
-  using bindns::placeholders::_2;
 
   asio::io_context ioc;
   test_stream s(ioc);
@@ -1637,22 +873,15 @@ void test_streambuf_async_read_until_match_condition()
   ASIO_CHECK(i == 42);
   ioc.restart();
   ioc.run();
-#endif // !defined(ASIO_NO_DYNAMIC_BUFFER_V1)
 }
 
 ASIO_TEST_SUITE
 (
   "read_until",
-  ASIO_TEST_CASE(test_dynamic_string_read_until_char)
-  ASIO_TEST_CASE(test_streambuf_read_until_char)
-  ASIO_TEST_CASE(test_dynamic_string_read_until_string)
-  ASIO_TEST_CASE(test_streambuf_read_until_string)
-  ASIO_TEST_CASE(test_dynamic_string_read_until_match_condition)
-  ASIO_TEST_CASE(test_streambuf_read_until_match_condition)
-  ASIO_TEST_CASE(test_dynamic_string_async_read_until_char)
-  ASIO_TEST_CASE(test_streambuf_async_read_until_char)
-  ASIO_TEST_CASE(test_dynamic_string_async_read_until_string)
-  ASIO_TEST_CASE(test_streambuf_async_read_until_string)
-  ASIO_TEST_CASE(test_dynamic_string_async_read_until_match_condition)
-  ASIO_TEST_CASE(test_streambuf_async_read_until_match_condition)
+  ASIO_TEST_CASE(test_char_read_until)
+  ASIO_TEST_CASE(test_string_read_until)
+  ASIO_TEST_CASE(test_match_condition_read_until)
+  ASIO_TEST_CASE(test_char_async_read_until)
+  ASIO_TEST_CASE(test_string_async_read_until)
+  ASIO_TEST_CASE(test_match_condition_async_read_until)
 )

@@ -2,7 +2,7 @@
 // executor_work_guard.hpp
 // ~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -18,7 +18,6 @@
 #include "asio/detail/config.hpp"
 #include "asio/associated_executor.hpp"
 #include "asio/detail/type_traits.hpp"
-#include "asio/is_executor.hpp"
 
 #include "asio/detail/push_options.hpp"
 
@@ -55,7 +54,7 @@ public:
 
 #if defined(ASIO_HAS_MOVE) || defined(GENERATING_DOCUMENTATION)
   /// Move constructor.
-  executor_work_guard(executor_work_guard&& other) ASIO_NOEXCEPT
+  executor_work_guard(executor_work_guard&& other)
     : executor_(ASIO_MOVE_CAST(Executor)(other.executor_)),
       owns_(other.owns_)
   {
@@ -87,7 +86,7 @@ public:
   }
 
   /// Indicate that the work is no longer outstanding.
-  /**
+  /*
    * Unless the object has already been reset, or is in a moved-from state,
    * calls <tt>on_work_finished()</tt> on the stored executor.
    */
@@ -154,8 +153,7 @@ inline executor_work_guard<typename associated_executor<T,
   typename ExecutionContext::executor_type>::type>
 make_work_guard(const T& t, ExecutionContext& ctx,
     typename enable_if<!is_executor<T>::value &&
-      !is_convertible<T&, execution_context&>::value &&
-      is_convertible<ExecutionContext&, execution_context&>::value>::type* = 0)
+      !is_convertible<T&, execution_context&>::value>::type* = 0)
 {
   return executor_work_guard<typename associated_executor<T,
     typename ExecutionContext::executor_type>::type>(

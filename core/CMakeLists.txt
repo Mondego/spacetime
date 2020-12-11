@@ -5,6 +5,13 @@ project(dataframe_core
 		DESCRIPTION "Dataframe core library, rewritten in c++"
 		LANGUAGES CXX)
 
+add_compile_options(-s "USE_BOOST_HEADERS=1")
+add_compile_options(-frelaxed-template-template-args)
+add_link_options(-s "PROXY_POSIX_SOCKETS=1")
+add_link_options(-s "PROXY_TO_PTHREAD=1")
+add_link_options(-l "websocket.js")
+add_link_options(-s "USE_PTHREADS=1")
+
 include_directories(include)
 include_directories(libs/asio/include)
 include_directories(libs)

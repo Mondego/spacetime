@@ -2,7 +2,7 @@
 // deadline_timer.cpp
 // ~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -20,9 +20,8 @@
 
 #if defined(ASIO_HAS_BOOST_DATE_TIME)
 
-#include <boost/bind/bind.hpp>
+#include <boost/bind.hpp>
 #include "archetypes/async_result.hpp"
-#include "asio/executor_work_guard.hpp"
 #include "asio/io_context.hpp"
 #include "asio/placeholders.hpp"
 #include "asio/thread.hpp"
@@ -305,8 +304,7 @@ void io_context_run(asio::io_context* ioc)
 void deadline_timer_thread_test()
 {
   asio::io_context ioc;
-  asio::executor_work_guard<asio::io_context::executor_type> work
-    = asio::make_work_guard(ioc);
+  asio::io_context::work w(ioc);
   asio::deadline_timer t1(ioc);
   asio::deadline_timer t2(ioc);
   int count = 0;
@@ -340,39 +338,6 @@ void deadline_timer_async_result_test()
   ioc.run();
 }
 
-#if defined(ASIO_HAS_MOVE)
-asio::deadline_timer make_timer(asio::io_context& ioc, int* count)
-{
-  asio::deadline_timer t(ioc);
-  t.expires_from_now(boost::posix_time::seconds(1));
-  t.async_wait(boost::bind(increment, count));
-  return t;
-}
-#endif // defined(ASIO_HAS_MOVE)
-
-void deadline_timer_move_test()
-{
-#if defined(ASIO_HAS_MOVE)
-  asio::io_context io_context1;
-  asio::io_context io_context2;
-  int count = 0;
-
-  asio::deadline_timer t1 = make_timer(io_context1, &count);
-  asio::deadline_timer t2 = make_timer(io_context2, &count);
-  asio::deadline_timer t3 = std::move(t1);
-
-  t2 = std::move(t1);
-
-  io_context2.run();
-
-  ASIO_CHECK(count == 1);
-
-  io_context1.run();
-
-  ASIO_CHECK(count == 2);
-#endif // defined(ASIO_HAS_MOVE)
-}
-
 ASIO_TEST_SUITE
 (
   "deadline_timer",
@@ -381,7 +346,6 @@ ASIO_TEST_SUITE
   ASIO_TEST_CASE(deadline_timer_custom_allocation_test)
   ASIO_TEST_CASE(deadline_timer_thread_test)
   ASIO_TEST_CASE(deadline_timer_async_result_test)
-  ASIO_TEST_CASE(deadline_timer_move_test)
 )
 #else // defined(ASIO_HAS_BOOST_DATE_TIME)
 ASIO_TEST_SUITE

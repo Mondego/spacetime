@@ -1,6 +1,7 @@
 #ifndef DATAFRAME_CORE_ASYNC_SERVER_H
 #define DATAFRAME_CORE_ASYNC_SERVER_H
 
+#include <thread>
 #include <asio.hpp>
 #include <vector>
 #include <memory>

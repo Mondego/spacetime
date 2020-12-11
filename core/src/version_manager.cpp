@@ -10,6 +10,8 @@ version_manager::VersionManager::VersionManager(
     custom_merge_function(std::move(custom_merge_function)),
     type_dim_map(std::move(type_dim_map)), autoresolve(autoresolve) {
 
+    std::cout << "vm.cpp" << std::endl;
+
     auto type_it = this->type_dim_map.begin();
     auto type_end = this->type_dim_map.end();
 
@@ -682,6 +684,62 @@ version_manager::VersionManager::wait_graph_change_for(std::string const & versi
     std::unique_lock write_lock(write_mutex);
     return graph_changed.wait_for(write_lock, period, [&version, this]{ return graph.is_dead || graph.get_head_tag() != version; });
 }
+
+//json version_manager::VersionManager::s(std::string const & version, std::string const & dtpname,
+//                                                      std::string const & oid) {
+//    json result = json::object();
+//
+//    auto result_map = result.get_obj();
+//
+//    std::unordered_set<std::string> dims = type_dim_map[dtpname];
+//
+//    bool done = false;
+//    auto graph_it = graph.rbegin(version);
+//    auto graph_end = graph.rend();
+//
+//    while (graph_it != graph_end && !done) {
+//        auto const & change = (*graph_it).second.get_obj();
+//        auto type_it = change.find(dtpname);
+//        if (type_it != change.end()) {
+//            auto const & type_obj = type_it->second.get_obj();
+//            auto obj_it = type_obj.find(oid);
+//            if (obj_it != type_obj.end()) {
+//                auto const& obj_obj = obj_it->second.get_obj();
+//
+//
+//                auto obj_types_it = obj_obj.find(rtype_tags::types);
+//                if (obj_types_it != obj_obj.end()) {
+//                    auto const & obj_types_obj = obj_types_it->second.get_obj();
+//                    auto type_change_it = obj_types_obj.find(dtpname);
+//                    if (
+//                            type_change_it != obj_types_obj.end() &&
+//                            utils::eq_in_int(type_change_it->second, enums::Event::Delete)
+//                            )
+//                        done = true;
+//                }
+//
+//                auto obj_dims_it = obj_obj.find(rtype_tags::dims);
+//                if (obj_dims_it != obj_obj.end()) {
+//                    auto const & obj_dims_obj = obj_dims_it->second.get_obj();
+//
+//                    auto dim_it = obj_dims_obj.begin();
+//                    auto dim_end = obj_dims_obj.end();
+//                    while (dim_it != dim_end) {
+//                        auto const & dimname = dim_it->first;
+//                        auto dim_set_it = dims.find(dimname);
+//                        if (dim_set_it != dims.end()) {
+//                            result_map.emplace_hint(result_map.end(), dimname, dim_it->second);
+//                            dims.erase(dim_set_it);
+//                            done = dims.empty();
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//        ++graph_it;
+//    }
+//    return std::move(result);
+//}
 
 std::pair<json, json>
 version_manager::VersionManager::run_custom_merge(std::string const & version, std::string const & dtpname,

@@ -2,7 +2,7 @@
 // detail/impl/eventfd_select_interrupter.ipp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 // Copyright (c) 2008 Roelof Naude (roelof.naude at gmail dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
@@ -134,7 +134,8 @@ bool eventfd_select_interrupter::reset()
       int bytes_read = ::read(read_descriptor_, &counter, sizeof(uint64_t));
       if (bytes_read < 0 && errno == EINTR)
         continue;
-      return true;
+      bool was_interrupted = (bytes_read > 0);
+      return was_interrupted;
     }
   }
   else
@@ -144,17 +145,12 @@ bool eventfd_select_interrupter::reset()
       // Clear all data from the pipe.
       char data[1024];
       int bytes_read = ::read(read_descriptor_, data, sizeof(data));
-      if (bytes_read == sizeof(data))
+      if (bytes_read < 0 && errno == EINTR)
         continue;
-      if (bytes_read > 0)
-        return true;
-      if (bytes_read == 0)
-        return false;
-      if (errno == EINTR)
-        continue;
-      if (errno == EWOULDBLOCK || errno == EAGAIN)
-        return true;
-      return false;
+      bool was_interrupted = (bytes_read > 0);
+      while (bytes_read == sizeof(data))
+        bytes_read = ::read(read_descriptor_, data, sizeof(data));
+      return was_interrupted;
     }
   }
 }

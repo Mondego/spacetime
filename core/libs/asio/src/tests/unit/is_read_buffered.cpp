@@ -2,7 +2,7 @@
 // is_read_buffered.cpp
 // ~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -65,8 +65,7 @@ public:
   void async_write(const Const_Buffers&, Handler handler)
   {
     asio::error_code error;
-    asio::post(io_context_,
-        asio::detail::bind_handler(handler, error, 0));
+    io_context_.post(asio::detail::bind_handler(handler, error, 0));
   }
 
   template <typename Mutable_Buffers>
@@ -86,8 +85,7 @@ public:
   void async_read(const Mutable_Buffers&, Handler handler)
   {
     asio::error_code error;
-    asio::post(io_context_,
-        asio::detail::bind_handler(handler, error, 0));
+    io_context_.post(asio::detail::bind_handler(handler, error, 0));
   }
 
 private:

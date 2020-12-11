@@ -2,7 +2,7 @@
 // udp_server.cpp
 // ~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -19,9 +19,9 @@
 
 using asio::ip::udp;
 
-#include <asio/yield.hpp>
+#include "yield.hpp"
 
-class udp_server : asio::coroutine
+class udp_server : coroutine
 {
 public:
   udp_server(asio::io_context& io_context,
@@ -90,7 +90,7 @@ private:
   allocator allocator_;
 };
 
-#include <asio/unyield.hpp>
+#include "unyield.hpp"
 
 int main(int argc, char* argv[])
 {

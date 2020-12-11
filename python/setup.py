@@ -11,6 +11,9 @@ from setuptools import setup, find_packages, Extension
 from codecs import open
 from os import path
 
+os.environ["CC"] = "clang" 
+os.environ["CXX"] = "clang++"
+
 here = path.abspath(path.dirname(__file__))
 
 # Get the long description from the README file
@@ -23,7 +26,7 @@ repository = Extension('spacetime.repository',
                 #library_dirs = ['.'],
                 include_dirs = ['../core/include', '../core/libs', '../core/libs/asio/include'],
                 sources = ['spacetime/py_repository.cpp', 'spacetime/pyobj_guard.cpp'],
-                extra_objects=['../build/libdataframe_core.a'],
+                extra_objects=['../gcc_build/libdataframe_core.a'],
                 extra_compile_args=['--std=c++17', '-O3'],
                 language="c++")
 

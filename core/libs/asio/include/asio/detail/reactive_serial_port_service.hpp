@@ -2,7 +2,7 @@
 // detail/reactive_serial_port_service.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 // Copyright (c) 2008 Rep Invariant Systems, Inc. (info@repinvariant.com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
@@ -23,7 +23,7 @@
 
 #include <string>
 #include "asio/error.hpp"
-#include "asio/execution_context.hpp"
+#include "asio/io_context.hpp"
 #include "asio/serial_port_base.hpp"
 #include "asio/detail/descriptor_ops.hpp"
 #include "asio/detail/reactive_descriptor_service.hpp"
@@ -34,8 +34,7 @@ namespace asio {
 namespace detail {
 
 // Extend reactive_descriptor_service to provide serial port support.
-class reactive_serial_port_service :
-  public execution_context_service_base<reactive_serial_port_service>
+class reactive_serial_port_service
 {
 public:
   // The native type of a serial port.
@@ -44,7 +43,8 @@ public:
   // The implementation type of the serial port.
   typedef reactive_descriptor_service::implementation_type implementation_type;
 
-  ASIO_DECL reactive_serial_port_service(execution_context& context);
+  ASIO_DECL reactive_serial_port_service(
+      asio::io_context& io_context);
 
   // Destroy all user-defined handler objects owned by the service.
   ASIO_DECL void shutdown();
@@ -155,12 +155,11 @@ public:
 
   // Start an asynchronous write. The data being written must be valid for the
   // lifetime of the asynchronous operation.
-  template <typename ConstBufferSequence, typename Handler, typename IoExecutor>
+  template <typename ConstBufferSequence, typename Handler>
   void async_write_some(implementation_type& impl,
-      const ConstBufferSequence& buffers,
-      Handler& handler, const IoExecutor& io_ex)
+      const ConstBufferSequence& buffers, Handler& handler)
   {
-    descriptor_service_.async_write_some(impl, buffers, handler, io_ex);
+    descriptor_service_.async_write_some(impl, buffers, handler);
   }
 
   // Read some data. Returns the number of bytes received.
@@ -173,13 +172,11 @@ public:
 
   // Start an asynchronous read. The buffer for the data being received must be
   // valid for the lifetime of the asynchronous operation.
-  template <typename MutableBufferSequence,
-      typename Handler, typename IoExecutor>
+  template <typename MutableBufferSequence, typename Handler>
   void async_read_some(implementation_type& impl,
-      const MutableBufferSequence& buffers,
-      Handler& handler, const IoExecutor& io_ex)
+      const MutableBufferSequence& buffers, Handler& handler)
   {
-    descriptor_service_.async_read_some(impl, buffers, handler, io_ex);
+    descriptor_service_.async_read_some(impl, buffers, handler);
   }
 
 private:
@@ -192,8 +189,8 @@ private:
   static asio::error_code store_option(const void* option,
       termios& storage, asio::error_code& ec)
   {
-    static_cast<const SettableSerialPortOption*>(option)->store(storage, ec);
-    return ec;
+    return static_cast<const SettableSerialPortOption*>(option)->store(
+        storage, ec);
   }
 
   // Helper function to set a serial port option.
@@ -210,8 +207,7 @@ private:
   static asio::error_code load_option(void* option,
       const termios& storage, asio::error_code& ec)
   {
-    static_cast<GettableSerialPortOption*>(option)->load(storage, ec);
-    return ec;
+    return static_cast<GettableSerialPortOption*>(option)->load(storage, ec);
   }
 
   // Helper function to get a serial port option.

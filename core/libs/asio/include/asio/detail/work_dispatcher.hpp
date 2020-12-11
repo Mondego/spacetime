@@ -2,7 +2,7 @@
 // detail/work_dispatcher.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -29,10 +29,9 @@ template <typename Handler>
 class work_dispatcher
 {
 public:
-  template <typename CompletionHandler>
-  explicit work_dispatcher(ASIO_MOVE_ARG(CompletionHandler) handler)
+  work_dispatcher(Handler& handler)
     : work_((get_associated_executor)(handler)),
-      handler_(ASIO_MOVE_CAST(CompletionHandler)(handler))
+      handler_(ASIO_MOVE_CAST(Handler)(handler))
   {
   }
 
@@ -53,10 +52,10 @@ public:
 
   void operator()()
   {
+    typename associated_executor<Handler>::type ex(work_.get_executor());
     typename associated_allocator<Handler>::type alloc(
         (get_associated_allocator)(handler_));
-    work_.get_executor().dispatch(
-        ASIO_MOVE_CAST(Handler)(handler_), alloc);
+    ex.dispatch(ASIO_MOVE_CAST(Handler)(handler_), alloc);
     work_.reset();
   }
 

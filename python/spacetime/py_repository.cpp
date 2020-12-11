@@ -1,28 +1,91 @@
+/**
+ * The following is part of the Python's
+ * C API. Python allows for certain formats.
+ * These formats allow for accessing an object
+ * as a contiguous chunk of memory. 
+ * A format can point to a buffer. Once this is
+ * done, this buffer content is managed by a Python
+ * object (which means no management required).
+ * Ex: s# is a non-mutable string object managed
+ * by Python
+ * The following is an "int-like" length definition
+ * type
+ */
 #define PY_SSIZE_T_CLEAN
+
+/**
+ * Get access to Python's C API
+ */
 #include <Python.h>
 
+/**
+ * C++ Dynamic memory management
+ */
 #include <memory>
 #include <string>
 #include <iostream>
+/**
+ * Provides ability to manipulate function
+ * objects
+ */
 #include <functional>
+/** included twice!
+ */
 #include <memory>
 #include <limits>
 
 #include "../../core/include/repository.h"
 #include "../../core/include/utils/utils.h"
 
+/**
+ * Local utility
+ */
 #include "pyobj_guard.h"
 
 
+/**
+ * import json namespace from utils
+ */
 using utils::json;
 
+/**
+ * string pred?
+ * merge function?
+ * Following is a type alias:
+ * https://en.cppreference.com/w/cpp/language/type_alias
+ */
 using str_pred_t = repository::have_custom_merge_t;
 using merge_t = repository::custom_merge_function_t;
 
+/**
+ * Unnamed namespaces
+ * https://en.cppreference.com/w/cpp/language/namespace#Unnamed_namespaces
+ * unnamed namespaces are closely linked to the concept
+ * of linkages
+ * A name may have linkage or not
+ * A name with linkage means it is defined in more than
+ * one scope, and in each scope it refers to the same entity
+ * The concept of unnamed namespaces also refer to translation
+ * unit. It basically means a file.
+ * Basically names defined within the following unnamed namespace
+ * is accessible within the file (post processed), and refers
+ * to the same thing. Simple enough!
+ */
 namespace {
     using pyext_util::pyobj_guard;
 
+    /**
+     * str_pred_t means repo::have_custom_merge_t
+     * PyObject is merely a Python Object at the
+     * C level. It can be created both at the higher
+     * and lower level
+     * 
+     * Outer?
+     */
     str_pred_t py_has_merge_func(PyObject * outer) {
+        /**
+         * PyNone means Python's None
+         */
         if (outer == Py_None) return nullptr;
         return [outer](std::string const & somestr) {
             PyObject *response = NULL;
@@ -260,7 +323,10 @@ static PyObject * Repository_connect_to(
 }
 
 static PyObject * Repository_retrieve_data(
-        RepositoryObject * self, PyObject * argv[], int argc) {
+        RepositoryObject * self, PyObject * argv[], int argc) {            
+    std::cout << "Called retrieve data" << std::endl;
+        
+
     if (argc != 2) {
         PyErr_BadArgument();
         return NULL;
@@ -268,6 +334,8 @@ static PyObject * Repository_retrieve_data(
     std::string app_name = pystr_to_string(argv[0]);
 
     std::string version = pystr_to_string(argv[1]);
+
+    std::cout << "Version " << version << std::endl;
 
     try {
         auto [data, start_v, end_v] =
@@ -370,19 +438,25 @@ static PyObject * Repository_wait_version(
 
 static int Repository_init(PyObject * self, PyObject * args, PyObject *kwds) {
     using pyext_util::pyobj_guard;
+    // What does this mean?
+    // What is PyObject * self
+    // this self refers to the Repository class instance
     RepositoryObject * actual_self = (RepositoryObject *) self;
 
     const char* raw_app_name;
     const char* type_info_bytes;
     Py_ssize_t type_info_length;
+
+    // argument parsing
     int ok = PyArg_ParseTuple(
         args, "sOy#", &raw_app_name, &(actual_self->outer),
-        &type_info_bytes, &type_info_length);
+        &type_info_bytes, &type_info_length); // s = string, 0 = py object, y# = non-unicode string & its length
     if (!ok) return -1;
 
     std::string app_name(raw_app_name);
 
     json type_info = json::from_cbor(type_info_bytes, type_info_length);
+    std::cout << type_info.dump(4) << std::endl;
 
     str_pred_t has_merge_pred = py_has_merge_func(actual_self->outer);
 

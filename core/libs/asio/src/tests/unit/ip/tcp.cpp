@@ -2,7 +2,7 @@
 // tcp.cpp
 // ~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -24,8 +24,8 @@
 #include "asio/read.hpp"
 #include "asio/write.hpp"
 #include "../unit_test.hpp"
-#include "../archetypes/async_result.hpp"
 #include "../archetypes/gettable_socket_option.hpp"
+#include "../archetypes/async_result.hpp"
 #include "../archetypes/io_control_command.hpp"
 #include "../archetypes/settable_socket_option.hpp"
 
@@ -36,7 +36,7 @@
 #endif // defined(ASIO_HAS_BOOST_ARRAY)
 
 #if defined(ASIO_HAS_BOOST_BIND)
-# include <boost/bind/bind.hpp>
+# include <boost/bind.hpp>
 #else // defined(ASIO_HAS_BOOST_BIND)
 # include <functional>
 #endif // defined(ASIO_HAS_BOOST_BIND)
@@ -217,7 +217,6 @@ void test()
   try
   {
     io_context ioc;
-    const io_context::executor_type ioc_ex = ioc.get_executor();
     char mutable_char_buffer[128] = "";
     const char const_char_buffer[128] = "";
     array<asio::mutable_buffer, 2> mutable_buffers = {{
@@ -250,19 +249,8 @@ void test()
     ip::tcp::socket socket6(ioc, ip::tcp::v4(), native_socket1);
 #endif // !defined(ASIO_WINDOWS_RUNTIME)
 
-    ip::tcp::socket socket7(ioc_ex);
-    ip::tcp::socket socket8(ioc_ex, ip::tcp::v4());
-    ip::tcp::socket socket9(ioc_ex, ip::tcp::v6());
-    ip::tcp::socket socket10(ioc_ex, ip::tcp::endpoint(ip::tcp::v4(), 0));
-    ip::tcp::socket socket11(ioc_ex, ip::tcp::endpoint(ip::tcp::v6(), 0));
-#if !defined(ASIO_WINDOWS_RUNTIME)
-    ip::tcp::socket::native_handle_type native_socket2
-      = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    ip::tcp::socket socket12(ioc_ex, ip::tcp::v4(), native_socket2);
-#endif // !defined(ASIO_WINDOWS_RUNTIME)
-
 #if defined(ASIO_HAS_MOVE)
-    ip::tcp::socket socket13(std::move(socket5));
+    ip::tcp::socket socket7(std::move(socket5));
 #endif // defined(ASIO_HAS_MOVE)
 
     // basic_stream_socket operators.
@@ -274,6 +262,9 @@ void test()
 
     // basic_io_object functions.
 
+    io_context& ioc_ref = socket1.get_io_context();
+    (void)ioc_ref;
+
     ip::tcp::socket::executor_type ex = socket1.get_executor();
     (void)ex;
 
@@ -282,9 +273,9 @@ void test()
     ip::tcp::socket::lowest_layer_type& lowest_layer = socket1.lowest_layer();
     (void)lowest_layer;
 
-    const ip::tcp::socket& socket14 = socket1;
+    const ip::tcp::socket& socket8 = socket1;
     const ip::tcp::socket::lowest_layer_type& lowest_layer2
-      = socket14.lowest_layer();
+      = socket8.lowest_layer();
     (void)lowest_layer2;
 
     socket1.open(ip::tcp::v4());
@@ -293,12 +284,12 @@ void test()
     socket1.open(ip::tcp::v6(), ec);
 
 #if !defined(ASIO_WINDOWS_RUNTIME)
+    ip::tcp::socket::native_handle_type native_socket2
+      = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    socket1.assign(ip::tcp::v4(), native_socket2);
     ip::tcp::socket::native_handle_type native_socket3
       = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    socket1.assign(ip::tcp::v4(), native_socket3);
-    ip::tcp::socket::native_handle_type native_socket4
-      = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    socket1.assign(ip::tcp::v4(), native_socket4, ec);
+    socket1.assign(ip::tcp::v4(), native_socket3, ec);
 #endif // !defined(ASIO_WINDOWS_RUNTIME)
 
     bool is_open = socket1.is_open();
@@ -307,12 +298,9 @@ void test()
     socket1.close();
     socket1.close(ec);
 
-    socket1.release();
-    socket1.release(ec);
-
-    ip::tcp::socket::native_handle_type native_socket5
+    ip::tcp::socket::native_handle_type native_socket4
       = socket1.native_handle();
-    (void)native_socket5;
+    (void)native_socket4;
 
     socket1.cancel();
     socket1.cancel(ec);
@@ -374,14 +362,10 @@ void test()
     socket1.native_non_blocking(false, ec);
 
     ip::tcp::endpoint endpoint1 = socket1.local_endpoint();
-    (void)endpoint1;
     ip::tcp::endpoint endpoint2 = socket1.local_endpoint(ec);
-    (void)endpoint2;
 
     ip::tcp::endpoint endpoint3 = socket1.remote_endpoint();
-    (void)endpoint3;
     ip::tcp::endpoint endpoint4 = socket1.remote_endpoint(ec);
-    (void)endpoint4;
 
     socket1.shutdown(socket_base::shutdown_both);
     socket1.shutdown(socket_base::shutdown_both, ec);
@@ -593,9 +577,9 @@ void test()
   namespace bindns = boost;
 #else // defined(ASIO_HAS_BOOST_BIND)
   namespace bindns = std;
+  using std::placeholders::_1;
+  using std::placeholders::_2;
 #endif // defined(ASIO_HAS_BOOST_BIND)
-  using bindns::placeholders::_1;
-  using bindns::placeholders::_2;
 
   io_context ioc;
 
@@ -613,7 +597,7 @@ void test()
 
   bool read_noop_completed = false;
   client_side_socket.async_read_some(
-      asio::mutable_buffer(0, 0),
+      asio::mutable_buffers_1(0, 0),
       bindns::bind(handle_read_noop,
         _1, _2, &read_noop_completed));
 
@@ -624,7 +608,7 @@ void test()
 
   bool write_noop_completed = false;
   client_side_socket.async_write_some(
-      asio::const_buffer(0, 0),
+      asio::const_buffers_1(0, 0),
       bindns::bind(handle_write_noop,
         _1, _2, &write_noop_completed));
 
@@ -723,22 +707,10 @@ private:
 struct move_accept_handler
 {
   move_accept_handler() {}
-  void operator()(
-      const asio::error_code&, asio::ip::tcp::socket) {}
+  void operator()(const asio::error_code&, asio::ip::tcp::socket) {}
   move_accept_handler(move_accept_handler&&) {}
 private:
   move_accept_handler(const move_accept_handler&) {}
-};
-
-struct move_accept_ioc_handler
-{
-  move_accept_ioc_handler() {}
-  void operator()(const asio::error_code&,
-      asio::basic_stream_socket<asio::ip::tcp,
-        asio::io_context::executor_type>) {}
-  move_accept_ioc_handler(move_accept_handler&&) {}
-private:
-  move_accept_ioc_handler(const move_accept_handler&) {}
 };
 #endif // defined(ASIO_HAS_MOVE)
 
@@ -750,10 +722,7 @@ void test()
   try
   {
     io_context ioc;
-    const io_context::executor_type ioc_ex = ioc.get_executor();
-    ip::tcp::socket peer_socket1(ioc);
-    asio::basic_stream_socket<ip::tcp,
-        io_context::executor_type> peer_socket2(ioc);
+    ip::tcp::socket peer_socket(ioc);
     ip::tcp::endpoint peer_endpoint;
     archetypes::settable_socket_option<void> settable_socket_option1;
     archetypes::settable_socket_option<int> settable_socket_option2;
@@ -778,19 +747,8 @@ void test()
     ip::tcp::acceptor acceptor6(ioc, ip::tcp::v4(), native_acceptor1);
 #endif // !defined(ASIO_WINDOWS_RUNTIME)
 
-    ip::tcp::acceptor acceptor7(ioc_ex);
-    ip::tcp::acceptor acceptor8(ioc_ex, ip::tcp::v4());
-    ip::tcp::acceptor acceptor9(ioc_ex, ip::tcp::v6());
-    ip::tcp::acceptor acceptor10(ioc_ex, ip::tcp::endpoint(ip::tcp::v4(), 0));
-    ip::tcp::acceptor acceptor11(ioc_ex, ip::tcp::endpoint(ip::tcp::v6(), 0));
-#if !defined(ASIO_WINDOWS_RUNTIME)
-    ip::tcp::acceptor::native_handle_type native_acceptor2
-      = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    ip::tcp::acceptor acceptor12(ioc_ex, ip::tcp::v4(), native_acceptor2);
-#endif // !defined(ASIO_WINDOWS_RUNTIME)
-
 #if defined(ASIO_HAS_MOVE)
-    ip::tcp::acceptor acceptor13(std::move(acceptor5));
+    ip::tcp::acceptor acceptor7(std::move(acceptor5));
 #endif // defined(ASIO_HAS_MOVE)
 
     // basic_socket_acceptor operators.
@@ -802,8 +760,8 @@ void test()
 
     // basic_io_object functions.
 
-    ip::tcp::acceptor::executor_type ex = acceptor1.get_executor();
-    (void)ex;
+    io_context& ioc_ref = acceptor1.get_io_context();
+    (void)ioc_ref;
 
     // basic_socket_acceptor functions.
 
@@ -813,12 +771,12 @@ void test()
     acceptor1.open(ip::tcp::v6(), ec);
 
 #if !defined(ASIO_WINDOWS_RUNTIME)
+    ip::tcp::acceptor::native_handle_type native_acceptor2
+      = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    acceptor1.assign(ip::tcp::v4(), native_acceptor2);
     ip::tcp::acceptor::native_handle_type native_acceptor3
       = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    acceptor1.assign(ip::tcp::v4(), native_acceptor3);
-    ip::tcp::acceptor::native_handle_type native_acceptor4
-      = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    acceptor1.assign(ip::tcp::v4(), native_acceptor4, ec);
+    acceptor1.assign(ip::tcp::v4(), native_acceptor3, ec);
 #endif // !defined(ASIO_WINDOWS_RUNTIME)
 
     bool is_open = acceptor1.is_open();
@@ -827,12 +785,9 @@ void test()
     acceptor1.close();
     acceptor1.close(ec);
 
-    acceptor1.release();
-    acceptor1.release(ec);
-
-    ip::tcp::acceptor::native_handle_type native_acceptor5
+    ip::tcp::acceptor::native_handle_type native_acceptor4
       = acceptor1.native_handle();
-    (void)native_acceptor5;
+    (void)native_acceptor4;
 
     acceptor1.cancel();
     acceptor1.cancel(ec);
@@ -870,9 +825,7 @@ void test()
     acceptor1.native_non_blocking(false, ec);
 
     ip::tcp::endpoint endpoint1 = acceptor1.local_endpoint();
-    (void)endpoint1;
     ip::tcp::endpoint endpoint2 = acceptor1.local_endpoint(ec);
-    (void)endpoint2;
 
     acceptor1.wait(socket_base::wait_read);
     acceptor1.wait(socket_base::wait_write, ec);
@@ -881,55 +834,31 @@ void test()
     int i1 = acceptor1.async_wait(socket_base::wait_write, lazy);
     (void)i1;
 
-    acceptor1.accept(peer_socket1);
-    acceptor1.accept(peer_socket1, ec);
-    acceptor1.accept(peer_socket1, peer_endpoint);
-    acceptor1.accept(peer_socket1, peer_endpoint, ec);
-
-    acceptor1.accept(peer_socket2);
-    acceptor1.accept(peer_socket2, ec);
-    acceptor1.accept(peer_socket2, peer_endpoint);
-    acceptor1.accept(peer_socket2, peer_endpoint, ec);
+    acceptor1.accept(peer_socket);
+    acceptor1.accept(peer_socket, ec);
+    acceptor1.accept(peer_socket, peer_endpoint);
+    acceptor1.accept(peer_socket, peer_endpoint, ec);
 
 #if defined(ASIO_HAS_MOVE)
-    peer_socket1 = acceptor1.accept();
-    peer_socket1 = acceptor1.accept(ioc);
-    peer_socket1 = acceptor1.accept(ioc_ex);
-    peer_socket1 = acceptor1.accept(peer_endpoint);
-    peer_socket1 = acceptor1.accept(ioc, peer_endpoint);
-    peer_socket1 = acceptor1.accept(ioc_ex, peer_endpoint);
-    (void)peer_socket1;
-
-    peer_socket2 = acceptor1.accept(ioc);
-    peer_socket2 = acceptor1.accept(ioc_ex);
-    peer_socket2 = acceptor1.accept(ioc, peer_endpoint);
-    peer_socket2 = acceptor1.accept(ioc_ex, peer_endpoint);
-    (void)peer_socket2;
+    peer_socket = acceptor1.accept();
+    peer_socket = acceptor1.accept(ioc);
+    peer_socket = acceptor1.accept(peer_endpoint);
+    peer_socket = acceptor1.accept(ioc, peer_endpoint);
+    (void)peer_socket;
 #endif // defined(ASIO_HAS_MOVE)
 
-    acceptor1.async_accept(peer_socket1, accept_handler());
-    acceptor1.async_accept(peer_socket1, peer_endpoint, accept_handler());
-    int i2 = acceptor1.async_accept(peer_socket1, lazy);
+    acceptor1.async_accept(peer_socket, accept_handler());
+    acceptor1.async_accept(peer_socket, peer_endpoint, accept_handler());
+    int i2 = acceptor1.async_accept(peer_socket, lazy);
     (void)i2;
-    int i3 = acceptor1.async_accept(peer_socket1, peer_endpoint, lazy);
+    int i3 = acceptor1.async_accept(peer_socket, peer_endpoint, lazy);
     (void)i3;
-
-    acceptor1.async_accept(peer_socket2, accept_handler());
-    acceptor1.async_accept(peer_socket2, peer_endpoint, accept_handler());
-    int i4 = acceptor1.async_accept(peer_socket2, lazy);
-    (void)i4;
-    int i5 = acceptor1.async_accept(peer_socket2, peer_endpoint, lazy);
-    (void)i5;
 
 #if defined(ASIO_HAS_MOVE)
     acceptor1.async_accept(move_accept_handler());
     acceptor1.async_accept(ioc, move_accept_handler());
-    acceptor1.async_accept(ioc_ex, move_accept_handler());
-    acceptor1.async_accept(ioc_ex, move_accept_ioc_handler());
     acceptor1.async_accept(peer_endpoint, move_accept_handler());
     acceptor1.async_accept(ioc, peer_endpoint, move_accept_handler());
-    acceptor1.async_accept(ioc_ex, peer_endpoint, move_accept_handler());
-    acceptor1.async_accept(ioc_ex, peer_endpoint, move_accept_ioc_handler());
 #endif // defined(ASIO_HAS_MOVE)
   }
   catch (std::exception&)
@@ -1039,20 +968,6 @@ private:
 #endif // defined(ASIO_HAS_MOVE)
 };
 
-#if !defined(ASIO_NO_DEPRECATED)
-struct legacy_resolve_handler
-{
-  legacy_resolve_handler() {}
-  void operator()(const asio::error_code&,
-      asio::ip::tcp::resolver::iterator) {}
-#if defined(ASIO_HAS_MOVE)
-  legacy_resolve_handler(legacy_resolve_handler&&) {}
-private:
-  legacy_resolve_handler(const legacy_resolve_handler&);
-#endif // defined(ASIO_HAS_MOVE)
-};
-#endif // !defined(ASIO_NO_DEPRECATED)
-
 void test()
 {
   using namespace asio;
@@ -1061,46 +976,29 @@ void test()
   try
   {
     io_context ioc;
-    const io_context::executor_type ioc_ex = ioc.get_executor();
     archetypes::lazy_handler lazy;
     asio::error_code ec;
-#if !defined(ASIO_NO_DEPRECATED)
     ip::tcp::resolver::query q(ip::tcp::v4(), "localhost", "0");
-#endif // !defined(ASIO_NO_DEPRECATED)
     ip::tcp::endpoint e(ip::address_v4::loopback(), 0);
 
     // basic_resolver constructors.
 
     ip::tcp::resolver resolver(ioc);
-    ip::tcp::resolver resolver2(ioc_ex);
-
-#if defined(ASIO_HAS_MOVE)
-    ip::tcp::resolver resolver3(std::move(resolver));
-#endif // defined(ASIO_HAS_MOVE)
-
-    // basic_resolver operators.
-
-#if defined(ASIO_HAS_MOVE)
-    resolver = ip::tcp::resolver(ioc);
-    resolver = std::move(resolver3);
-#endif // defined(ASIO_HAS_MOVE)
 
     // basic_io_object functions.
 
-    ip::tcp::resolver::executor_type ex = resolver.get_executor();
-    (void)ex;
+    io_context& ioc_ref = resolver.get_io_context();
+    (void)ioc_ref;
 
     // basic_resolver functions.
 
     resolver.cancel();
 
-#if !defined(ASIO_NO_DEPRECATED)
     ip::tcp::resolver::results_type results1 = resolver.resolve(q);
     (void)results1;
 
     ip::tcp::resolver::results_type results2 = resolver.resolve(q, ec);
     (void)results2;
-#endif // !defined(ASIO_NO_DEPRECATED)
 
     ip::tcp::resolver::results_type results3 = resolver.resolve("", "");
     (void)results3;
@@ -1138,51 +1036,28 @@ void test()
     ip::tcp::resolver::results_type results12 = resolver.resolve(e, ec);
     (void)results12;
 
-#if !defined(ASIO_NO_DEPRECATED)
     resolver.async_resolve(q, resolve_handler());
-    resolver.async_resolve(q, legacy_resolve_handler());
     int i1 = resolver.async_resolve(q, lazy);
     (void)i1;
-#endif // !defined(ASIO_NO_DEPRECATED)
 
-    resolver.async_resolve("", "", resolve_handler());
-#if !defined(ASIO_NO_DEPRECATED)
-    resolver.async_resolve("", "", legacy_resolve_handler());
-#endif // !defined(ASIO_NO_DEPRECATED)
+    resolver.async_resolve(q, resolve_handler());
     int i2 = resolver.async_resolve("", "", lazy);
     (void)i2;
 
-    resolver.async_resolve("", "",
-        ip::tcp::resolver::flags(), resolve_handler());
-#if !defined(ASIO_NO_DEPRECATED)
-    resolver.async_resolve("", "",
-        ip::tcp::resolver::flags(), legacy_resolve_handler());
-#endif // !defined(ASIO_NO_DEPRECATED)
-    int i3 = resolver.async_resolve("", "",
-        ip::tcp::resolver::flags(), lazy);
+    resolver.async_resolve(q, resolve_handler());
+    int i3 = resolver.async_resolve("", "", ip::tcp::resolver::flags(), lazy);
     (void)i3;
 
-    resolver.async_resolve(ip::tcp::v4(), "", "", resolve_handler());
-#if !defined(ASIO_NO_DEPRECATED)
-    resolver.async_resolve(ip::tcp::v4(), "", "", legacy_resolve_handler());
-#endif // !defined(ASIO_NO_DEPRECATED)
+    resolver.async_resolve(q, resolve_handler());
     int i4 = resolver.async_resolve(ip::tcp::v4(), "", "", lazy);
     (void)i4;
 
-    resolver.async_resolve(ip::tcp::v4(),
-        "", "", ip::tcp::resolver::flags(), resolve_handler());
-#if !defined(ASIO_NO_DEPRECATED)
-    resolver.async_resolve(ip::tcp::v4(),
-        "", "", ip::tcp::resolver::flags(), legacy_resolve_handler());
-#endif // !defined(ASIO_NO_DEPRECATED)
+    resolver.async_resolve(q, resolve_handler());
     int i5 = resolver.async_resolve(ip::tcp::v4(),
         "", "", ip::tcp::resolver::flags(), lazy);
     (void)i5;
 
     resolver.async_resolve(e, resolve_handler());
-#if !defined(ASIO_NO_DEPRECATED)
-    resolver.async_resolve(e, legacy_resolve_handler());
-#endif // !defined(ASIO_NO_DEPRECATED)
     int i6 = resolver.async_resolve(e, lazy);
     (void)i6;
   }
@@ -1248,86 +1123,7 @@ void test()
   }
 }
 
-} // namespace ip_tcp_resolver_entry_compile
-
-//------------------------------------------------------------------------------
-
-// ip_tcp_iostream_compile test
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// The following test checks that all public types and member functions on the
-// class ip::tcp::iostream compile and link correctly. Runtime failures are
-// ignored.
-
-namespace ip_tcp_iostream_compile {
-
-void test()
-{
-#if !defined(ASIO_NO_IOSTREAM)
-  using namespace asio;
-  namespace ip = asio::ip;
-
-  asio::io_context ioc;
-  asio::ip::tcp::socket sock(ioc);
-
-  // basic_socket_iostream typedefs.
-
-  (void)static_cast<ip::tcp::iostream::protocol_type*>(0);
-  (void)static_cast<ip::tcp::iostream::endpoint_type*>(0);
-  (void)static_cast<ip::tcp::iostream::clock_type*>(0);
-  (void)static_cast<ip::tcp::iostream::time_point*>(0);
-  (void)static_cast<ip::tcp::iostream::duration*>(0);
-  (void)static_cast<ip::tcp::iostream::traits_type*>(0);
-
-  // basic_socket_iostream constructors.
-
-  ip::tcp::iostream ios1;
-
-#if defined(ASIO_HAS_STD_IOSTREAM_MOVE)
-  ip::tcp::iostream ios2(std::move(sock));
-#endif // defined(ASIO_HAS_STD_IOSTREAM_MOVE)
-
-  ip::tcp::iostream ios3("hostname", "service");
-
-  // basic_socket_iostream operators.
-
-#if defined(ASIO_HAS_STD_IOSTREAM_MOVE)
-  ios1 = ip::tcp::iostream();
-
-  ios2 = std::move(ios1);
-#endif // defined(ASIO_HAS_STD_IOSTREAM_MOVE)
-
-  // basic_socket_iostream members.
-
-  ios1.connect("hostname", "service");
-
-  ios1.close();
-
-  (void)static_cast<std::streambuf*>(ios1.rdbuf());
-
-  basic_socket<ip::tcp>& sref = ios1.socket();
-  (void)sref;
-
-  asio::error_code ec = ios1.error();
-  (void)ec;
-
-  ip::tcp::iostream::time_point tp = ios1.expiry();
-  (void)tp;
-
-  ios1.expires_at(tp);
-
-  ip::tcp::iostream::duration d;
-  ios1.expires_after(d);
-
-  // iostream operators.
-
-  int i = 0;
-  ios1 >> i;
-  ios1 << i;
-#endif // !defined(ASIO_NO_IOSTREAM)
-}
-
-} // namespace ip_tcp_iostream_compile
-
+} // namespace ip_tcp_resolver_compile
 //------------------------------------------------------------------------------
 
 ASIO_TEST_SUITE
@@ -1341,6 +1137,4 @@ ASIO_TEST_SUITE
   ASIO_TEST_CASE(ip_tcp_acceptor_runtime::test)
   ASIO_TEST_CASE(ip_tcp_resolver_compile::test)
   ASIO_TEST_CASE(ip_tcp_resolver_entry_compile::test)
-  ASIO_TEST_CASE(ip_tcp_resolver_entry_compile::test)
-  ASIO_COMPILE_TEST_CASE(ip_tcp_iostream_compile::test)
 )

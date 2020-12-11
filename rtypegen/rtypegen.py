@@ -57,7 +57,7 @@ def generate_code(ip_file, tgt_langs=['py'], op_file_base=None):
 
     # print('==========')
     # print("***")
-    # print(json.dumps(asjson(ast), indent=2))
+    print(json.dumps(asjson(ast), indent=2))
 
 
     # ...

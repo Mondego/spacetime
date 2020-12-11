@@ -2,7 +2,7 @@
 // connect_pair.cpp
 // ~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -42,6 +42,7 @@ void test()
   {
     asio::io_context io_context;
     asio::error_code ec1;
+    asio::error_code ec2;
 
     dp::socket s1(io_context);
     dp::socket s2(io_context);
@@ -49,7 +50,7 @@ void test()
 
     dp::socket s3(io_context);
     dp::socket s4(io_context);
-    local::connect_pair(s3, s4, ec1);
+    ec1 = local::connect_pair(s3, s4, ec2);
 
     sp::socket s5(io_context);
     sp::socket s6(io_context);
@@ -57,7 +58,7 @@ void test()
 
     sp::socket s7(io_context);
     sp::socket s8(io_context);
-    local::connect_pair(s7, s8, ec1);
+    ec1 = local::connect_pair(s7, s8, ec2);
   }
   catch (std::exception&)
   {

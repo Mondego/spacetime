@@ -2,7 +2,7 @@
 // detail/winrt_socket_connect_op.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -33,19 +33,18 @@
 namespace asio {
 namespace detail {
 
-template <typename Handler, typename IoExecutor>
+template <typename Handler>
 class winrt_socket_connect_op :
   public winrt_async_op<void>
 {
 public:
   ASIO_DEFINE_HANDLER_PTR(winrt_socket_connect_op);
 
-  winrt_socket_connect_op(Handler& handler, const IoExecutor& io_ex)
+  winrt_socket_connect_op(Handler& handler)
     : winrt_async_op<void>(&winrt_socket_connect_op::do_complete),
-      handler_(ASIO_MOVE_CAST(Handler)(handler)),
-      io_executor_(io_ex)
+      handler_(ASIO_MOVE_CAST(Handler)(handler))
   {
-    handler_work<Handler, IoExecutor>::start(handler_, io_executor_);
+    handler_work<Handler>::start(handler_);
   }
 
   static void do_complete(void* owner, operation* base,
@@ -54,7 +53,7 @@ public:
     // Take ownership of the operation object.
     winrt_socket_connect_op* o(static_cast<winrt_socket_connect_op*>(base));
     ptr p = { asio::detail::addressof(o->handler_), o, o };
-    handler_work<Handler, IoExecutor> w(o->handler_, o->io_executor_);
+    handler_work<Handler> w(o->handler_);
 
     ASIO_HANDLER_COMPLETION((*o));
 
@@ -81,7 +80,6 @@ public:
 
 private:
   Handler handler_;
-  IoExecutor io_executor_;
 };
 
 } // namespace detail

@@ -1,4 +1,5 @@
 #include <repository.h>
+#include <iostream>
 
 #include <utils/debug_logger.h>
 
@@ -6,12 +7,18 @@ namespace {
     std::string socket_parent_tag = "SOCKETPARENT";
 
     version_manager::type_dim_map_t get_type_dim_map(json & data) {
+        std::cout << "get_type_dim_map" << data.dump(4) << std::endl;
+        std::cout << "get_type_dim_map another" << data.dump(4) << std::endl;
         version_manager::type_dim_map_t result;
+        std::cout << "get_type_dim_map another2" << data.dump(4) << std::endl;
 
         auto & data_map = data.get_obj();
+        std::cout << "get_type_dim_map after data_map" << data.dump(4) << std::endl;
 
         auto data_it = data_map.begin();
         auto data_end = data_map.end();
+
+        std::cout << "get_type_dim_map after data_it, data_end" << data.dump(4) << std::endl;
 
         while (data_it != data_end) {
             std::unordered_set<std::string> dims_set;
@@ -24,6 +31,7 @@ namespace {
             result.emplace_hint(result.end(), data_it->first, std::move(dims_set));
             ++data_it;
         }
+        std::cout << "get_type_dim_map after loop" << data.dump(4) << std::endl;
         return result;
     }
 
@@ -105,10 +113,13 @@ void repository::Repository::push_await() {
 }
 
 void repository::Repository::fetch() {
+    std::cout << "Entered fetch" << std:: endl;
     if (!repoConnector || !repoConnector->is_connected()) return;
-    logger::debug("now fetching");
+    std::cout << "Verified connection, now fetching" << std::endl;
+    // logger::debug("now fetching");
     auto [json_data, start_v, end_v] = repoConnector->pull_req();
-    logger::debug("pull_req data: ", json_data, " ", start_v, " ", end_v);
+    // logger::debug("pull_req data: ", json_data, " ", start_v, " ", end_v);
+    std::cout << "pull request data: " << json_data.dump(4) << std::endl;
 
     manager.receive_data(socket_parent_tag, start_v, end_v, std::move(json_data));
 }

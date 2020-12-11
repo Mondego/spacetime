@@ -2,7 +2,7 @@
 // ssl/context.hpp
 // ~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -42,9 +42,6 @@ public:
 
   /// Constructor.
   ASIO_DECL explicit context(method m);
-
-  /// Construct to take ownership of a native handle.
-  ASIO_DECL explicit context(native_handle_type native_handle);
 
 #if defined(ASIO_HAS_MOVE) || defined(GENERATING_DOCUMENTATION)
   /// Move-construct a context from another.
@@ -111,7 +108,7 @@ public:
    *
    * @note Calls @c SSL_CTX_clear_options.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID clear_options(options o,
+  ASIO_DECL asio::error_code clear_options(options o,
       asio::error_code& ec);
 
   /// Set options on the context.
@@ -140,7 +137,7 @@ public:
    *
    * @note Calls @c SSL_CTX_set_options.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID set_options(options o,
+  ASIO_DECL asio::error_code set_options(options o,
       asio::error_code& ec);
 
   /// Set the peer verification mode.
@@ -169,7 +166,7 @@ public:
    *
    * @note Calls @c SSL_CTX_set_verify.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID set_verify_mode(
+  ASIO_DECL asio::error_code set_verify_mode(
       verify_mode v, asio::error_code& ec);
 
   /// Set the peer verification depth.
@@ -198,7 +195,7 @@ public:
    *
    * @note Calls @c SSL_CTX_set_verify_depth.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID set_verify_depth(
+  ASIO_DECL asio::error_code set_verify_depth(
       int depth, asio::error_code& ec);
 
   /// Set the callback used to verify peer certificates.
@@ -241,7 +238,7 @@ public:
    * @note Calls @c SSL_CTX_set_verify.
    */
   template <typename VerifyCallback>
-  ASIO_SYNC_OP_VOID set_verify_callback(VerifyCallback callback,
+  asio::error_code set_verify_callback(VerifyCallback callback,
       asio::error_code& ec);
 
   /// Load a certification authority file for performing verification.
@@ -270,7 +267,7 @@ public:
    *
    * @note Calls @c SSL_CTX_load_verify_locations.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID load_verify_file(
+  ASIO_DECL asio::error_code load_verify_file(
       const std::string& filename, asio::error_code& ec);
 
   /// Add certification authority for performing verification.
@@ -299,7 +296,7 @@ public:
    *
    * @note Calls @c SSL_CTX_get_cert_store and @c X509_STORE_add_cert.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID add_certificate_authority(
+  ASIO_DECL asio::error_code add_certificate_authority(
       const const_buffer& ca, asio::error_code& ec);
 
   /// Configures the context to use the default directories for finding
@@ -326,7 +323,7 @@ public:
    *
    * @note Calls @c SSL_CTX_set_default_verify_paths.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID set_default_verify_paths(
+  ASIO_DECL asio::error_code set_default_verify_paths(
       asio::error_code& ec);
 
   /// Add a directory containing certificate authority files to be used for
@@ -359,7 +356,7 @@ public:
    *
    * @note Calls @c SSL_CTX_load_verify_locations.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID add_verify_path(
+  ASIO_DECL asio::error_code add_verify_path(
       const std::string& path, asio::error_code& ec);
 
   /// Use a certificate from a memory buffer.
@@ -389,7 +386,7 @@ public:
    *
    * @note Calls @c SSL_CTX_use_certificate or SSL_CTX_use_certificate_ASN1.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID use_certificate(
+  ASIO_DECL asio::error_code use_certificate(
       const const_buffer& certificate, file_format format,
       asio::error_code& ec);
 
@@ -420,7 +417,7 @@ public:
    *
    * @note Calls @c SSL_CTX_use_certificate_file.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID use_certificate_file(
+  ASIO_DECL asio::error_code use_certificate_file(
       const std::string& filename, file_format format,
       asio::error_code& ec);
 
@@ -450,7 +447,7 @@ public:
    *
    * @note Calls @c SSL_CTX_use_certificate and SSL_CTX_add_extra_chain_cert.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID use_certificate_chain(
+  ASIO_DECL asio::error_code use_certificate_chain(
       const const_buffer& chain, asio::error_code& ec);
 
   /// Use a certificate chain from a file.
@@ -479,7 +476,7 @@ public:
    *
    * @note Calls @c SSL_CTX_use_certificate_chain_file.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID use_certificate_chain_file(
+  ASIO_DECL asio::error_code use_certificate_chain_file(
       const std::string& filename, asio::error_code& ec);
 
   /// Use a private key from a memory buffer.
@@ -509,7 +506,7 @@ public:
    *
    * @note Calls @c SSL_CTX_use_PrivateKey or SSL_CTX_use_PrivateKey_ASN1.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID use_private_key(
+  ASIO_DECL asio::error_code use_private_key(
       const const_buffer& private_key, file_format format,
       asio::error_code& ec);
 
@@ -540,7 +537,7 @@ public:
    *
    * @note Calls @c SSL_CTX_use_PrivateKey_file.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID use_private_key_file(
+  ASIO_DECL asio::error_code use_private_key_file(
       const std::string& filename, file_format format,
       asio::error_code& ec);
 
@@ -573,7 +570,7 @@ public:
    *
    * @note Calls @c SSL_CTX_use_RSAPrivateKey or SSL_CTX_use_RSAPrivateKey_ASN1.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID use_rsa_private_key(
+  ASIO_DECL asio::error_code use_rsa_private_key(
       const const_buffer& private_key, file_format format,
       asio::error_code& ec);
 
@@ -606,7 +603,7 @@ public:
    *
    * @note Calls @c SSL_CTX_use_RSAPrivateKey_file.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID use_rsa_private_key_file(
+  ASIO_DECL asio::error_code use_rsa_private_key_file(
       const std::string& filename, file_format format,
       asio::error_code& ec);
 
@@ -638,7 +635,7 @@ public:
    *
    * @note Calls @c SSL_CTX_set_tmp_dh.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID use_tmp_dh(
+  ASIO_DECL asio::error_code use_tmp_dh(
       const const_buffer& dh, asio::error_code& ec);
 
   /// Use the specified file to obtain the temporary Diffie-Hellman parameters.
@@ -667,7 +664,7 @@ public:
    *
    * @note Calls @c SSL_CTX_set_tmp_dh.
    */
-  ASIO_DECL ASIO_SYNC_OP_VOID use_tmp_dh_file(
+  ASIO_DECL asio::error_code use_tmp_dh_file(
       const std::string& filename, asio::error_code& ec);
 
   /// Set the password callback.
@@ -708,7 +705,7 @@ public:
    * @note Calls @c SSL_CTX_set_default_passwd_cb.
    */
   template <typename PasswordCallback>
-  ASIO_SYNC_OP_VOID set_password_callback(PasswordCallback callback,
+  asio::error_code set_password_callback(PasswordCallback callback,
       asio::error_code& ec);
 
 private:
@@ -719,7 +716,7 @@ private:
   struct dh_cleanup;
 
   // Helper function used to set a peer certificate verification callback.
-  ASIO_DECL ASIO_SYNC_OP_VOID do_set_verify_callback(
+  ASIO_DECL asio::error_code do_set_verify_callback(
       detail::verify_callback_base* callback, asio::error_code& ec);
 
   // Callback used when the SSL implementation wants to verify a certificate.
@@ -727,7 +724,7 @@ private:
       int preverified, X509_STORE_CTX* ctx);
 
   // Helper function used to set a password callback.
-  ASIO_DECL ASIO_SYNC_OP_VOID do_set_password_callback(
+  ASIO_DECL asio::error_code do_set_password_callback(
       detail::password_callback_base* callback, asio::error_code& ec);
 
   // Callback used when the SSL implementation wants a password.
@@ -735,7 +732,7 @@ private:
       char* buf, int size, int purpose, void* data);
 
   // Helper function to set the temporary Diffie-Hellman parameters from a BIO.
-  ASIO_DECL ASIO_SYNC_OP_VOID do_use_tmp_dh(
+  ASIO_DECL asio::error_code do_use_tmp_dh(
       BIO* bio, asio::error_code& ec);
 
   // Helper function to make a BIO from a memory buffer.

@@ -2,7 +2,7 @@
 // detail/win_iocp_handle_read_op.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 // Copyright (c) 2008 Rep Invariant Systems, Inc. (info@repinvariant.com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
@@ -34,20 +34,19 @@
 namespace asio {
 namespace detail {
 
-template <typename MutableBufferSequence, typename Handler, typename IoExecutor>
+template <typename MutableBufferSequence, typename Handler>
 class win_iocp_handle_read_op : public operation
 {
 public:
   ASIO_DEFINE_HANDLER_PTR(win_iocp_handle_read_op);
 
-  win_iocp_handle_read_op(const MutableBufferSequence& buffers,
-      Handler& handler, const IoExecutor& io_ex)
+  win_iocp_handle_read_op(
+      const MutableBufferSequence& buffers, Handler& handler)
     : operation(&win_iocp_handle_read_op::do_complete),
       buffers_(buffers),
-      handler_(ASIO_MOVE_CAST(Handler)(handler)),
-      io_executor_(io_ex)
+      handler_(ASIO_MOVE_CAST(Handler)(handler))
   {
-    handler_work<Handler, IoExecutor>::start(handler_, io_executor_);
+    handler_work<Handler>::start(handler_);
   }
 
   static void do_complete(void* owner, operation* base,
@@ -59,7 +58,7 @@ public:
     // Take ownership of the operation object.
     win_iocp_handle_read_op* o(static_cast<win_iocp_handle_read_op*>(base));
     ptr p = { asio::detail::addressof(o->handler_), o, o };
-    handler_work<Handler, IoExecutor> w(o->handler_, o->io_executor_);
+    handler_work<Handler> w(o->handler_);
 
     ASIO_HANDLER_COMPLETION((*o));
 
@@ -100,7 +99,6 @@ public:
 private:
   MutableBufferSequence buffers_;
   Handler handler_;
-  IoExecutor io_executor_;
 };
 
 } // namespace detail

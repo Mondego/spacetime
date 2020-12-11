@@ -9,7 +9,7 @@ def set_metadata(cls, parent):
         if isinstance(getattr(cls, attr), PredicateFunction):
             pred_func = getattr(cls, attr)
 
-    meta = SubsetMetadata(Rtype.SUBSET, cls, parent, pred_func)
+    meta = (Rtype.SUBSET, cls, parent, pred_func)
     if hasattr(cls, "__r_meta__"):
         TypeError("How am I here?")
     else:

@@ -1,0 +1,2 @@
+/emsdk/upstream/emscripten/emar qc libdataframe_core.a  CMakeFiles/dataframe_core.dir/src/utils/utils.cpp.o CMakeFiles/dataframe_core.dir/src/connectors/async_utils.cpp.o CMakeFiles/dataframe_core.dir/src/connectors/async_server.cpp.o CMakeFiles/dataframe_core.dir/src/connectors/async_client.cpp.o CMakeFiles/dataframe_core.dir/src/version_graph.cpp.o CMakeFiles/dataframe_core.dir/src/version_manager.cpp.o CMakeFiles/dataframe_core.dir/src/repository.cpp.o
+/emsdk/upstream/emscripten/emranlib libdataframe_core.a

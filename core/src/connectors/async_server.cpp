@@ -1,3 +1,4 @@
+#include <thread>
 #include <connectors/async_server.h>
 
 #include <memory>

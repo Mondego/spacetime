@@ -2,7 +2,7 @@
 // strand.cpp
 // ~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -17,9 +17,7 @@
 #include "asio/strand.hpp"
 
 #include <sstream>
-#include "asio/executor.hpp"
 #include "asio/io_context.hpp"
-#include "asio/dispatch.hpp"
 #include "asio/post.hpp"
 #include "asio/thread.hpp"
 #include "unit_test.hpp"
@@ -31,7 +29,7 @@
 #endif // defined(ASIO_HAS_BOOST_DATE_TIME)
 
 #if defined(ASIO_HAS_BOOST_BIND)
-# include <boost/bind/bind.hpp>
+# include <boost/bind.hpp>
 #else // defined(ASIO_HAS_BOOST_BIND)
 # include <functional>
 #endif // defined(ASIO_HAS_BOOST_BIND)
@@ -57,26 +55,26 @@ void increment(int* count)
   ++(*count);
 }
 
-void increment_without_lock(strand<io_context::executor_type>* s, int* count)
+void increment_without_lock(io_context::strand* s, int* count)
 {
   ASIO_CHECK(!s->running_in_this_thread());
 
   int original_count = *count;
 
-  dispatch(*s, bindns::bind(increment, count));
+  s->dispatch(bindns::bind(increment, count));
 
   // No other functions are currently executing through the locking dispatcher,
   // so the previous call to dispatch should have successfully nested.
   ASIO_CHECK(*count == original_count + 1);
 }
 
-void increment_with_lock(strand<io_context::executor_type>* s, int* count)
+void increment_with_lock(io_context::strand* s, int* count)
 {
   ASIO_CHECK(s->running_in_this_thread());
 
   int original_count = *count;
 
-  dispatch(*s, bindns::bind(increment, count));
+  s->dispatch(bindns::bind(increment, count));
 
   // The current function already holds the strand's lock, so the
   // previous call to dispatch should have successfully nested.
@@ -91,37 +89,16 @@ void sleep_increment(io_context* ioc, int* count)
   ++(*count);
 }
 
-void increment_by_a(int* count, int a)
-{
-  (*count) += a;
-}
-
-void increment_by_a_b(int* count, int a, int b)
-{
-  (*count) += a + b;
-}
-
-void increment_by_a_b_c(int* count, int a, int b, int c)
-{
-  (*count) += a + b + c;
-}
-
-void increment_by_a_b_c_d(int* count, int a, int b, int c, int d)
-{
-  (*count) += a + b + c + d;
-}
-
-void start_sleep_increments(io_context* ioc,
-    strand<io_context::executor_type>* s, int* count)
+void start_sleep_increments(io_context* ioc, io_context::strand* s, int* count)
 {
   // Give all threads a chance to start.
   timer t(*ioc, chronons::seconds(2));
   t.wait();
 
   // Start three increments.
-  post(*s, bindns::bind(sleep_increment, ioc, count));
-  post(*s, bindns::bind(sleep_increment, ioc, count));
-  post(*s, bindns::bind(sleep_increment, ioc, count));
+  s->post(bindns::bind(sleep_increment, ioc, count));
+  s->post(bindns::bind(sleep_increment, ioc, count));
+  s->post(bindns::bind(sleep_increment, ioc, count));
 }
 
 void throw_exception()
@@ -137,7 +114,7 @@ void io_context_run(io_context* ioc)
 void strand_test()
 {
   io_context ioc;
-  strand<io_context::executor_type> s = make_strand(ioc);
+  io_context::strand s(ioc);
   int count = 0;
 
   post(ioc, bindns::bind(increment_without_lock, &s, &count));
@@ -229,7 +206,7 @@ void strand_test()
   // Check for clean shutdown when handlers posted through an orphaned strand
   // are abandoned.
   {
-    strand<io_context::executor_type> s2 = make_strand(ioc.get_executor());
+    io_context::strand s2(ioc);
     post(s2, bindns::bind(increment, &count));
     post(s2, bindns::bind(increment, &count));
     post(s2, bindns::bind(increment, &count));
@@ -239,25 +216,8 @@ void strand_test()
   ASIO_CHECK(count == 0);
 }
 
-void strand_conversion_test()
-{
-  io_context ioc;
-  strand<io_context::executor_type> s1 = make_strand(ioc);
-
-  // Converting constructors.
-
-  strand<executor> s2(s1);
-  strand<executor> s3 = strand<io_context::executor_type>(s1);
-
-  // Converting assignment.
-
-  s3 = s1;
-  s3 = strand<io_context::executor_type>(s1);
-}
-
 ASIO_TEST_SUITE
 (
   "strand",
   ASIO_TEST_CASE(strand_test)
-  ASIO_COMPILE_TEST_CASE(strand_conversion_test)
 )

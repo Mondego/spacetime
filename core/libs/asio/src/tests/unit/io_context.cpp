@@ -2,7 +2,7 @@
 // io_context.cpp
 // ~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -17,9 +17,6 @@
 #include "asio/io_context.hpp"
 
 #include <sstream>
-#include "asio/bind_executor.hpp"
-#include "asio/dispatch.hpp"
-#include "asio/post.hpp"
 #include "asio/thread.hpp"
 #include "unit_test.hpp"
 
@@ -30,7 +27,7 @@
 #endif // defined(ASIO_HAS_BOOST_DATE_TIME)
 
 #if defined(ASIO_HAS_BOOST_BIND)
-# include <boost/bind/bind.hpp>
+# include <boost/bind.hpp>
 #else // defined(ASIO_HAS_BOOST_BIND)
 # include <functional>
 #endif // defined(ASIO_HAS_BOOST_BIND)
@@ -63,7 +60,7 @@ void decrement_to_zero(io_context* ioc, int* count)
     --(*count);
 
     int before_value = *count;
-    asio::post(*ioc, bindns::bind(decrement_to_zero, ioc, count));
+    ioc->post(bindns::bind(decrement_to_zero, ioc, count));
 
     // Handler execution cannot nest, so count value should remain unchanged.
     ASIO_CHECK(*count == before_value);
@@ -76,8 +73,7 @@ void nested_decrement_to_zero(io_context* ioc, int* count)
   {
     --(*count);
 
-    asio::dispatch(*ioc,
-        bindns::bind(nested_decrement_to_zero, ioc, count));
+    ioc->dispatch(bindns::bind(nested_decrement_to_zero, ioc, count));
 
     // Handler execution is nested, so count value should now be zero.
     ASIO_CHECK(*count == 0);
@@ -90,7 +86,7 @@ void sleep_increment(io_context* ioc, int* count)
   t.wait();
 
   if (++(*count) < 3)
-    asio::post(*ioc, bindns::bind(sleep_increment, ioc, count));
+    ioc->post(bindns::bind(sleep_increment, ioc, count));
 }
 
 void start_sleep_increments(io_context* ioc, int* count)
@@ -100,7 +96,7 @@ void start_sleep_increments(io_context* ioc, int* count)
   t.wait();
 
   // Start the first of three increments.
-  asio::post(*ioc, bindns::bind(sleep_increment, ioc, count));
+  ioc->post(bindns::bind(sleep_increment, ioc, count));
 }
 
 void throw_exception()
@@ -118,7 +114,7 @@ void io_context_test()
   io_context ioc;
   int count = 0;
 
-  asio::post(ioc, bindns::bind(increment, &count));
+  ioc.post(bindns::bind(increment, &count));
 
   // No handlers can be called until run() is called.
   ASIO_CHECK(!ioc.stopped());
@@ -132,11 +128,11 @@ void io_context_test()
 
   count = 0;
   ioc.restart();
-  asio::post(ioc, bindns::bind(increment, &count));
-  asio::post(ioc, bindns::bind(increment, &count));
-  asio::post(ioc, bindns::bind(increment, &count));
-  asio::post(ioc, bindns::bind(increment, &count));
-  asio::post(ioc, bindns::bind(increment, &count));
+  ioc.post(bindns::bind(increment, &count));
+  ioc.post(bindns::bind(increment, &count));
+  ioc.post(bindns::bind(increment, &count));
+  ioc.post(bindns::bind(increment, &count));
+  ioc.post(bindns::bind(increment, &count));
 
   // No handlers can be called until run() is called.
   ASIO_CHECK(!ioc.stopped());
@@ -150,8 +146,8 @@ void io_context_test()
 
   count = 0;
   ioc.restart();
-  executor_work_guard<io_context::executor_type> w = make_work_guard(ioc);
-  asio::post(ioc, bindns::bind(&io_context::stop, &ioc));
+  io_context::work* w = new io_context::work(ioc);
+  ioc.post(bindns::bind(&io_context::stop, &ioc));
   ASIO_CHECK(!ioc.stopped());
   ioc.run();
 
@@ -160,8 +156,8 @@ void io_context_test()
   ASIO_CHECK(count == 0);
 
   ioc.restart();
-  asio::post(ioc, bindns::bind(increment, &count));
-  w.reset();
+  ioc.post(bindns::bind(increment, &count));
+  delete w;
 
   // No handlers can be called until run() is called.
   ASIO_CHECK(!ioc.stopped());
@@ -175,7 +171,7 @@ void io_context_test()
 
   count = 10;
   ioc.restart();
-  asio::post(ioc, bindns::bind(decrement_to_zero, &ioc, &count));
+  ioc.post(bindns::bind(decrement_to_zero, &ioc, &count));
 
   // No handlers can be called until run() is called.
   ASIO_CHECK(!ioc.stopped());
@@ -189,7 +185,7 @@ void io_context_test()
 
   count = 10;
   ioc.restart();
-  asio::post(ioc, bindns::bind(nested_decrement_to_zero, &ioc, &count));
+  ioc.post(bindns::bind(nested_decrement_to_zero, &ioc, &count));
 
   // No handlers can be called until run() is called.
   ASIO_CHECK(!ioc.stopped());
@@ -203,8 +199,7 @@ void io_context_test()
 
   count = 10;
   ioc.restart();
-  asio::dispatch(ioc,
-      bindns::bind(nested_decrement_to_zero, &ioc, &count));
+  ioc.dispatch(bindns::bind(nested_decrement_to_zero, &ioc, &count));
 
   // No handlers can be called until run() is called, even though nested
   // delivery was specifically allowed in the previous call.
@@ -221,8 +216,8 @@ void io_context_test()
   int count2 = 0;
   ioc.restart();
   ASIO_CHECK(!ioc.stopped());
-  asio::post(ioc, bindns::bind(start_sleep_increments, &ioc, &count));
-  asio::post(ioc, bindns::bind(start_sleep_increments, &ioc, &count2));
+  ioc.post(bindns::bind(start_sleep_increments, &ioc, &count));
+  ioc.post(bindns::bind(start_sleep_increments, &ioc, &count2));
   thread thread1(bindns::bind(io_context_run, &ioc));
   thread thread2(bindns::bind(io_context_run, &ioc));
   thread1.join();
@@ -235,8 +230,7 @@ void io_context_test()
 
   count = 10;
   io_context ioc2;
-  asio::dispatch(ioc, asio::bind_executor(ioc2,
-        bindns::bind(decrement_to_zero, &ioc2, &count)));
+  ioc.dispatch(ioc2.wrap(bindns::bind(decrement_to_zero, &ioc2, &count)));
   ioc.restart();
   ASIO_CHECK(!ioc.stopped());
   ioc.run();
@@ -254,11 +248,11 @@ void io_context_test()
   count = 0;
   int exception_count = 0;
   ioc.restart();
-  asio::post(ioc, &throw_exception);
-  asio::post(ioc, bindns::bind(increment, &count));
-  asio::post(ioc, bindns::bind(increment, &count));
-  asio::post(ioc, &throw_exception);
-  asio::post(ioc, bindns::bind(increment, &count));
+  ioc.post(&throw_exception);
+  ioc.post(bindns::bind(increment, &count));
+  ioc.post(bindns::bind(increment, &count));
+  ioc.post(&throw_exception);
+  ioc.post(bindns::bind(increment, &count));
 
   // No handlers can be called until run() is called.
   ASIO_CHECK(!ioc.stopped());

@@ -2,7 +2,7 @@
 // detail/deadline_timer_service.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -18,7 +18,7 @@
 #include "asio/detail/config.hpp"
 #include <cstddef>
 #include "asio/error.hpp"
-#include "asio/execution_context.hpp"
+#include "asio/io_context.hpp"
 #include "asio/detail/bind_handler.hpp"
 #include "asio/detail/fenced_block.hpp"
 #include "asio/detail/memory.hpp"
@@ -26,7 +26,6 @@
 #include "asio/detail/socket_ops.hpp"
 #include "asio/detail/socket_types.hpp"
 #include "asio/detail/timer_queue.hpp"
-#include "asio/detail/timer_queue_ptime.hpp"
 #include "asio/detail/timer_scheduler.hpp"
 #include "asio/detail/wait_handler.hpp"
 #include "asio/detail/wait_op.hpp"
@@ -43,7 +42,6 @@ namespace detail {
 
 template <typename Time_Traits>
 class deadline_timer_service
-  : public execution_context_service_base<deadline_timer_service<Time_Traits> >
 {
 public:
   // The time type.
@@ -63,10 +61,8 @@ public:
   };
 
   // Constructor.
-  deadline_timer_service(execution_context& context)
-    : execution_context_service_base<
-        deadline_timer_service<Time_Traits> >(context),
-      scheduler_(asio::use_service<timer_scheduler>(context))
+  deadline_timer_service(asio::io_context& io_context)
+    : scheduler_(asio::use_service<timer_scheduler>(io_context))
   {
     scheduler_.init_task();
     scheduler_.add_timer_queue(timer_queue_);
@@ -174,18 +170,6 @@ public:
     return impl.expiry;
   }
 
-  // Get the expiry time for the timer as an absolute time.
-  time_type expires_at(const implementation_type& impl) const
-  {
-    return impl.expiry;
-  }
-
-  // Get the expiry time for the timer relative to now.
-  duration_type expires_from_now(const implementation_type& impl) const
-  {
-    return Time_Traits::subtract(this->expiry(impl), Time_Traits::now());
-  }
-
   // Set the expiry time for the timer as an absolute time.
   std::size_t expires_at(implementation_type& impl,
       const time_type& expiry_time, asio::error_code& ec)
@@ -198,14 +182,6 @@ public:
 
   // Set the expiry time for the timer relative to now.
   std::size_t expires_after(implementation_type& impl,
-      const duration_type& expiry_time, asio::error_code& ec)
-  {
-    return expires_at(impl,
-        Time_Traits::add(Time_Traits::now(), expiry_time), ec);
-  }
-
-  // Set the expiry time for the timer relative to now.
-  std::size_t expires_from_now(implementation_type& impl,
       const duration_type& expiry_time, asio::error_code& ec)
   {
     return expires_at(impl,
@@ -226,15 +202,14 @@ public:
   }
 
   // Start an asynchronous wait on the timer.
-  template <typename Handler, typename IoExecutor>
-  void async_wait(implementation_type& impl,
-      Handler& handler, const IoExecutor& io_ex)
+  template <typename Handler>
+  void async_wait(implementation_type& impl, Handler& handler)
   {
     // Allocate and construct an operation to wrap the handler.
-    typedef wait_handler<Handler, IoExecutor> op;
+    typedef wait_handler<Handler> op;
     typename op::ptr p = { asio::detail::addressof(handler),
       op::ptr::allocate(handler), 0 };
-    p.p = new (p.v) op(handler, io_ex);
+    p.p = new (p.v) op(handler);
 
     impl.might_have_pending_waits = true;
 

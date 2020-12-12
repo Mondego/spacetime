@@ -67,10 +67,15 @@ namespace {
 }
 
 
-async_server::server::server(version_manager::VersionManager & manager, unsigned short port,
-                             unsigned short thread_count) :
+async_server::server::server(version_manager::VersionManager & manager, unsigned short port, unsigned short thread_count) :
         manager(manager),
-        m_context(), thread_count(thread_count),
+        m_context(), thread_count(thread_count), // ignore thread_count for now
+        // what's the equivalent of m_acceptor?
+        // it's essentially creating the socket & binding
+        // it.
+        // need a function that  does something similar
+        // for a single thread. Where does it go?
+        // acceptor can be part of the header...
         m_acceptor(
                 m_context, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port)) {
     auto handler = std::make_shared<connection_handler>(manager, m_context);

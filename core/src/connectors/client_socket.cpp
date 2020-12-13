@@ -16,15 +16,15 @@
 
 #include "connectors/test_sockets_msg.h"
 #include <connectors/client_socket.h>
-#include <connectors/test_sockets_msg.h>
 
 // message to send to the server
 #ifndef MESSAGE
 #define MESSAGE "pingtothepong"
 #endif
 
-int client_socket::select_req(int accept_type)
+int client_socket::client_socket_h::select_req(int accept_type)
 {
+    std::cout << "client: entered select_req" << std::endl;
     static char out[1024 * 2];
     static int pos = 0;
     fd_set fdr;
@@ -58,9 +58,11 @@ int client_socket::select_req(int accept_type)
     return fd;
 }
 
-int client_socket::read_socket(msg_t *read_msg)
+int client_socket::client_socket_h::read_socket(msg_t *read_msg)
 {
+    std::cout << "[client.read_socket] just entered" << std::endl;
     int fd = select_req(0);
+    std::cout << "[client.read_socket] finished select_req" << std::endl;
     if (fd == -1)
     {
         return -1;
@@ -71,6 +73,7 @@ int client_socket::read_socket(msg_t *read_msg)
     // after selecting
     int available;
     res = ioctl(server.fd, FIONREAD, &available);
+    std::cout << "[client.read_socket] finished ioctl" << std::endl;
     assert(res != -1);
     assert(available);
 #endif
@@ -97,8 +100,9 @@ int client_socket::read_socket(msg_t *read_msg)
     return res;
 }
 
-int client_socket::write_socket(msg_t *_msg)
+int client_socket::client_socket_h::write_socket(msg_t *_msg)
 {
+    std::cout << "client - entered write_socket" << std::endl;
     int fd = select_req(1);
     if (fd == -1)
     {
@@ -121,15 +125,17 @@ int client_socket::write_socket(msg_t *_msg)
     // once we're done writing the message, read it back
     if (echo_wrote >= echo_msg.length)
     {
+      std::cout << "[client.read_socket] echo_wrote >= echo_msg.length" << std::endl;
       server.state = MSG_READ;
     }
     return res;
 }
 
-client_socket::client_socket(string address, int port)
+client_socket::client_socket_h::client_socket_h(string address, int port)
 {
     struct sockaddr_in addr;
     int res;
+    std::cout << "[client.read_socket] creating client socket" << std::endl;
 
     memset(&server, 0, sizeof(server_t));
     server.state = MSG_WRITE;
@@ -166,6 +172,7 @@ client_socket::client_socket(string address, int port)
         // finish(EXIT_FAILURE);
     }
 
+    std::cout << "[client.read_socket] connect" << std::endl;
     res = connect(server.fd, (struct sockaddr *)&addr, sizeof(addr));
     if (res == -1 && errno != EINPROGRESS)
     {
@@ -179,6 +186,7 @@ client_socket::client_socket(string address, int port)
         struct sockaddr_in adr_inet;
         socklen_t len_inet = sizeof adr_inet;
         z = getsockname(server.fd, (struct sockaddr *)&adr_inet, &len_inet);
+        std::cout << "[client.read_socket] getsockname" << std::endl;
         if (z != 0)
         {
             perror("getsockname");
@@ -198,6 +206,7 @@ client_socket::client_socket(string address, int port)
         struct sockaddr_in adr_inet;
         socklen_t len_inet = sizeof adr_inet;
         z = getpeername(server.fd, (struct sockaddr *)&adr_inet, &len_inet);
+        std::cout << "[client.read_socket] getpeername" << std::endl;
         if (z != 0)
         {
             perror("getpeername");
@@ -212,6 +221,7 @@ client_socket::client_socket(string address, int port)
         assert(strcmp(buffer, correct) == 0);
     }
 
+/*
 #ifdef __EMSCRIPTEN__
 #if TEST_ASYNC
     // The first parameter being passed is actually an arbitrary userData pointer
@@ -223,21 +233,24 @@ client_socket::client_socket(string address, int port)
     emscripten_set_main_loop(main_loop, 60, 0);
 #endif
 #endif
+*/
 }
 
-client_socket::~client_socket()
+client_socket::client_socket_h::~client_socket_h()
 {
     if (server.fd)
     {
         close(server.fd);
         server.fd = 0;
     }
+    /*
 #ifdef __EMSCRIPTEN__
 #ifdef REPORT_RESULT
     REPORT_RESULT(result);
 #endif
     emscripten_force_exit(result);
 #else
-    exit(0);
 #endif
+*/
+    exit(0);
 }

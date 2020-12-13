@@ -77,7 +77,7 @@ namespace {
     /**
      * str_pred_t means repo::have_custom_merge_t
      * PyObject is merely a Python Object at the
-     * C level. It can be created both at the higher
+     * C level. It can be reated both at the higher
      * and lower level
      * 
      * Outer?
@@ -284,7 +284,9 @@ static PyObject * Repository_start_server(
         return NULL;
     }
     try{
+        std::cout << "Trying to start_server" << std::endl;
         auto bound_port = self->m_repo->start_server(port, thread_count);
+        // auto bound_port = 59159;
         return Py_BuildValue("I", bound_port);
     } catch (std::exception & ex) {
         PyErr_SetString(

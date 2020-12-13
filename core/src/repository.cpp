@@ -71,6 +71,7 @@ repository::Repository::Repository(std::string const & app_name, version_manager
 }
 
 unsigned int repository::Repository::start_server(unsigned short port, unsigned short thread_count) {
+    std::cout << "Entered start_server" << std::endl;
     repoServer = std::make_unique<async_server::server>(manager, port, thread_count);
     return repoServer->port();
 }

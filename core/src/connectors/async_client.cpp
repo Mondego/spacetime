@@ -3,6 +3,9 @@
 #include <connectors/async_utils.h>
 
 #include <utils/debug_logger.h>
+#include <connectors/client_socket.h>
+
+using namespace client_socket;
 
 namespace {
     inline static const std::string root_tag = "ROOT";
@@ -110,6 +113,13 @@ async_client::connector::~connector() {
 }
 
 void async_client::connector::connect(std::string const & address, unsigned short port) {
+    client_socket_h c_socket = client_socket_h((char*)"127.0.0.1", 59160);
+    std::cout << "Client - Created socket" << std::endl;
+    msg_t *s;
+    c_socket.write_socket(s);
+    std::cout << "Client - Wrote into socket" << std::endl;
+    c_socket.read_socket(s);
+    std::cout << "Client - Read from socket" << std::endl;
     m_socket.close();
     asio::error_code ec;
     asio::ip::tcp::endpoint m_endpoint;

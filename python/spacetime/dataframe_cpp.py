@@ -57,15 +57,17 @@ class DataframeCPP(object):
         else:
             self.repository = Repository(
                 appname, self, cbor.dumps(type_info))
-
+        print("[d_cpp.py] created repository successfully, now starting server")
         self.server_port = (
             self.repository.start_server(server_port, 20)
             if is_server else
             server_port)
         if details is not None:
             host, port = details
+            print("[d_cpp.py] starting connect_to")
             self.repository.connect_to(host, port)
         if self.repository.is_connected():
+            print("[d_cpp.py] starting init pull")
             self.pull()
 
     # Suppport Functions

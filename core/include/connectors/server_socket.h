@@ -3,7 +3,7 @@
 
 using namespace std;
 
-namespace
+namespace server_socket
 {
     typedef enum
     {
@@ -26,11 +26,11 @@ namespace
         int wrote;
     } client_t;
 
-    class server_socket
+    class server_socket_h
     {
     public:
-        server_socket(string address, int port);
-        ~server_socket();
+        server_socket_h(string address, int port);
+        ~server_socket_h();
         int read_socket(msg_t *read_msg);
         int write_socket(msg_t *write_msg);
 

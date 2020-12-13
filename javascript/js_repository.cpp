@@ -43,12 +43,14 @@ static int Repository_init(std::string raw_app_name, std::string type_info) {
         new_repo->connect_to("127.0.0.1", 9000);
         int is_connected = new_repo->is_connected();
         std::cout << "Is connected" << is_connected << std::endl;
+        /*
         new_repo->fetch();
         auto [data, start_v, end_v] =
             new_repo->get_manager_ref().retrieve_data(raw_app_name, "ROOT");
         std:: cout << "data: " << data << "; start, end = " << start_v << end_v;
         
         // actual_self->m_repo = std::move(new_repo);
+        */
 
     } catch (std::exception & ex) {
         std::cout << "In exception!" << std::endl;

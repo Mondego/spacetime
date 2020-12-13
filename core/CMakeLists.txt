@@ -5,11 +5,11 @@ project(dataframe_core
 		DESCRIPTION "Dataframe core library, rewritten in c++"
 		LANGUAGES CXX)
 
-add_compile_options(-s "USE_BOOST_HEADERS=1")
+# add_compile_options(-s "USE_BOOST_HEADERS=1")
 add_compile_options(-frelaxed-template-template-args)
-add_link_options(-s "PROXY_POSIX_SOCKETS=1")
-add_link_options(-s "PROXY_TO_PTHREAD=1")
-add_link_options(-l "websocket.js")
+# add_link_options(-s "PROXY_POSIX_SOCKETS=1")
+# add_link_options(-s "PROXY_TO_PTHREAD=1")
+# add_link_options(-l "websocket.js")
 add_link_options(-s "USE_PTHREADS=1")
 
 include_directories(include)
@@ -23,6 +23,8 @@ add_library(dataframe_core STATIC
 		include/connectors/async_utils.h
 		include/connectors/async_server.h
 		include/connectors/async_client.h
+		include/connectors/server_socket.h
+		include/connectors/client_socket.h
 		include/version_graph.h
 		include/version_manager.h
 		include/repository.h
@@ -31,6 +33,8 @@ add_library(dataframe_core STATIC
 		src/connectors/async_utils.cpp
 		src/connectors/async_server.cpp
 		src/connectors/async_client.cpp
+		src/connectors/server_socket.cpp
+		src/connectors/client_socket.cpp
 		src/version_graph.cpp
 		src/version_manager.cpp
 		src/repository.cpp

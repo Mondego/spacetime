@@ -1,3 +1,0 @@
-/home/lg/2020/research/spacetime/gcc_build/CMakeFiles/rebuild_cache.dir
-/home/lg/2020/research/spacetime/gcc_build/CMakeFiles/dataframe_core.dir
-/home/lg/2020/research/spacetime/gcc_build/CMakeFiles/edit_cache.dir

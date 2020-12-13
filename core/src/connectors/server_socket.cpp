@@ -23,9 +23,8 @@ typedef int socklen_t;
 #endif
 
 #include <connectors/server_socket.h>
-#include <connectors/test_sockets_msg.h>
 
-int server_socket::accept_req(int accept_type)
+int server_socket::server_socket_h::accept_req(int accept_type)
 {
     int res;
     fd_set fdr;
@@ -83,9 +82,11 @@ int server_socket::accept_req(int accept_type)
     return client.fd;
 }
 
-int server_socket::read_socket(msg_t *read_msg)
+int server_socket::server_socket_h::read_socket(msg_t *read_msg)
 {
+    std::cout << "Entered server.read_socket" << std::endl;
     int fd = accept_req(0);
+    std::cout << "[server.read_socket] finished accept_req" << std::endl;
     int res;
     if (fd == -1)
     {
@@ -93,9 +94,10 @@ int server_socket::read_socket(msg_t *read_msg)
     }
     if (client.state == MSG_READ)
     {
-
+        std::cout << "[server.read_socket] entered msg_read" << std::endl;
         socklen_t addrlen = sizeof(client.addr);
         res = do_msg_read(fd, &client.msg, client.read, 0, (struct sockaddr *)&client.addr, &addrlen);
+        std::cout << "[server.read_socket] finished do_msg_read" << std::endl;
         if (res == -1)
         {
             return -1;
@@ -112,16 +114,21 @@ int server_socket::read_socket(msg_t *read_msg)
         // once we've read the entire message, echo it back
         if (client.read >= client.msg.length)
         {
+            std::cout << "[server.read_socket] client.read >= client.msg.length; resetting client.state" << std::endl;
             client.read = 0;
             client.state = MSG_WRITE;
         }
     }
+    return res;
 }
 
-int server_socket::write_socket(msg_t *write_msg)
+int server_socket::server_socket_h::write_socket(msg_t *write_msg)
 {
+    std::cout << "[server.write_socket] just entered" << std::endl;
+    client.read = 0;
     int res;
     int fd = accept_req(1);
+    std::cout << "[server.write_socket] accept_req(1)" << std::endl;
     if (fd == -1)
     {
         return -1;
@@ -129,7 +136,9 @@ int server_socket::write_socket(msg_t *write_msg)
 
     if (client.state == MSG_WRITE)
     {
+        std::cout << "[server.write_socket] in MSG_WRITE" << std::endl;
         res = do_msg_write(fd, &client.msg, client.wrote, 0, (struct sockaddr *)&client.addr, sizeof(client.addr));
+        std::cout << "[server.write_socket] finished do_msg_write" << std::endl;
         if (res == -1)
         {
             return -1;
@@ -145,13 +154,15 @@ int server_socket::write_socket(msg_t *write_msg)
 
         if (client.wrote >= client.msg.length)
         {
+            std::cout << "[server.write_socket] client.wrote >= client.msg.length" << std::endl;
             client.wrote = 0;
             client.state = MSG_READ;
         }
     }
+    return res;
 }
 
-server_socket::server_socket(std::string address, int port)
+server_socket::server_socket_h::server_socket_h(std::string address, int port)
 {
 #ifdef _WIN32
     WSADATA wsaData = {};
@@ -200,7 +211,7 @@ server_socket::server_socket(std::string address, int port)
         exit(EXIT_FAILURE);
     }
 
-    res = bind(server.fd, (struct sockaddr *)&addr, sizeof(addr));
+    res = ::bind(server.fd, (struct sockaddr *)&addr, sizeof(addr));
     if (res == -1)
     {
         perror("bind failed");
@@ -216,6 +227,7 @@ server_socket::server_socket(std::string address, int port)
     }
 #endif
 
+/*
 #ifdef __EMSCRIPTEN__
 #if TEST_ASYNC
     // The first parameter being passed is actually an arbitrary userData pointer
@@ -227,9 +239,10 @@ server_socket::server_socket(std::string address, int port)
     emscripten_set_main_loop(main_loop, 60, 0);
 #endif
 #endif
+*/
 }
 
-server_socket::~server_socket()
+server_socket::server_socket_h::~server_socket_h()
 {
     if (client.fd)
     {

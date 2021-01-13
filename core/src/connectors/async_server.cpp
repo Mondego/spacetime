@@ -148,6 +148,7 @@ asio::ip::tcp::socket & connection_handler::socket() {
 }
 
 void connection_handler::start() {
+    m_socket.set_option(asio::ip::tcp::no_delay(true));
     start_connection();
 }
 
@@ -305,7 +306,6 @@ void connection_handler::process_request(json && request) {
                     );
                 }
         );
-        std::hash<std::string>{}("abc");
         return;
     } else {
         // This is a fetch request

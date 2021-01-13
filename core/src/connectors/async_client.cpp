@@ -124,6 +124,7 @@ void async_client::connector::connect(std::string const & address, unsigned shor
     }
     m_socket.connect(m_endpoint, ec);
     m_socket.non_blocking(false);
+    m_socket.set_option(asio::ip::tcp::no_delay(true));
     if (ec) {
         throw std::runtime_error("Failed to connect to" + address + ":" + std::to_string(port));
     }

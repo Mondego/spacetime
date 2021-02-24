@@ -67,7 +67,7 @@ repository::Repository::Repository(std::string const & app_name, version_manager
                                    version_manager::custom_merge_function_t && custom_merge_function,
                                    json && type_info, enums::Autoresolve autoresolve) :
         manager(app_name, std::move(have_merge), std::move(custom_merge_function), get_type_dim_map(type_info),
-                autoresolve), m_app_name(app_name), m_type_chains(get_type_chains(type_info)) {
+                autoresolve), m_app_name(app_name), m_type_chains(get_type_chains(type_info)), wasm_repo_commitable(true) {
 }
 
 unsigned int repository::Repository::start_server(unsigned short port, unsigned short thread_count) {
@@ -84,6 +84,7 @@ void repository::Repository::connect_to(std::string const & address, unsigned sh
 }
 
 void repository::Repository::push() {
+    std::cout << "Starting push" << std::endl;
     logger::debug("pushing");
 
     if (!repoConnector || !repoConnector->is_connected()) return;
@@ -91,12 +92,17 @@ void repository::Repository::push() {
 
     auto [json_data, start_v, end_v] =
             manager.retrieve_data(socket_parent_tag, repoConnector->get_current_version());
+    
+    std::cout << "Before push: start_v, end_v: " << start_v << ", " <<  end_v << ", data " << json_data.dump(4) << std::endl;
 
     if (start_v == end_v)
         return;
 
+    wasm_repo_commitable = false;
+
     if (repoConnector->push_req(json_data, std::string(start_v), std::string(end_v))) {
         manager.data_sent_confirmed(socket_parent_tag, start_v, end_v);
+        wasm_repo_commitable = true;
     }
 }
 
@@ -114,15 +120,25 @@ void repository::Repository::push_await() {
 }
 
 void repository::Repository::fetch() {
-    std::cout << "Entered fetch" << std:: endl;
+    // std::cout << "Entered fetch" << std:: endl;
     if (!repoConnector || !repoConnector->is_connected()) return;
-    std::cout << "Verified connection, now fetching" << std::endl;
+    // std::cout << "Verified connection, now fetching" << std::endl;
     // logger::debug("now fetching");
+    wasm_repo_commitable = false;
     auto [json_data, start_v, end_v] = repoConnector->pull_req();
     // logger::debug("pull_req data: ", json_data, " ", start_v, " ", end_v);
     std::cout << "pull request data: " << json_data.dump(4) << std::endl;
 
-    manager.receive_data(socket_parent_tag, start_v, end_v, std::move(json_data));
+    if (!start_v.empty()) {
+        std::cout << "Calling receive data" << std::endl;
+        auto [edata, estart_v, eend_v] = manager.retrieve_data(socket_parent_tag, "ROOT");
+        std::cout << "Existing data: " << edata.dump(4) << std::endl;
+        std::cout << "start, end = " << estart_v << ", " << eend_v << std::endl;
+        manager.receive_data(socket_parent_tag, start_v, end_v, std::move(json_data));
+        std::cout << "Manager did receive data on json data " << json_data.dump(4) << std::endl;
+        // connect_to("http://127.0.0.1", 9000);
+        wasm_repo_commitable = true;
+    }
 }
 
 void repository::Repository::fetch_await(double timeout) {

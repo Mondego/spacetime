@@ -35,45 +35,60 @@ def deepcopy(the_dict):
 
 def merge_state_delta(old_change, newer_change, delete_it=False):
     merged = dict()
+    print("1. merged", merged)
     if old_change == dict():
+        print("old change == dict(); return newer_change")
         return deepcopy(newer_change)
     for dtpname in old_change:
         if dtpname not in newer_change:
             merged[dtpname] = (old_change[dtpname])
+            print("copied new change into merged", merged)
         else:
+            print("calling merge_objectlist_deltas")
             merged[dtpname] = merge_objectlist_deltas(
                 dtpname, old_change[dtpname], newer_change[dtpname],
                 delete_it=delete_it)
     for dtpname in newer_change:
         if dtpname not in old_change:
+            print("copy new->old")
             merged[dtpname] = deepcopy(newer_change[dtpname])
+    print("return merged", merged)
     return merged
 
 def merge_objectlist_deltas(dtpname, old_change, new_change, delete_it=False):
+    print("in merge_objectlist_deltas")
     merged = dict()
     for oid in old_change:
         if oid not in new_change:
+            print("old change -> merged")
             merged[oid] = (old_change[oid])
         else:
             if delete_it and new_change[oid]["types"][dtpname] is Event.Delete:
                 # Do not include this object in the merged changes if
                 # delete is True
+                print("delete continue")
                 continue
             if (old_change[oid]["types"][dtpname] is Event.New
                     and new_change[oid]["types"][dtpname] is Event.Delete):
                 # Do not include this object as it was both created and deleted
                 # in these merged changes.
+                print("second continue")
                 continue
             obj_data = merge_object_delta(
                 dtpname, old_change[oid], new_change[oid])
             if not obj_data:
+                print("set obj_data2 (1st attempt didn't happen)")
                 obj_data = {"types": {dtpname: Event.Delete}}
+            print("1. merged", merged)
             merged[oid] = obj_data
     for oid in new_change:
         if oid not in old_change:
             if delete_it and new_change[oid]["types"][dtpname] is Event.Delete:
+                print("continue3")
                 continue
+            print("new -> merged")
             merged[oid] = deepcopy(new_change[oid])
+    print("final merged", merged)
     return merged
 
 def merge_object_delta(dtpname, old_change, new_change):
@@ -128,8 +143,7 @@ def make_obj(dtype, oid):
 
 def get_deleted(data):
     try:
-        return [
-            (dtpname, oid)
+        return [ (dtpname, oid)
             for dtpname in data for oid in data[dtpname]
             if data[dtpname][oid]["types"][dtpname] == Event.Delete]
     except Exception:

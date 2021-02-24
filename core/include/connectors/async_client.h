@@ -5,6 +5,7 @@
 #include <asio.hpp>
 
 #include <version_manager.h>
+#include <connectors/client_socket.h>
 
 namespace async_client {
     class connector {
@@ -16,8 +17,17 @@ namespace async_client {
 
         std::string current_version;
 
-        asio::io_context m_context;
-        asio::ip::tcp::socket m_socket;
+        client_socket::client_socket_h c_socket;
+
+        bool merged_pull_data;
+        bool fetch_in_progress;
+        bool push_in_progress;
+        std::string start_version;
+        std::string end_version;
+        json package;
+
+
+
 
         std::array<unsigned char, 4> m_int_buffer;
         std::vector<char> m_buffer;
@@ -32,7 +42,7 @@ namespace async_client {
 
         bool receive_ack();
 
-        void send_ack();
+        int send_ack();
 
     public:
         connector(version_manager::VersionManager & manager, std::string m_appname,

@@ -326,7 +326,7 @@ static PyObject * Repository_connect_to(
 
 static PyObject * Repository_retrieve_data(
         RepositoryObject * self, PyObject * argv[], int argc) {            
-    std::cout << "Called retrieve data" << std::endl;
+    // std::cout << "Called retrieve data" << std::endl;
         
 
     if (argc != 2) {
@@ -337,7 +337,7 @@ static PyObject * Repository_retrieve_data(
 
     std::string version = pystr_to_string(argv[1]);
 
-    std::cout << "Version " << version << std::endl;
+    // std::cout << "Version " << version << std::endl;
 
     try {
         auto [data, start_v, end_v] =
@@ -538,3 +538,197 @@ PyMODINIT_FUNC PyInit_repository(void) {
 
     return m.extract();
 }
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//

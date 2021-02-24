@@ -44,6 +44,10 @@ namespace repository {
 
         version_manager::VersionManager & get_manager_ref();
 
+
+        bool wasm_repo_commitable;
+
+
     };
 }
 

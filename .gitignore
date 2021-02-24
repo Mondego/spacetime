@@ -26,3 +26,4 @@ build/
 python/env
 python/Logs
 python/spacetime/repository.cpython*
+demo/parse-server/node_modules

@@ -6,5 +6,5 @@ CXX_DEFINES =
 
 CXX_INCLUDES = @CMakeFiles/dataframe_core.dir/includes_CXX.rsp
 
-CXX_FLAGS = -s USE_BOOST_HEADERS=1 -s DISABLE_EXCEPTION_CATCHING=0 -DNDEBUG -O2 -fPIC -frelaxed-template-template-args -std=gnu++17
+CXX_FLAGS = -g4 -s EXIT_RUNTIME=1 -s USE_BOOST_HEADERS=1 -s DISABLE_EXCEPTION_CATCHING=0 -DNDEBUG -O2 -fPIC -frelaxed-template-template-args -std=gnu++17
 

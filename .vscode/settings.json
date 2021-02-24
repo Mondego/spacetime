@@ -68,5 +68,7 @@
         "typeindex": "cpp",
         "typeinfo": "cpp",
         "valarray": "cpp"
-    }
+    },
+    "god.tsconfig": "./javascript/spacetime-bindings/tsconfig.json",
+    "cmake.configureOnOpen": false
 }

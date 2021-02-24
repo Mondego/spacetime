@@ -16,6 +16,6 @@ statement = type:typedef name:identifier ;
 
 mergefunc = ['merge' 'func' @:identifier ];
 
-typedef = | 'int' | 'bool' | 'float' ;
+typedef = | 'int' | 'bool' | 'float' | 'str';
 
 identifier = /[_a-zA-Z][_a-zA-Z0-9]*/ ;

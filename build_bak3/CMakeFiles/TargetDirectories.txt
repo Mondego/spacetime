@@ -1,3 +1,0 @@
-/src/build/CMakeFiles/rebuild_cache.dir
-/src/build/CMakeFiles/dataframe_core.dir
-/src/build/CMakeFiles/edit_cache.dir

@@ -1,10 +1,10 @@
 from rtypes import primarykey, dimension, pcc_set
 
 @pcc_set
-class hello:
-    intvar = primarykey(int)
-    boolvar = dimension(bool)
-    def justmerge(self): pass
+class grade:
+    student_id = primarykey(int)
+    points = dimension(int)
+    def handle_conflicts(self): pass
 
 @pcc_set
 class hellonoprimary:

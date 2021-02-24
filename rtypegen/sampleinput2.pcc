@@ -1,0 +1,6 @@
+class Counter:
+    primary str pkey
+    int count
+    str users
+    merge func handle_conflicts
+

@@ -5,28 +5,36 @@ from rtypes.utils.converter import convert, unconvert
 from rtypes.table import RtypesTable
 
 def get_property(dimname, dim_obj):
+    # print("get_prop: dimname, dim_obj: ", dimname, dim_obj)
     @property
     def prop(self):
         cls = type(self)
         oid = self.__r_oid__ if hasattr(self, "__r_oid__") else None
         if hasattr(self, "__r_df__") and self.__r_df__ is not None:
+            # print("a. getter: dimname, dim_obj: ", dimname, dim_obj.dim_type)
+            #print("b. Calling read_dimension -> unconvert")
             return unconvert(
                 self.__r_df__.read_dimension(
                     cls, oid, dimname), dim_obj.dim_type, self.__r_df__)
         if hasattr(self, "__r_temp__") and self.__r_temp__ is not None:
+            # print("c: calling unconvert on __r_temp__")
             return unconvert(self.__r_temp__[dimname], dim_obj.dim_type)
+        # print("d: calling __r_table__.get; oid, dimname, obj", oid, dimname, dim_obj)
         return cls.__r_table__.get(oid, dimname, dim_obj)
 
     @prop.setter
     def prop(self, value):
         cls = type(self)
         oid = self.__r_oid__ if hasattr(self, "__r_oid__") else None
+        # print("setter: dimname, dim_obj: ", dimname, dim_obj)
         df_attached = hasattr(self, "__r_df__") and self.__r_df__ is not None
         if dim_obj.is_primary:
             if df_attached:
+                # print("1. Calling reset_primary_key")
                 self.__r_df__.reset_primary_key(
                     cls, oid, dimname, convert(dim_obj.dim_type, value))
             else:
+                # print("2. Calling set_primary_key; oid, dimname, obj, val", oid, dimname, dim_obj, value)
                 cls.__r_table__.set_primarykey(
                     oid, dimname, dim_obj, value)
             self.__r_oid__ = str(value)
@@ -34,14 +42,17 @@ def get_property(dimname, dim_obj):
             if df_attached:
                 if oid is None:
                     raise RuntimeError(
-                        "Objhect primarykey has not been"
+                        "Object primarykey has not been"
                         " set but dataframe is attached.")
+                # print("4. Calling write_dimension")
                 self.__r_df__.write_dimension(
                     cls, oid, dimname, convert(dim_obj.dim_type, value))
             else:
+                # print("5. Calling calling r_table set; oid, dimname, obj, value",  oid, dimname, dim_obj, value)
                 self.__r_oid__ = str(cls.__r_table__.set(
                     oid, dimname, dim_obj, value))
         if hasattr(self, "__r_temp__") and self.__r_temp__ is not None:
+            # print("6. Calling convert for r temp")
             self.__r_temp__[dimname] = convert(dim_obj.dim_type, value)
 
     return prop

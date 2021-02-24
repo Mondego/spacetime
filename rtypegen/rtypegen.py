@@ -1,5 +1,6 @@
 from rtypeparser import rtypeParser
 import semantics_python
+import semantics_typescript
 from grako.util import asjson
 from pprint import pprint
 import json
@@ -42,8 +43,13 @@ def generate_code(ip_file, tgt_langs=['py'], op_file_base=None):
     # TODO: Deal with multiple language input/output
     parser = rtypeParser(parseinfo=False)
     parse_manager_python = semantics_python.ParseManager()
+    parse_manager_typescript = semantics_typescript.ParseManager()
+    # TODO: Selection logic here
     with open(ip_file, "r") as ip_handler:
-        ast = parser.parse(ip_handler.read(), rule_name='start', semantics=parse_manager_python)
+        ast1 = parser.parse(ip_handler.read(), rule_name='start', semantics=parse_manager_python)
+    
+    with open(ip_file, "r") as ip_handler:
+        ast2 = parser.parse(ip_handler.read(), rule_name='start', semantics=parse_manager_typescript)
 
     if not op_file_base:
         op_file_base = os.path.splitext(ip_file)[0]
@@ -51,16 +57,8 @@ def generate_code(ip_file, tgt_langs=['py'], op_file_base=None):
     with open(op_file_base + '.py', "w") as f:
         f.write(parse_manager_python.code)
 
-    # print('==========')
-    # print(ast)
-    # print(json.dumps(ast, indent=2))
-
-    # print('==========')
-    # print("***")
-    print(json.dumps(asjson(ast), indent=2))
-
-
-    # ...
+    with open(op_file_base + ".ts", "w") as f:
+        f.write(parse_manager_typescript.code)
 
 if __name__ == "__main__":
 

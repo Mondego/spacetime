@@ -10,7 +10,6 @@
 #include <iostream>
 
 #include <connectors/async_utils.h>
-#include <connectors/server_socket.h>
 
 using namespace server_socket;
 
@@ -71,89 +70,75 @@ namespace
     }
 } // namespace
 
-async_server::server::server(version_manager::VersionManager &manager, unsigned short port, unsigned short thread_count) : manager(manager),
-                                                                                                                           m_context(), thread_count(thread_count), // ignore thread_count for now
-                                                                                                                           // what's the equivalent of m_acceptor?
-                                                                                                                           // it's essentially creating the socket & binding
-                                                                                                                           // it.
-                                                                                                                           // need a function that  does something similar
-                                                                                                                           // for a single thread. Where does it go?
-                                                                                                                           // acceptor can be part of the header...
-                                                                                                                           m_acceptor(
-                                                                                                                               m_context, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port))
+void launch_wasm_server(version_manager::VersionManager &manager)
 {
-    server_socket_h s_socket = server_socket_h("127.0.0.1", 59159);
-    std::cout << "Created socket in server" << std::endl;
-    msg_t *s;
-    s_socket.read_socket(s);
-    std::cout << "server: read socket" << std::endl;
-    s_socket.write_socket(s);
-    std::cout << "server: write socket" << std::endl;
-    auto handler = std::make_shared<connection_handler>(manager, m_context);
-    asio::ip::tcp::socket &handler_socket = handler->socket();
+    auto handler = std::make_shared<connection_handler>(manager);
+}
 
-    m_acceptor.async_accept(
-        handler_socket,
-        [this, shared_handler = std::move(handler)](
-            asio::error_code const &ec) {
-            handle_new_connection(shared_handler, ec);
-        });
+//async_server::server::server(version_manager::VersionManager &manager, unsigned short port, unsigned short thread_count) : manager(manager), m_context(), thread_count(thread_count), m_acceptor( m_context, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port)) {
+async_server::server::server(version_manager::VersionManager &manager, unsigned short port, unsigned short thread_count) : manager(manager)
+{
+    // TODO: Implement a round-robin thread handler her
+    // to emulate boost library behavior
+    // std::thread t1(launch_wasm_server, manager);
+    //#####
+    std::thread t1(launch_wasm_server, std::ref(manager));
+    t1.detach();
 
-    for (int i = 0; i < thread_count; i++)
-    {
-        thread_pool.emplace_back(
-            [this]() {
-                try
-                {
-                    m_context.run();
-                }
-                catch (std::exception &ex)
-                {
-                    logger::error("thread pool thread catches exception: ", ex.what());
-                }
-            });
-    }
 }
 
 void async_server::server::handle_new_connection(std::shared_ptr<connection_handler> const &handler,
                                                  asio::error_code const &ec)
-{
-    if (ec)
-    {
-        if (ec.value() != asio::error::operation_aborted)
-        {
-            logger::error("new connection error with category ", ec.category().name(), " and content: ", ec.value());
-        }
-        return;
-    }
-    auto new_handler = std::make_shared<connection_handler>(manager, m_context);
-    asio::ip::tcp::socket &handler_socket = new_handler->socket();
-    m_acceptor.async_accept(
-        handler_socket,
-        [this, shared_handler = std::move(new_handler)](
-            asio::error_code const &ec) {
-            handle_new_connection(shared_handler, ec);
-        });
-    handler->start();
+{ 
+
 }
 
 async_server::server::~server()
 {
-    m_acceptor.cancel();
+    std::cout << "killing the server " << std::endl;
+    t1.join();
+    // m_acceptor.cancel();
     for (auto &th : thread_pool)
         th.join();
 }
 
 connection_handler::connection_handler(
-    version_manager::VersionManager &manager, asio::io_context &context) : manager(manager), m_context(context),
-                                                                           m_socket(context), waiting_ack(nullptr)
+    version_manager::VersionManager &manager) : manager(manager), s_socket(server_socket::server_socket_h("127.0.0.1", 59160)), fetch_in_progress(false), push_in_progress(false)
 {
+    // s_socket = server_socket::server_socket_h(std::string("127.0.0.1"), 59159);
+    std::cout << "Created socket in server" << std::endl;
+    bool processed_request = false;
+
+
+    // s_socket.client.state = MSG_READ;
+    while (1)
+    {
+        // if(s_socket.client.state == MSG_READ)
+        int r_res = s_socket.read_sock();
+        // if (r_res != -1)
+            // std::cout << "client: Finished pull_req call" << std::endl;
+
+        if (r_res != -1 && s_socket.client_map[r_res].state == MSG_WRITE)
+        {
+            std::cout << "Step 1 read request" << std::endl;
+            if (!processed_request)
+                process_request(
+                    json::from_cbor(
+                        s_socket.client_map[r_res].msg.buffer, s_socket.client_map[r_res].msg.length), r_res);
+            // send_fetch_response();
+        }
+        if (r_res != -1 && s_socket.client_map[r_res].state == MSG_COMPLETE)
+            wait_for_ack(r_res);
+        // s_socket.write_socket(s);
+    }
 }
 
+/*
 asio::ip::tcp::socket &connection_handler::socket()
 {
     return m_socket;
 }
+*/
 
 void connection_handler::start()
 {
@@ -162,56 +147,18 @@ void connection_handler::start()
 
 void connection_handler::start_connection()
 {
-    asio::async_read(
-        m_socket,
-        asio::buffer(m_int_buffer),
-        [me = shared_from_this()](
-            asio::error_code const &ec, std::size_t bytes_transferred) {
-            if (ec)
-            {
-                logger::error(
-                    "packet length error: ", ec.category().name(),
-                    ": ", ec.value(),
-                    "bytes: ", bytes_transferred);
-                return;
-            }
-            unsigned int length = async_utils::unpack_unsigned_int(
-                me->m_int_buffer);
-            if (length)
-                me->read_and_process_request(length);
-        });
+
 }
 
 void connection_handler::read_and_process_request(unsigned int length)
 {
-    m_buffer = std::vector<char>(length);
-    asio::async_read(
-        m_socket,
-        asio::buffer(m_buffer.data(), length),
-        [me = shared_from_this(), expected_length = length](
-            asio::error_code const &ec, std::size_t bytes_transferred) {
-            try
-            {
-                if (ec)
-                {
-                    logger::error("packet error: ", ec.category().name(), ": ", ec.value());
-                    return;
-                }
-                if (expected_length != bytes_transferred)
-                    return;
-                me->process_request(
-                    json::from_cbor(
-                        me->m_buffer.data(), expected_length));
-            }
-            catch (std::exception &ex)
-            {
-                logger::error("exception in handle packet : ", ex.what());
-            }
-        });
+
 }
 
-void connection_handler::process_request(json &&request)
+void connection_handler::process_request(json &&request, int sfd)
 {
+    std::cout << "$$ Entered process_request" << std::endl;
+    std::cout << "$$ Request is: " << request.dump(4) << std::endl;
     // Name of the app sending the request (required).
     std::string appname;
     // Data sent by the request (Push: required, Fetch: absent).
@@ -293,23 +240,36 @@ void connection_handler::process_request(json &&request)
             throw std::runtime_error("Final version needed in Push request");
         if (data.is_null())
             throw std::runtime_error("No data received on push.");
+        /*
         if (!wait)
         {
             ack_push();
         }
+        */
         try
         {
+            auto [xdata, xstart_v, xend_v] = manager.retrieve_data(appname, "ROOT");
+            std::cout << "before push, retreive data: " << xdata.dump(4) << "; start, end = " << xstart_v << ", " << xend_v << std::endl;
+            std::cout << "Receiving push data: "
+                      << "start, end=" << start_v << ", " << end_v << std::endl;
+            std::cout << "package: " << data << std::endl;
             manager.receive_data(appname, start_v, end_v, std::move(data));
+
+            auto [fdata, fstart_v, fend_v] = manager.retrieve_data(appname, "ROOT");
+            std::cout << "after push, retreive data: " << fdata.dump(4) << "; start, end = " << fstart_v << ", " << fend_v << std::endl;
         }
         catch (std::exception &ex)
         {
             logger::error("Exception in push into version graph: ", ex.what());
         }
+        ack_push(true, sfd);
+        /*
         if (wait)
         {
             ack_push();
         }
-        start_connection();
+        */
+        // start_connection();
         // Do no changes after this for this node as requests
         // from the same node can then be processed in parallel leading to
         // undefined behavior. We do not want that.
@@ -323,24 +283,12 @@ void connection_handler::process_request(json &&request)
             throw std::runtime_error("No request types for pull request.");
         if (wait)
         {
-            // Fetch await was called.
-            // Creating a new thread that will wait for the right time to
-            // invoke construct_fetch_response.
-            std::thread waiting_thread{
-                [me = shared_from_this(),
-                 appname = std::move(appname),
-                 start_v = std::move(start_v),
-                 req_types = std::move(req_types),
-                 work_lock = std::make_unique<asio::io_context::work>(m_context),
-                 timeout]() mutable {
-                    me->start_wait_for(
-                        timeout, std::move(appname),
-                        std::move(start_v), std::move(req_types));
-                }};
-            waiting_thread.detach();
+            std::cout << "Fetch await disabled" << std::endl;
+
         }
         else
         {
+            std::cout << "Step 2 Process fetch request" << std::endl;
             // Normal Fetch response.
             // Send information that is present.
             try
@@ -356,19 +304,20 @@ void connection_handler::process_request(json &&request)
 }
 
 // Only socket Function required for push
-void connection_handler::ack_push(bool success)
+void connection_handler::ack_push(bool success, int sfd)
 {
-    m_int_buffer[0] = success;
-    asio::async_write(
-        m_socket,
-        asio::buffer(m_int_buffer.data(), sizeof(unsigned char)),
-        [me = shared_from_this()](
-            asio::error_code const &ec, std::size_t bytes_tranferred) {
-            if (ec)
-            {
-                logger::error("ack push error:", ec.category().name(), ": ", ec.value());
-            }
-        });
+    std::cout << "in ack_push";
+    std::string msg = (success == true) ? "true" : "false";
+    int w_res = s_socket.write_sock(msg);
+    if (w_res != -1)
+    {
+        std::cout << "Sent ack for push success" << std::endl;
+        s_socket.client_map[sfd].msg.buffer = NULL;
+        s_socket.client_map[sfd].msg.length = NULL;
+        push_in_progress = false;
+        s_socket.client_map[sfd].state = MSG_READ;
+    }
+
 }
 
 // Socket Functions required for fetch
@@ -382,6 +331,7 @@ void connection_handler::process_fetch_request(
     json temp_data = {appname, new_start_v, new_end_v};
     waiting_ack = std::make_unique<json>(std::move(temp_data));
 
+    m_buffer.clear();
     m_buffer = construct_fetch_response(0, data_to_send, {std::move(new_start_v), std::move(new_end_v)});
 
     send_fetch_response();
@@ -391,34 +341,7 @@ void connection_handler::start_wait_for(
     double timeout, std::string &&appname, std::string &&start_v,
     json &&req_types)
 {
-    bool timeout_triggered = false;
-    if (timeout != 0)
-    {
-        timeout_triggered = !manager.wait_graph_change_for(
-            start_v, version_manager::float_sec_t(timeout));
-    }
-    else
-    {
-        manager.wait_graph_change(start_v);
-    }
-    if (timeout_triggered)
-    {
-        m_context.post(
-            [me = shared_from_this()]() {
-                me->send_timeout_response();
-            });
-    }
-    else
-    {
-        m_context.post(
-            [me = shared_from_this(),
-             appname = std::move(appname),
-             start_v = std::move(start_v),
-             req_types = std::move(req_types)]() mutable {
-                me->process_fetch_request(
-                    appname, start_v, std::move(req_types));
-            });
-    }
+
 }
 
 void connection_handler::send_timeout_response()
@@ -429,50 +352,51 @@ void connection_handler::send_timeout_response()
 
 void connection_handler::send_fetch_response()
 {
-    unsigned int buffer_length = m_buffer.size();
-    async_utils::pack_unsigned_int(m_int_buffer, buffer_length);
-    asio::async_write(
-        m_socket, asio::buffer(m_int_buffer),
-        [me = shared_from_this(), buffer_length](
-            asio::error_code const &ec, std::size_t bytes_transferred) {
-            me->send_fetch_bytes(
-                ec, bytes_transferred, buffer_length);
-        });
+    // unsigned int buffer_length = m_buffer.size();
+    // async_utils::pack_unsigned_int(m_int_buffer, buffer_length);
+    std::cout << "Step 3 Sending fetch response" << std::endl;
+    std::string s(m_buffer.begin(), m_buffer.end());
+    s_socket.write_sock(s);
+    std::cout << "Step 4 Waiting for ack" << std::endl;
+    m_buffer.clear();
+    // bool pull_success = (bool)m_buffer[0];
+
 }
 
 void connection_handler::send_fetch_bytes(
     asio::error_code const &ec, std::size_t bytes_transferred,
     unsigned int bytes_expected)
 {
-    if (ec)
-    {
-        logger::error("buffer length sent error ", ec.category().name(), ": ", ec.value());
-        return;
-    }
-    if (bytes_transferred != sizeof(unsigned int))
-        return;
-    asio::async_write(
-        m_socket, asio::buffer(m_buffer.data(), m_buffer.size()),
-        [me = shared_from_this(), bytes_expected](
-            asio::error_code const &ec, std::size_t bytes_transferred) {
-            if (ec)
-            {
-                logger::error("write buffer error ", ec.category().name(), ": ", ec.value());
-            }
-            if (!ec && bytes_transferred == bytes_expected)
-                me->wait_for_ack();
-        });
+
 }
 
-void connection_handler::wait_for_ack()
+void connection_handler::wait_for_ack(int sfd)
 {
-    asio::async_read(
-        m_socket,
-        asio::buffer(m_int_buffer.data(), sizeof(unsigned char)),
-        [me = shared_from_this()](
-            asio::error_code const &ec, std::size_t bytes_transferred) {
-            me->handle_fetch_ack(ec, bytes_transferred);
-        });
+    // std::cout << "Calling confirm_sock" << std::endl;
+    int res = s_socket.confirm_sock();
+    if (res == -1)
+        return;
+    bool pull_success = false;
+    ;
+    if (strcmp(s_socket.client_map[sfd].msg.buffer, "true") == 0)
+    {
+        pull_success = true;
+    }
+    // bool pull_success = (bool)s_socket.client.msg.buffer[0];
+    {
+        json &temp_data = *waiting_ack;
+        if (pull_success)
+        {
+            manager.data_sent_confirmed(
+                temp_data[0], temp_data[1], temp_data[2]);
+            std::cout << "Pull success " << std::endl;
+        }
+    }
+    waiting_ack = nullptr;
+    s_socket.client_map[sfd].msg.buffer = NULL;
+    s_socket.client_map[sfd].msg.length = NULL;
+
+
     return;
 }
 

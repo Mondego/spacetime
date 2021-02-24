@@ -1,37 +1,30 @@
-#include <connectors/test_sockets_msg.h>
+#include "test_sockets_msg.h"
 #include <iostream>
 
 using namespace std;
 
 namespace client_socket
 {
-    typedef enum
-    {
-        MSG_READ,
-        MSG_WRITE
-    } msg_state_t;
-
     typedef struct
     {
         int fd;
         msg_t msg;
         msg_state_t state;
-    } server_t;
+    } server_conn_t;
     class client_socket_h
     {
     public:
         client_socket_h(string address, int port);
         ~client_socket_h();
-        int read_socket(msg_t *read_msg);
-        int write_socket(msg_t *write_msg);
+        int read_sock();
+        int write_sock(std::string client_ip);
+        int confirm_sock(std::string clinet_ip);
+        server_conn_t server;
 
     private:
-        server_t server;
         msg_t echo_msg;
+        void finish();
         int echo_read;
         int echo_wrote;
-        // accept_type = 0 = read
-        // accept_type = 1 = write
-        int select_req(int accept_type);
     };
-}; // namespace
+}; // namespace client_socket

@@ -1,0 +1,10 @@
+{
+  "name": "webpresence",
+  "description": "parse-server for webpresence",
+  "scripts": {
+    "start": "parse-server config.json"
+  },
+  "dependencies": {
+    "parse-server": "^3.9.0"
+  }
+}

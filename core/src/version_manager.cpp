@@ -28,26 +28,37 @@ bool version_manager::VersionManager::receive_data(
     // Pick up only the delta changes for types that are stored by this
     // dataframe. Remote dataframes can send more types if they store it.
     json package = filter_diff(std::move(recv_diff));
+    std::cout << "After filter diff" << std::endl;
     {
         // Acquire write lock of reader-write lock.
         std::lock_guard write_lock(write_mutex);
 
+        std::cout << "Acquired write lock" << std::endl;
         // merge changes, detect and resolve conflicts, if any.
         resolve_conflict(start_v, end_v, std::move(package), from_external);
+
+        std::cout << "Done with resolve conflict" << std::endl;
         // Update garbage collector references.
         graph.update_app_ref(app_name, end_v);
+
+        std::cout << "Done with update app_ref" << std::endl;
         // Get rid of unnecessary versions.
         graph.clear_disposal();
+
+        std::cout << "done with clear disposal" << std::endl;
     }
 
     // Notify any threads waiting for fetch_await or checkout_await that
     // changes were made.
     graph_changed.notify_all();
+    std::cout << "done with notify_all" << std::endl;
     return true;
 }
 
 json version_manager::VersionManager::filter_diff(
         json && recv_diff, std::set<std::string> const & types) {
+
+    std::cout << "Entered filter diff" << std::endl;
     json result = json::object();
     auto & result_map = result.get_obj();
     auto & diff_map = recv_diff.get_obj();
@@ -59,6 +70,8 @@ json version_manager::VersionManager::filter_diff(
     auto diff_end = diff_map.end();
 
     auto result_end = result_map.end();
+
+    std::cout << "defined types" << std::endl;
 
     while (type_it != type_end && diff_it != diff_end) {
         int compare_result = type_it->compare(diff_it->first);

@@ -1,0 +1,54 @@
+var Module = {
+	onRuntimeInitialized: function () {
+		// console.log("Counter=", Spacetime.Counter)
+		// myCounter = new Spacetime.Counter();
+		// console.log("dtype->", Spacetime.Counter.dtype)
+
+		var instance = new Module.JsRepository();
+		// console.log("Trying to create DATAFRAME");
+		// df = new Spacetime.Dataframe("GotEdit", [Spacetime.Counter], instance)
+		// console.log("++++TS df = ", df)
+		// console.log("+++++mycounter.dtype" ,myCounter.dtype);
+		var datamodel = {
+			"datamodel.Counter": [
+				[
+					"count",
+					"pkey"
+				],
+				[
+					"datamodel.Counter"
+				]
+			]
+		};
+
+		var iterations = 0;
+
+
+		console.log(instance.Repository_init("GotEdit", JSON.stringify(datamodel)));
+		var mloop = setInterval(function() {
+			console.log("setInterval: invoking main_loop")
+			console.log("iterations=", iterations)
+			if (iterations > 100) {
+				clearInterval(mloop)
+			}
+			try {
+				instance.fetch();
+				console.log("// Fetch attempt done")
+				/// myCounter = df.read_one(myCounter, "countDocument")
+				/// myCounter.count += 1;
+				/// console.log("// Increment attempt finished; myCounter.count=", myCounter.count)
+				/// df.commit();
+				/// console.log("// Commit attempt done")
+				/// df.push();
+				/// console.log("// Push attempt done")
+				// instance.fetch();
+				// instance.commit();
+				// instance.push();
+				iterations += 1
+			} catch (e) {
+				console.log("Caught exception in main_loop: " + e)
+				clearInterval(mloop)
+			}
+		}, 17);
+	}
+}

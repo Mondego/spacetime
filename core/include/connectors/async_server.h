@@ -8,18 +8,18 @@
 
 #include <utils/utils.h>
 #include <version_manager.h>
+#include <connectors/server_socket.h>
 
 namespace {
 
     class connection_handler : public std::enable_shared_from_this<connection_handler> {
     public:
         connection_handler(
-                version_manager::VersionManager & manager,
-                asio::io_context & context);
+                version_manager::VersionManager & manager);
 
         ~connection_handler();
 
-        asio::ip::tcp::socket & socket();
+        // asio::ip::tcp::socket & socket();
 
         void start();
 
@@ -28,9 +28,9 @@ namespace {
 
         void read_and_process_request(unsigned int length);
 
-        void process_request(json && request);
+        void process_request(json && request, int sfd);
 
-        void ack_push(bool success = true);
+        void ack_push(bool success, int sfd);
 
         void process_fetch_request(
                 std::string const & appname,
@@ -48,18 +48,22 @@ namespace {
                 asio::error_code const & ec, std::size_t bytes_transferred,
                 unsigned int bytes_expected);
 
-        void wait_for_ack();
+        void wait_for_ack(int sfd);
 
         void handle_fetch_ack(
                 asio::error_code const & ec, std::size_t bytes_transferred);
 
         version_manager::VersionManager & manager;
-        asio::io_context & m_context;
-        asio::ip::tcp::socket m_socket;
+        // asio::io_context & m_context;
+        // asio::ip::tcp::socket m_socket;
         std::vector<char> m_buffer;
         std::array<unsigned char, 4> m_int_buffer;
         std::unique_ptr<json> waiting_ack;
         std::string remote_appname;
+        server_socket::server_socket_h s_socket;
+
+        bool fetch_in_progress;
+        bool push_in_progress;
     };
 }
 
@@ -71,7 +75,7 @@ namespace async_server {
         ~server();
 
         inline unsigned short port() {
-            return m_acceptor.local_endpoint().port();
+            return 59160; // TODO: Make this dynamic
         }
 
     private:
@@ -80,11 +84,11 @@ namespace async_server {
 
         version_manager::VersionManager & manager;
 
-
-        asio::io_context m_context;
+        // asio::io_context m_context;
         unsigned int thread_count;
         std::vector<std::thread> thread_pool;
-        asio::ip::tcp::acceptor m_acceptor;
+        // asio::ip::tcp::acceptor m_acceptor;
+        std::thread t1;
     };
 }
 

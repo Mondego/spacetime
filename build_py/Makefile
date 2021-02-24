@@ -58,19 +58,19 @@ cmake_force:
 SHELL = /bin/sh
 
 # The CMake executable.
-CMAKE_COMMAND = /snap/cmake/715/bin/cmake
+CMAKE_COMMAND = /snap/cmake/793/bin/cmake
 
 # The command to remove a file.
-RM = /snap/cmake/715/bin/cmake -E rm -f
+RM = /snap/cmake/793/bin/cmake -E rm -f
 
 # Escaping for special characters.
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/lg/2020/research/spacetime_webassembly/core
+CMAKE_SOURCE_DIR = /home/lg/spacetime_webassembly/core
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/lg/2020/research/spacetime_webassembly/build_py
+CMAKE_BINARY_DIR = /home/lg/spacetime_webassembly/build_py
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -78,7 +78,7 @@ CMAKE_BINARY_DIR = /home/lg/2020/research/spacetime_webassembly/build_py
 # Special rule for the target rebuild_cache
 rebuild_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
-	/snap/cmake/715/bin/cmake --regenerate-during-build -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+	/snap/cmake/793/bin/cmake --regenerate-during-build -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
 .PHONY : rebuild_cache
 
 # Special rule for the target rebuild_cache
@@ -89,7 +89,7 @@ rebuild_cache/fast: rebuild_cache
 # Special rule for the target edit_cache
 edit_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
-	/snap/cmake/715/bin/ccmake -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+	/snap/cmake/743/bin/ccmake -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
 .PHONY : edit_cache
 
 # Special rule for the target edit_cache
@@ -99,9 +99,9 @@ edit_cache/fast: edit_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/lg/2020/research/spacetime_webassembly/build_py/CMakeFiles /home/lg/2020/research/spacetime_webassembly/build_py//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/lg/spacetime_webassembly/build_py/CMakeFiles /home/lg/spacetime_webassembly/build_py//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/lg/2020/research/spacetime_webassembly/build_py/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/lg/spacetime_webassembly/build_py/CMakeFiles 0
 .PHONY : all
 
 # The main clean target

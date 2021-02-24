@@ -112,10 +112,11 @@ class DataframeCPP(object):
     # Fork and Join
 
     def checkout(self):
-        print("First local_heap version", self.local_heap.version)
+        # print("First local_heap version", self.local_heap.version)
         data, start_v, end_v = cbor.loads(
             self.repository.retrieve_data(
                 self.appname, self.local_heap.version))
+        # print("Checkout: data, start_v, end_v", data, start_v, end_v)
         if self.local_heap.receive_data(data, (start_v, end_v)):
             self.repository.data_sent_confirmed(self.appname, start_v, end_v)
         # data, versions = self.versioned_heap.retrieve_data(
@@ -132,6 +133,7 @@ class DataframeCPP(object):
 
     def commit(self):
         data, versions = self.local_heap.retreive_data()
+        print("Commit versions: ", versions)
         if versions:
             succ = self.repository.receive_data(
                 self.appname, versions[0], versions[1],

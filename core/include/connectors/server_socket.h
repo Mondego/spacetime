@@ -1,16 +1,12 @@
 #include <connectors/test_sockets_msg.h>
 #include <iostream>
+#include <map>
+#include<set>
 
 using namespace std;
 
 namespace server_socket
 {
-    typedef enum
-    {
-        MSG_READ,
-        MSG_WRITE
-    } msg_state_t;
-
     typedef struct
     {
         int fd;
@@ -25,20 +21,22 @@ namespace server_socket
         int read;
         int wrote;
     } client_t;
-
     class server_socket_h
     {
     public:
         server_socket_h(string address, int port);
         ~server_socket_h();
-        int read_socket(msg_t *read_msg);
-        int write_socket(msg_t *write_msg);
+        int read_sock();
+        int write_sock(std::string client_ip);
+        int confirm_sock();
 
-    private:
         server_t server;
         client_t client;
-        // accept_type = 0 = read
-        // accept_type = 1 = write
-        int accept_req(int accept_type); 
+        std::map<int, client_t> client_map;
+        std::set<int> client_fd_list;
+
+    private:
+        void cleanup(int);
+        int processingIndex;
     };
-}; // namespace
+}; // namespace server_socket

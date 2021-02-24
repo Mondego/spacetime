@@ -26,6 +26,10 @@ class ManagedHeap(object):
             tp.__r_meta__.name: dict()
             for tp in types
         }
+        print("init ManagedHeap")
+        print("type map", self.type_map)
+        print("data", self.data)
+        print("tracked objs", self.tracked_objs)
 
         self.pending_commit = Diff()
 
@@ -165,6 +169,7 @@ class ManagedHeap(object):
                 del self.data[dtpname][oid]
 
     def read_dimension(self, dtype, oid, dimname):
+        # print("read_dimension dtype, oid, dimname", dtype, oid, dimname)
         # if self.diff.has_new_value(dtype, oid, dimname):
         #     return self.diff.read_dimension(dtype, oid, dimname)
         dtpname = dtype.__r_meta__.name
@@ -177,6 +182,7 @@ class ManagedHeap(object):
             return None
 
     def write_dimension(self, dtype, oid, dimname, value):
+        print("write_dimension dtype, oid, dimname, value", dtype, oid, dimname, value)
         with self.access_lock.gen_wlock():
             self.diff.write_dimension(dtype, oid, dimname, value)
             dtpname = dtype.__r_meta__.name

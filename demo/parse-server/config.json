@@ -1,0 +1,7 @@
+{
+  "appId": "webpresence",
+  "masterKey": "webpresence",
+  "appName": "webpresence",
+  "cloud": "./cloud/main",
+  "databaseURI": "mongodb://localhost:27017/parse"
+}

@@ -171,7 +171,9 @@ class rtypeParser(Parser):
                 self._token('bool')
             with self._option():
                 self._token('float')
-            self._error('expecting one of: bool float int')
+            with self._option():
+                self._token('str')
+            self._error('expecting one of: bool float int str')
 
     @graken()
     def _identifier_(self):
